@@ -402,7 +402,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 14.1, 14.2, 14.3_
   - _Status: COMPLETE - Ready for GEO scorer and performance integration_
 
-- [ ] 7.2 (P) Implement GEO (Generative Engine Optimization) score calculation logic
+- [x] 7.2 (P) Implement GEO (Generative Engine Optimization) score calculation logic
   - Create `src/lib/scoring/geo-scorer.ts` module
   - Implement scoring rules (100 points total):
     - Schema.org markup presence (≥1 type): 30 pts
