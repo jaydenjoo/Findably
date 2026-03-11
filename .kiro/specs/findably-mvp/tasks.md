@@ -226,12 +226,17 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 6.4_
   - _Status: COMPLETE - TDD methodology applied, component production-ready_
 
-- [ ] 4.4 (P) Build Step 3: Company size selector
-  - Create `src/components/onboarding/step-company-size.tsx` with radio options: 1인, 소규모(2-10명), 중규모(11-50명)
-  - Store selection in component state
-  - Add "Previous" and "시작하기" (Start button) buttons
-  - Show "Loading..." state once user clicks "시작하기"
+- [x] 4.4 (P) Build Step 3: Company size selector
+  - ✓ Created `src/components/onboarding/step-company-size.tsx` with radio options: 1인, 소규모(2-10명), 중규모(11-50명)
+  - ✓ Store selection in component state
+  - ✓ Add "Previous" and "시작하기" (Start button) buttons
+  - ✓ Show "Loading..." state once user clicks "시작하기"
+  - ✓ Added CompanySizeValidationSchema to `src/lib/validations/onboarding.ts`
+  - ✓ Integrated StepCompanySize into OnboardingForm component
+  - ✓ 26 component tests passing, 20 validation tests passing
+  - ✓ All quality gates verified: TypeScript strict, ESLint, production build
   - _Requirements: 6.5_
+  - _Status: COMPLETE - TDD methodology applied, all tests pass, design system compliant_
 
 - [ ] 4.5 Integrate onboarding form state management and API submission
   - Create `src/lib/hooks/useOnboarding.ts` custom hook to manage step state + form data (url, industry, company_size)

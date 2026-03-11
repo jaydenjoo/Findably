@@ -11,6 +11,7 @@ import { useState } from "react";
 import ProgressIndicator from "./progress-indicator";
 import StepUrl from "./step-url";
 import StepIndustry from "./step-industry";
+import StepCompanySize from "./step-company-size";
 
 const TOTAL_STEPS = 3;
 
@@ -23,6 +24,7 @@ interface FormData {
 export default function OnboardingForm() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     url: "",
     industry: "ecommerce",
@@ -35,6 +37,19 @@ export default function OnboardingForm() {
 
   const handleIndustryChange = (industry: string) => {
     setFormData((prev) => ({ ...prev, industry }));
+  };
+
+  const handleCompanySizeChange = (companySize: string) => {
+    setFormData((prev) => ({ ...prev, companySize }));
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    // TODO: Task 4.5 will implement actual API submission
+    // For now, just show loading state briefly
+    setTimeout(() => {
+      setIsSubmitting(false);
+    }, 2000);
   };
 
   const handleNextStep = async () => {
@@ -116,48 +131,28 @@ export default function OnboardingForm() {
                 )}
 
                 {currentStep === 3 && (
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      회사 규모를 선택하세요
-                    </h2>
-                    <p className="text-gray-600 text-sm mb-6">
-                      맞춤형 진단을 위해 회사 규모를 선택해주세요.
-                    </p>
-                    <div className="space-y-3">
-                      {["1인", "소규모 (2-10명)", "중규모 (11-50명)"].map(
-                        (size) => (
-                          <label
-                            key={size}
-                            className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition"
-                          >
-                            <input
-                              type="radio"
-                              name="company_size"
-                              value={size}
-                              className="w-4 h-4"
-                              defaultChecked={size === "1인"}
-                            />
-                            <span className="ml-3 text-gray-900">{size}</span>
-                          </label>
-                        ),
-                      )}
-                    </div>
-                  </div>
+                  <StepCompanySize
+                    companySize={formData.companySize}
+                    onCompanySizeChange={handleCompanySizeChange}
+                    onPrev={handlePreviousStep}
+                    onSubmit={handleSubmit}
+                    isSubmitting={isSubmitting}
+                  />
                 )}
               </div>
 
-              {/* Navigation buttons */}
-              <div className="flex gap-3 justify-between mt-8">
-                <button
-                  type="button"
-                  onClick={handlePreviousStep}
-                  disabled={currentStep === 1}
-                  className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition min-h-[44px]"
-                >
-                  이전
-                </button>
+              {/* Navigation buttons for steps 1-2 */}
+              {currentStep < TOTAL_STEPS && (
+                <div className="flex gap-3 justify-between mt-8">
+                  <button
+                    type="button"
+                    onClick={handlePreviousStep}
+                    disabled={currentStep === 1}
+                    className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition min-h-[44px]"
+                  >
+                    이전
+                  </button>
 
-                {currentStep < TOTAL_STEPS ? (
                   <button
                     type="button"
                     onClick={handleNextStep}
@@ -165,15 +160,8 @@ export default function OnboardingForm() {
                   >
                     다음
                   </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="px-6 py-3 rounded-lg bg-brand text-white font-medium hover:bg-brand-hover transition min-h-[44px] ml-auto"
-                  >
-                    시작하기
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
             </form>
           </div>
         </div>
