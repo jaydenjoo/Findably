@@ -4,10 +4,11 @@
  * Onboarding Form Component
  *
  * Client-side form component that manages the 3-step onboarding flow.
- * Handles step transitions, form validation, and submission.
+ * Uses useOnboarding hook for state management, validation, and submission.
  */
 
 import { useState } from "react";
+import { useOnboarding } from "@/lib/hooks/useOnboarding";
 import ProgressIndicator from "./progress-indicator";
 import StepUrl from "./step-url";
 import StepIndustry from "./step-industry";
@@ -15,63 +16,47 @@ import StepCompanySize from "./step-company-size";
 
 const TOTAL_STEPS = 3;
 
-interface FormData {
-  url: string;
-  industry: string;
-  companySize: string;
-}
-
 export default function OnboardingForm() {
-  const [currentStep, setCurrentStep] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState<FormData>({
-    url: "",
-    industry: "ecommerce",
-    companySize: "solo",
-  });
+  const {
+    currentStep,
+    formData,
+    error,
+    isSubmitting,
+    nextStep,
+    prevStep,
+    updateFormData,
+    handleSubmit,
+  } = useOnboarding();
 
   const handleUrlChange = (url: string) => {
-    setFormData((prev) => ({ ...prev, url }));
+    updateFormData("url", url);
   };
 
   const handleIndustryChange = (industry: string) => {
-    setFormData((prev) => ({ ...prev, industry }));
+    updateFormData("industry", industry);
   };
 
   const handleCompanySizeChange = (companySize: string) => {
-    setFormData((prev) => ({ ...prev, companySize }));
+    updateFormData("companySize", companySize);
   };
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    // TODO: Task 4.5 will implement actual API submission
-    // For now, just show loading state briefly
+  const handleNextStepWithTransition = async () => {
+    setIsTransitioning(true);
+    // Animate transition
     setTimeout(() => {
-      setIsSubmitting(false);
-    }, 2000);
+      nextStep();
+      setIsTransitioning(false);
+    }, 150);
   };
 
-  const handleNextStep = async () => {
-    if (currentStep < TOTAL_STEPS) {
-      setIsTransitioning(true);
-      // Animate transition
-      setTimeout(() => {
-        setCurrentStep(currentStep + 1);
-        setIsTransitioning(false);
-      }, 150);
-    }
-  };
-
-  const handlePreviousStep = () => {
-    if (currentStep > 1) {
-      setIsTransitioning(true);
-      // Animate transition
-      setTimeout(() => {
-        setCurrentStep(currentStep - 1);
-        setIsTransitioning(false);
-      }, 150);
-    }
+  const handlePreviousStepWithTransition = () => {
+    setIsTransitioning(true);
+    // Animate transition
+    setTimeout(() => {
+      prevStep();
+      setIsTransitioning(false);
+    }, 150);
   };
 
   return (
@@ -117,7 +102,7 @@ export default function OnboardingForm() {
                   <StepUrl
                     url={formData.url}
                     onUrlChange={handleUrlChange}
-                    onNext={handleNextStep}
+                    onNext={handleNextStepWithTransition}
                   />
                 )}
 
@@ -125,8 +110,8 @@ export default function OnboardingForm() {
                   <StepIndustry
                     industry={formData.industry}
                     onIndustryChange={handleIndustryChange}
-                    onNext={handleNextStep}
-                    onPrev={handlePreviousStep}
+                    onNext={handleNextStepWithTransition}
+                    onPrev={handlePreviousStepWithTransition}
                   />
                 )}
 
@@ -134,19 +119,26 @@ export default function OnboardingForm() {
                   <StepCompanySize
                     companySize={formData.companySize}
                     onCompanySizeChange={handleCompanySizeChange}
-                    onPrev={handlePreviousStep}
+                    onPrev={handlePreviousStepWithTransition}
                     onSubmit={handleSubmit}
                     isSubmitting={isSubmitting}
                   />
                 )}
               </div>
 
+              {/* Error message display */}
+              {error && (
+                <div className="mt-6 p-4 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
+
               {/* Navigation buttons for steps 1-2 */}
               {currentStep < TOTAL_STEPS && (
                 <div className="flex gap-3 justify-between mt-8">
                   <button
                     type="button"
-                    onClick={handlePreviousStep}
+                    onClick={handlePreviousStepWithTransition}
                     disabled={currentStep === 1}
                     className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition min-h-[44px]"
                   >
@@ -155,7 +147,7 @@ export default function OnboardingForm() {
 
                   <button
                     type="button"
-                    onClick={handleNextStep}
+                    onClick={handleNextStepWithTransition}
                     className="px-6 py-3 rounded-lg bg-brand text-white font-medium hover:bg-brand-hover transition min-h-[44px] ml-auto"
                   >
                     다음

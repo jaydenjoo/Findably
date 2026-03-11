@@ -1,8 +1,18 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import OnboardingForm from "../onboarding-form";
 
+// Mock next/navigation
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}));
+
 describe("OnboardingForm", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
   it("should render onboarding form container", () => {
     const { container } = render(<OnboardingForm />);
     expect(container.querySelector(".max-w-2xl")).toBeInTheDocument();
@@ -30,8 +40,11 @@ describe("OnboardingForm", () => {
 
   it("should have proper spacing and padding", () => {
     const { container } = render(<OnboardingForm />);
-    const cardElement = container.querySelector(".p-8") || container.querySelector(".p-12");
-    expect(cardElement || container.querySelector("[class*='p-']")).toBeInTheDocument();
+    const cardElement =
+      container.querySelector(".p-8") || container.querySelector(".p-12");
+    expect(
+      cardElement || container.querySelector("[class*='p-']"),
+    ).toBeInTheDocument();
   });
 
   it("should have brand color styling", () => {

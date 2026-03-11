@@ -133,7 +133,7 @@ describe("StepIndustry Component", () => {
     });
 
     it("should not require selection to navigate (optional field)", () => {
-      const { container, rerender } = render(
+      render(
         <StepIndustry {...defaultProps} industry="" />
       );
 
@@ -229,11 +229,6 @@ describe("StepIndustry Component", () => {
 
       const buttons = container.querySelectorAll("button");
       buttons.forEach((button) => {
-        const styles = window.getComputedStyle(button);
-        const paddingTop = parseInt(styles.paddingTop);
-        const paddingBottom = parseInt(styles.paddingBottom);
-        const totalHeight = paddingTop + paddingBottom + 16; // approx icon/text height
-
         // Should support 44px touch target
         expect(button).toHaveClass("min-h-[44px]");
       });

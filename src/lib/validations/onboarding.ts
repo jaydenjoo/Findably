@@ -49,3 +49,26 @@ export const CompanySizeValidationSchema = z.object({
 export type CompanySizeValidationInput = z.infer<
   typeof CompanySizeValidationSchema
 >;
+
+/**
+ * Combined Onboarding Form Schema
+ * Used for final submission validation
+ */
+export const OnboardingFormSchema = z.object({
+  url: z
+    .string()
+    .min(1, "URL을 입력하세요")
+    .url("올바른 URL을 입력하세요")
+    .refine(
+      (url) => url.startsWith("http://") || url.startsWith("https://"),
+      "올바른 URL을 입력하세요",
+    ),
+  industry: z.enum(["ecommerce", "blog", "saas", "local_business", "other"], {
+    message: "올바른 업종을 선택하세요",
+  }),
+  companySize: z.enum(["solo", "small", "medium"], {
+    message: "올바른 회사 규모를 선택하세요",
+  }),
+});
+
+export type OnboardingFormData = z.infer<typeof OnboardingFormSchema>;
