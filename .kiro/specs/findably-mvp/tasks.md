@@ -480,7 +480,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
 
 ### 8. Asset Generation & Dashboard Components
 
-- [ ] 8.1 (P) Implement Schema Markup (JSON-LD) generation logic
+- [x] 8.1 (P) Implement Schema Markup (JSON-LD) generation logic
   - Create `src/lib/generation/schema-generator.ts` module with `generateSchema()` async function
   - Generate schema based on industry + crawled data mapping:
     - Organization: { name, url, logo, description, contactPoint }
