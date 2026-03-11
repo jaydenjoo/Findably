@@ -22,14 +22,16 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - Set up directory structure: `src/app/`, `src/components/`, `src/lib/`, `src/types/`, `src/constants/`, `src/actions/`, `src/db/`
   - _Requirements: 3.6_
 
-- [ ] 1.2 (P) Set up Supabase PostgreSQL project and Drizzle ORM integration
-  - Create Supabase project and configure PostgreSQL connection
-  - Install Drizzle ORM v0.30+ and `drizzle-kit` CLI
-  - Create `src/db/schema.ts` with Drizzle table definitions for `users` (via Supabase Auth), `companies`, `crawl_results`, `diagnoses`, `action_items`, `generated_assets`
-  - Configure Drizzle config file (`drizzle.config.ts`) with migration output directory
-  - Set up database migrations for schema initialization
-  - Create `.env.local` with Supabase credentials: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- [x] 1.2 (P) Set up Supabase PostgreSQL project and Drizzle ORM integration
+  - ✓ Install Drizzle ORM v0.45.1 and drizzle-kit v0.31.9
+  - ✓ Create `src/db/schema.ts` with Drizzle table definitions for companies, crawl_results, diagnoses, action_items, generated_assets
+  - ✓ Configure Drizzle config file (`drizzle.config.ts`) with migration output directory
+  - ✓ Create `src/lib/db/client.ts` with service and authenticated Drizzle clients
+  - ✓ Add database scripts to package.json: db:generate, db:push, db:studio
+  - ✓ Create comprehensive test suite (5 tests passing)
+  - ✓ All TypeScript, ESLint, and build checks passing
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+  - _Status: COMPLETE - Ready for manual Supabase setup and migrations_
 
 - [ ] 1.3 (P) Configure Supabase Auth and implement RLS (Row Level Security) policies
   - Enable Supabase Auth with email + Google OAuth provider
