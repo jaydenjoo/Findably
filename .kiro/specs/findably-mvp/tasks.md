@@ -301,14 +301,20 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 7.1, 7.2, 7.6, 39.1_
   - _Status: COMPLETE - Server Action implemented with full TDD test coverage_
 
-- [ ] 5.3 (P) Create API endpoint for polling crawl status
-  - Create `src/app/api/crawl/status/route.ts` Server Action endpoint
-  - Implement `GET /api/crawl/status?company_id=` query
-  - Query Supabase for latest `crawl_results` WHERE company_id
-  - Return JSON: { status: "completed" | "in_progress" | "failed", result_id?, error_message? }
-  - Add RLS check to ensure user owns the company_id
-  - Handle case where crawl hasn't started yet: return { status: "pending" }
+- [x] 5.3 (P) Create API endpoint for polling crawl status
+  - ✓ Created `src/app/api/crawl/status/route.ts` with GET endpoint handler
+  - ✓ Implemented `GET /api/crawl/status?company_id=` with strict integer validation
+  - ✓ Query Supabase for latest `crawl_results` WHERE company_id, ordered by crawledAt DESC
+  - ✓ Return discriminated union JSON: { status: "pending" | "in_progress" | "completed" | "failed", companyId, result_id?, error_message? }
+  - ✓ Added RLS check: verifies user owns company_id via companiesTable.userId match
+  - ✓ Returns 403 Forbidden if user doesn't own the company (data isolation)
+  - ✓ Handles all crawl status codes: success→completed, failed\_\*→failed, no result→pending
+  - ✓ Comprehensive test suite: 33 tests covering auth, validation, status responses, RLS, error handling
+  - ✓ All quality gates passing: tsc, eslint, npm run build, 531/531 tests passing
+  - ✓ TypeScript strict mode with discriminated union types for response accuracy
+  - ✓ Korean error messages for user-facing errors
   - _Requirements: 7.3, 7.4, 35.2_
+  - _Status: COMPLETE - TDD methodology, tests first, all quality gates verified_
 
 - [ ] 5.4 (P) Implement n8n error handling and retry logic
   - Add exponential backoff retry in n8n workflow: fail after 3 retries with 10s/30s/60s delays
