@@ -414,13 +414,17 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - Accept parsed crawl data + schema data, return { geoScore, details: [{ item, points, status }] }
   - _Requirements: 15.1, 15.2, 15.3_
 
-- [ ] 7.3 (P) Implement PageSpeed performance score normalization
-  - Create `src/lib/scoring/performance-scorer.ts` module
-  - Normalize Google PageSpeed scores (0-100) to internal performance scale (0-100)
-  - If performance_metrics = null (API failure), assign 50 (neutral penalty)
-  - Extract Core Web Vitals: LCP, FID, CLS values
-  - Return { performanceScore: 0-100, coreWebVitals: { lcp, fid, cls } }
+- [x] 7.3 (P) Implement PageSpeed performance score normalization
+  - ✓ Created `src/lib/scoring/performance-scorer.ts` module
+  - ✓ Normalize Google PageSpeed scores (0-100) to internal performance scale (0-100)
+  - ✓ Mobile 60% + Desktop 40% weighted average (Google's mobile-first approach)
+  - ✓ If performance_metrics = null (API failure), assign 50 (neutral penalty)
+  - ✓ Extract and return Core Web Vitals: LCP, FID, CLS values from both mobile + desktop
+  - ✓ Return { performanceScore: 0-100, coreWebVitals: { mobile: {...}, desktop: {...} } }
+  - ✓ Comprehensive test suite: 17 tests all passing (normal cases, exceptions, CWV thresholds, edge cases)
+  - ✓ All TypeScript, ESLint, and build checks passing (857 tests total)
   - _Requirements: 12.1, 12.2, 12.3, 12.5_
+  - _Status: COMPLETE - Ready for integration with diagnosis workflow_
 
 - [ ] 7.4 (P) Create Claude API content analyzer
   - Create `src/lib/ai/claude-analyzer.ts` module with `analyzeContent()` async function
