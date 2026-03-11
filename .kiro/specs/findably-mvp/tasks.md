@@ -121,28 +121,45 @@ This document outlines all implementation tasks to deliver Findably MVP from req
 
 ### 3. Landing Page & Marketing Site
 
-- [ ] 3.1 (P) Build landing page hero section with animations
-  - Create `src/app/page.tsx` (landing page)
-  - Implement hero section with h1 title, subtitle, brand description, 2 CTA buttons ("Get Started", "View Demo")
-  - Add subtle background: dot pattern or brand color blob at 5-10% opacity (using Tailwind + CSS radial-gradient)
-  - Implement sequential fade-in animations (0.1s stagger) for all hero elements using Tailwind animation classes
-  - Add Next.js Image components for hero illustration/screenshot (lazy loading, webp)
+- [x] 3.1 (P) Build landing page hero section with animations
+  - ✓ Created `src/app/page.tsx` with Navbar and HeroSection components
+  - ✓ Implemented `src/components/landing/hero-section.tsx` with h1 title, subtitle, 2 CTA buttons ("무료 진단 시작하기", "데모 보기")
+  - ✓ Added background: dot pattern + brand color blob at 6% opacity using CSS radial-gradient
+  - ✓ Implemented sequential fade-in animations (0.1s stagger: 0s→0.1s→0.2s→0.3s→0.4s→0.5s) with @keyframes and animation-delay
+  - ✓ Created `src/components/landing/navbar.tsx` with sticky positioning, responsive mobile menu, brand logo
+  - ✓ Updated `src/app/layout.tsx` with DM_Sans font, Korean metadata, proper OpenGraph tags
+  - ✓ All 12 hero section tests passing + 8 navbar tests passing + 6 page tests passing (179 total tests)
+  - ✓ Design system compliance: brand color (#2b7cff), 2-layer shadows, typography hierarchy, responsive layout
+  - ✓ TypeScript strict, ESLint, build, and test checks all passing
   - _Requirements: 4.1, 4.2, 4.3, 4.6, 36.4_
+  - _Status: COMPLETE - Landing page hero + navbar fully implemented with TDD methodology_
 
-- [ ] 3.2 (P) Build landing page features section and social proof
-  - Create Features section: 1 large featured card (brand background, white text) + 2 smaller cards in grid
-  - Add Social Proof section: logo carousel or trust metrics (e.g., "Trusted by 500+ founders")
-  - Implement responsive grid: 3 col desktop → 1 col mobile (Tailwind breakpoints)
-  - Add sequential animations matching hero (0.1s stagger with animation-delay CSS)
+- [x] 3.2 (P) Build landing page features section and social proof
+  - ✓ Created `src/components/landing/features-section.tsx` — asymmetric grid (1 large + 2 small cards), brand color (#2b7cff), white text on large card, icons in circular backgrounds
+  - ✓ Created `src/components/landing/social-proof-section.tsx` — 4 trust metrics (500+, 92%, 32%, 3분) with responsive grid (grid-cols-1 sm:grid-cols-2 lg:grid-cols-4)
+  - ✓ Implemented responsive grid: 1 col mobile → 2 col tablet → 3 col desktop (lg:grid-cols-3 + lg:col-span-2 for featured card)
+  - ✓ Added sequential fade-in animations with 0.1s stagger intervals (0s, 0.1s, 0.2s, 0.3s) + inline animation-delay CSS
+  - ✓ Design system compliance: 2-layer shadows (shadow-md + hover:shadow-xl), typography hierarchy, hover effects (translateY-1)
+  - ✓ All 19 tests passing (10 FeaturesSection + 9 SocialProofSection) + 179 existing tests still passing
+  - ✓ Quality gates: tsc, eslint, npm run build all passing
+  - ✓ Integrated into landing page (src/app/page.tsx)
   - _Requirements: 4.1, 4.2_
+  - _Status: COMPLETE - Features section with asymmetric layout + Social proof metrics fully implemented_
 
-- [ ] 3.3 (P) Build landing page "How It Works" section with steps and visual flow
-  - Create 3-step section: Step 1 (URL input), Step 2 (Wait for diagnosis), Step 3 (Review results)
-  - Add step icons and numbered badges (1/2/3)
-  - Implement connecting line/arrow between steps (SVG or Tailwind border)
-  - Add step descriptions and estimated time (e.g., "3-5 minutes")
-  - Responsive: horizontal on desktop, vertical stack on mobile
+- [x] 3.3 (P) Build landing page "How It Works" section with steps and visual flow
+  - ✓ Created `src/components/landing/how-it-works-section.tsx` with Step subcomponent
+  - ✓ Implemented 3-step section: Step 1 (URL input, 30초), Step 2 (AI analysis, 2-3분), Step 3 (Review results, 바로 확인)
+  - ✓ Added step icons (LinkIcon, Sparkles, BarChart3) and numbered badges (1/2/3) with brand color
+  - ✓ Implemented desktop connecting line (SVG dashed) and mobile connecting line (CSS border dotted)
+  - ✓ Added step descriptions in Korean with responsive sizing
+  - ✓ Responsive design: 1 col mobile (grid-cols-1) → 3 cols desktop (md:grid-cols-3)
+  - ✓ Sequential fade-in animations with 0.1s stagger (delays: 0.1s, 0.2s, 0.3s)
+  - ✓ Comprehensive test suite: 19 tests all passing (217 total tests passing)
+  - ✓ Design system compliance: brand colors, 2-layer shadows, typography hierarchy, icon backgrounds
+  - ✓ Integrated into landing page (src/app/page.tsx)
+  - ✓ All quality gates passing: tsc, eslint, npm run build
   - _Requirements: 4.1, 4.2_
+  - _Status: COMPLETE - TDD methodology, tests first, all quality gates verified_
 
 - [ ] 3.4 (P) Build landing page FAQ and bottom CTA section
   - Create FAQ section with 5-6 common questions (expandable accordion component from shadcn/ui)
