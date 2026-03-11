@@ -274,7 +274,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
 
 ### 5. Crawling Integration & n8n Orchestration
 
-- [ ] 5.1 Design and implement n8n crawling workflow
+- [x] 5.1 Design and implement n8n crawling workflow
   - Design n8n workflow in Railway/self-hosted instance with following steps:
     1. Webhook trigger: receive {company_id, url}
     2. Playwright node: open URL in headless browser, wait 3s, capture full HTML

@@ -8,7 +8,7 @@
  * - Error handling with max retry limit
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom';
 
 // Mock fetch globally

@@ -1,0 +1,143 @@
+{
+  "name": "Findably Crawl Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "findably-crawl",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "company_id",
+              "name": "company_id",
+              "value": "{{ $json.company_id }}",
+              "type": "string"
+            },
+            {
+              "id": "url",
+              "name": "url",
+              "value": "{{ $json.url }}",
+              "type": "string"
+            },
+            {
+              "id": "industry",
+              "name": "industry",
+              "value": "{{ $json.industry }}",
+              "type": "string"
+            },
+            {
+              "id": "company_size",
+              "name": "company_size",
+              "value": "{{ $json.company_size }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "set-variables",
+      "name": "Set Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "{{ $json.url }}",
+        "options": {
+          "timeout": 300000,
+          "followRedirects": true,
+          "parseJson": false
+        }
+      },
+      "id": "fetch-url",
+      "name": "Fetch URL with HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "code": "const cheerio = require('cheerio');\nconst html = $json.html || $json.body || '';\nconst url = $json.url;\nconst $ = cheerio.load(html);\n\nconst metaTags = {\n  title: $('title').text() || undefined,\n  description: $('meta[name=\"description\"]').attr('content'),\n  ogTitle: $('meta[property=\"og:title\"]').attr('content'),\n  ogDescription: $('meta[property=\"og:description\"]').attr('content'),\n  ogImage: $('meta[property=\"og:image\"]').attr('content'),\n  ogType: $('meta[property=\"og:type\"]').attr('content'),\n  twitterTitle: $('meta[name=\"twitter:title\"]').attr('content'),\n  twitterDescription: $('meta[name=\"twitter:description\"]').attr('content'),\n  twitterImage: $('meta[name=\"twitter:image\"]').attr('content'),\n  canonical: $('link[rel=\"canonical\"]').attr('href'),\n  robots: $('meta[name=\"robots\"]').attr('content'),\n  charset: $('meta[charset]').attr('charset'),\n  viewport: $('meta[name=\"viewport\"]').attr('content'),\n  keywords: $('meta[name=\"keywords\"]').attr('content'),\n  author: $('meta[name=\"author\"]').attr('content')\n};\n\nconst headings = [];\n$('h1, h2, h3').each((_, el) => {\n  const text = $(el).text().trim();\n  if (text) {\n    headings.push({ level: parseInt(el.name[1]), text: text });\n  }\n});\n\nconst links = [];\nconst urlObj = new URL(url);\nconst baseDomain = urlObj.hostname;\n$('a[href]').each((_, el) => {\n  const href = $(el).attr('href');\n  const text = $(el).text().trim();\n  if (!href) return;\n  let isInternal = false;\n  try {\n    const linkUrl = new URL(href, url);\n    isInternal = linkUrl.hostname === baseDomain;\n  } catch (e) {\n    isInternal = true;\n  }\n  links.push({ href: href, text: text, isInternal: isInternal });\n});\n\nconst images = [];\n$('img').each((_, el) => {\n  images.push({\n    src: $(el).attr('src'),\n    alt: $(el).attr('alt'),\n    hasWidth: $(el).attr('width') ? true : false,\n    hasHeight: $(el).attr('height') ? true : false\n  });\n});\n\nreturn { metaTags, headings, links, images, charset: metaTags.charset || 'UTF-8', htmlLength: html.length };"
+      },
+      "id": "html-parser",
+      "name": "Code: HTML Parser",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "code": "const cheerio = require('cheerio');\nconst html = $json.html || '';\nconst $ = cheerio.load(html);\nconst schemaMarkups = [];\n\n$('script[type=\"application/ld+json\"]').each((_, el) => {\n  try {\n    const jsonld = JSON.parse($(el).html() || '{}');\n    const items = Array.isArray(jsonld) ? jsonld : [jsonld];\n    items.forEach(item => {\n      if (item['@type']) {\n        schemaMarkups.push({ type: item['@type'], properties: item });\n      }\n    });\n  } catch (e) {}\n});\n\n$('[itemtype]').each((_, el) => {\n  const $el = $(el);\n  const itemtype = $el.attr('itemtype');\n  const properties = {};\n  $el.find('[itemprop]').each((_, propEl) => {\n    const propName = $(propEl).attr('itemprop');\n    const propValue = $(propEl).attr('content') || $(propEl).text();\n    properties[propName] = propValue;\n  });\n  if (itemtype) {\n    schemaMarkups.push({ type: itemtype.split('/').pop(), properties });\n  }\n});\n\nreturn { schemaMarkup: schemaMarkups.length > 0 ? schemaMarkups : null, schemaCount: schemaMarkups.length };"
+      },
+      "id": "schema-parser",
+      "name": "Code: Schema.org Parser",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 350]
+    },
+    {
+      "parameters": {
+        "code": "const html = $json.html || '';\nconst lower = html.toLowerCase();\nconst cmsSignatures = {\n  'WordPress': ['wordpress', '/wp-content/', '/wp-includes/', 'wp-json'],\n  'Shopify': ['shopify', 'cdn/shop/', 'myshopify'],\n  'Wix': ['wix', 'wix-container', '_wix'],\n  'Blogger': ['blogger', 'blogspot.com'],\n  'Medium': ['medium', 'medium.com'],\n  'Drupal': ['drupal', '/sites/all/'],\n  'Cafe24': ['cafe24', 'www.cafe24.com'],\n  'Godosmall': ['godo', 'godomall'],\n  'Imweb': ['imweb', 'imweb.co.kr']\n};\n\nfor (const [cms, keywords] of Object.entries(cmsSignatures)) {\n  if (keywords.some(kw => lower.includes(kw))) {\n    return { detectedCms: cms };\n  }\n}\nreturn { detectedCms: null };"
+      },
+      "id": "cms-detector",
+      "name": "Code: CMS Detection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 500]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "{{ $json.url.split('/').slice(0, 3).join('/') }}/robots.txt",
+        "options": {
+          "timeout": 30000,
+          "parseJson": false
+        }
+      },
+      "id": "fetch-robots-txt",
+      "name": "HTTP: Fetch robots.txt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1250, 150]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "{{ $json.url.split('/').slice(0, 3).join('/') }}/sitemap.xml",
+        "options": {
+          "timeout": 30000,
+          "parseJson": false
+        }
+      },
+      "id": "fetch-sitemap",
+      "name": "HTTP: Fetch sitemap.xml",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "code": "const result = {\n  company_id: $json.company_id,\n  url: $json.url,\n  crawled_at: new Date().toISOString(),\n  status: 'success',\n  meta_tags: $json.metaTags || {},\n  headings: $json.headings || [],\n  links: $json.links || [],\n  images: $json.images || [],\n  schema_markup: $json.schemaMarkup,\n  robots_txt: null,\n  sitemap_info: null,\n  performance_metrics: null,\n  detected_cms: $json.detectedCms,\n  is_latest: true,\n  html_truncated: ($json.htmlLength || 0) > 5242880\n};\n\nif (!result.html_truncated && $json.html) {\n  result.raw_html = $json.html;\n} else if ($json.html) {\n  result.raw_html = $json.html.substring(0, 5242880);\n}\n\nreturn result;"
+      },
+      "id": "aggregate-results",
+      "name": "Code: Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "{{ $env.SUPABASE_PROJECT_URL }}/rest/v1/crawl_results",
+        "authentication": "httpHeaderAuth",
+        "headers": {\n          \"Authorization\": \"Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}\",\n          \"Content-Type\": \"application/json\",\n          \"Prefer\": \"return=representation\"\n        },\n        \"sendBody\": true,\n        \"body\": \"={{ JSON.stringify($json) }}\"\n      },\n      \"id\": \"insert-supabase\",\n      \"name\": \"HTTP: Insert to Supabase\",\n      \"type\": \"n8n-nodes-base.httpRequest\",\n      \"typeVersion\": 4,\n      \"position\": [1650, 300]\n    }\n  ],\n  \"connections\": {\n    \"webhook-trigger\": {\n      \"main\": [[{\"node\": \"set-variables\", \"type\": \"main\", \"index\": 0}]]\n    },\n    \"set-variables\": {\n      \"main\": [[{\"node\": \"fetch-url\", \"type\": \"main\", \"index\": 0}]]\n    },\n    \"fetch-url\": {\n      \"main\": [\n        [{\"node\": \"html-parser\", \"type\": \"main\", \"index\": 0}],\n        [{\"node\": \"schema-parser\", \"type\": \"main\", \"index\": 0}],\n        [{\"node\": \"cms-detector\", \"type\": \"main\", \"index\": 0}],\n        [{\"node\": \"fetch-robots-txt\", \"type\": \"main\", \"index\": 0}],\n        [{\"node\": \"fetch-sitemap\", \"type\": \"main\", \"index\": 0}]\n      ]\n    },\n    \"html-parser\": {\n      \"main\": [[{\"node\": \"aggregate-results\", \"type\": \"main\", \"index\": 0}]]\n    },\n    \"schema-parser\": {\n      \"main\": [[{\"node\": \"aggregate-results\", \"type\": \"main\", \"index\": 0}]]\n    },\n    \"cms-detector\": {\n      \"main\": [[{\"node\": \"aggregate-results\", \"type\": \"main\", \"index\": 0}]]\n    },\n    \"fetch-robots-txt\": {\n      \"main\": [[{\"node\": \"aggregate-results\", \"type\": \"main\", \"index\": 0}]]\n    },\n    \"fetch-sitemap\": {\n      \"main\": [[{\"node\": \"aggregate-results\", \"type\": \"main\", \"index\": 0}]]\n    },\n    \"aggregate-results\": {\n      \"main\": [[{\"node\": \"insert-supabase\", \"type\": \"main\", \"index\": 0}]]\n    }\n  },\n  \"active\": true,\n  \"settings\": {}\n}
