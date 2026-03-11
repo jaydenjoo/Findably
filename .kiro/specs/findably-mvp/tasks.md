@@ -519,7 +519,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 22.1, 22.2, 22.3, 22.4_
   - _Status: COMPLETE - TDD methodology, all 39 tests passing, ready for dashboard integration_
 
-- [ ] 8.4 (P) Build dashboard layout and score visualization
+- [x] 8.4 (P) Build dashboard layout and score visualization
   - Create `src/app/dashboard/[company_id]/page.tsx` with:
     - Header: company name, URL, "재진단" button
     - Circular progress chart (0-100) showing overall score + grade (A-F) + color coding
