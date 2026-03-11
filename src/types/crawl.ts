@@ -102,7 +102,11 @@ export interface SitemapInfo {
 /**
  * Crawl result status
  */
-export type CrawlStatus = 'success' | 'failed_timeout' | 'failed_network' | 'failed_invalid_url';
+export type CrawlStatus =
+  | "success"
+  | "failed_timeout"
+  | "failed_network"
+  | "failed_invalid_url";
 
 /**
  * Complete crawl result stored in database
@@ -115,6 +119,8 @@ export interface CrawlResult {
   htmlTruncated?: boolean;
   metaTags?: MetaTags;
   headings?: Heading[];
+  links?: Link[];
+  images?: Image[];
   schemaMarkup?: SchemaMarkupItem[];
   performanceMetrics?: PerformanceMetrics;
   robotsTxt?: string;
