@@ -370,12 +370,16 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
   - _Status: COMPLETE - Pure functions with no side effects, ready for integration_
 
-- [ ] 6.4 Create CMS detection module
-  - Create `src/lib/parsing/cms-detector.ts` module
-  - Detect CMS by: meta generator tag, script paths (wp-content, /cdn/shop/, etc.), class/id patterns
-  - Recognize: WordPress, Shopify, WIX, 카페24, 고도몰, 아임웹, Blogger, Medium, Unknown
-  - Return: { cms: "WordPress" | "Shopify" | ..., confidence: 0-100 }
+- [x] 6.4 Create CMS detection module
+  - ✓ Created `src/lib/parsing/cms-detector.ts` module with pure function detectCms()
+  - ✓ Implemented 5-tier detection strategy: meta generator tag (95 confidence), domain patterns (80-82), script/link paths (65), class/id patterns (62), Unknown (0)
+  - ✓ Detects 8 CMS platforms: WordPress, Shopify, WIX, Cafe24, GodoMall, Imweb, Blogger, Medium, Unknown
+  - ✓ Returns typed result: { cms: CmsType, confidence: 0-100 }
+  - ✓ Comprehensive test suite: 43 tests passing (all CMS types, confidence scoring, edge cases, multiple signals, Korean CMS support)
+  - ✓ Input validation: handles null, undefined, empty HTML gracefully
+  - ✓ All quality gates passing: TypeScript strict, ESLint, npm run build, vitest
   - _Requirements: 23.1, 23.2_
+  - _Status: COMPLETE - CMS detection module fully tested and production-ready_
 
 ---
 
