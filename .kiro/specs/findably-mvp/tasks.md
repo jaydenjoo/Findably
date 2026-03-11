@@ -1,6 +1,7 @@
 # Implementation Tasks — Findably MVP
 
 ## Overview
+
 This document outlines all implementation tasks to deliver Findably MVP from requirements and design specifications. Tasks are organized into 8 major feature areas covering authentication, database setup, frontend UI, crawling infrastructure, diagnosis engine, asset generation, dashboard, and production deployment.
 
 **Total: 8 major task groups, 43 sub-tasks**
@@ -13,7 +14,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
 
 ### 1. Project Setup & Database Infrastructure
 
-- [ ] 1.1 (P) Initialize Next.js 15 project with TypeScript, Tailwind CSS v4, and shadcn/ui v4 CLI
+- [x] 1.1 (P) Initialize Next.js 15 project with TypeScript, Tailwind CSS v4, and shadcn/ui v4 CLI
   - Create Next.js project structure using `create-next-app@latest` with App Router
   - Install Tailwind CSS v4 and configure `tailwind.config.ts` with Findably brand colors
   - Initialize shadcn/ui CLI and pull base components (Button, Card, Input, Dialog, Toast, Progress, Tabs)
@@ -233,7 +234,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
 
 - [ ] 6.1 (P) Build HTML meta tag and heading parser
   - Create `src/lib/parsing/html-parser.ts` module for extracting SEO elements from raw HTML
-  - Implement parsing for: title, meta description, charset, viewport, og:*, twitter:* tags
+  - Implement parsing for: title, meta description, charset, viewport, og:_, twitter:_ tags
   - Handle character encoding detection (UTF-8, EUC-KR, etc.)
   - Extract h1, h2, h3 tags with text content and hierarchy
   - Extract all <a> tags: href, anchor text, classify as internal/external/broken (by domain)
@@ -503,7 +504,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - Minify CSS/JS, enable gzip compression (Vercel default)
   - _Requirements: 36.1, 36.2, 36.3, 36.4, 36.5_
 
-- [ ] 10.3 * Unit tests for scoring logic
+- [ ] 10.3 \* Unit tests for scoring logic
   - Write tests for `seo-scorer.ts`: mock crawl data, verify score calculation
   - Write tests for `geo-scorer.ts`: schema detection, score assignment
   - Write tests for `score-aggregator.ts`: formula, grading logic
@@ -511,7 +512,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - Use Vitest framework, ≥80% line coverage
   - _Requirements: 14.1, 15.1, 17.1, 18.1_
 
-- [ ] 10.4 * Integration tests for diagnosis flow
+- [ ] 10.4 \* Integration tests for diagnosis flow
   - Test full diagnosis pipeline: crawl → parse → score → aggregate → diagnose
   - Mock n8n webhook responses, Claude API responses
   - Verify database inserts (diagnoses, action_items, generated_assets)
@@ -519,7 +520,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - Use integration test harness with test database
   - _Requirements: 19.1, 35.1, 35.2_
 
-- [ ] 10.5 * E2E tests for critical user flows
+- [ ] 10.5 \* E2E tests for critical user flows
   - E2E: signup → onboarding (URL + industry + company size) → diagnosis → dashboard view
   - E2E: view schema markup → copy code
   - E2E: re-diagnosis trigger
@@ -660,6 +661,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
 ## Completion Criteria
 
 MVP is complete when:
+
 - All code tasks (1.1-12.2) are implemented and tested
 - TypeScript/ESLint/build verification passes
 - Sentry error tracking is active and functioning
