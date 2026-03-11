@@ -53,12 +53,15 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 2.1_
   - _Status: COMPLETE - Migration files generated, seed data exported, all checks passing_
 
-- [ ] 1.5 (P) Set up environment configuration and validate .env.local
-  - Create `.env.example` with placeholder values for all required API keys and URLs
-  - Add runtime validation in `src/lib/env.ts` using Zod to check for required env variables at startup
-  - Configure Next.js `.env.local` with Supabase, Anthropic, Google PageSpeed, n8n, and Sentry keys
-  - Create `src/lib/config.ts` to export typed configuration objects for each service
+- [x] 1.5 (P) Set up environment configuration and validate .env.local
+  - ✓ Created `src/lib/env.ts` — Zod schema validation with runtime error handling
+  - ✓ Created `src/lib/config.ts` — typed configuration interfaces (SupabaseConfig, DatabaseConfig, AnthropicConfig, PageSpeedConfig, N8nConfig, SentryConfig, AppConfig)
+  - ✓ Created `src/lib/__tests__/env.test.ts` — comprehensive test suite (16 tests, all passing)
+  - ✓ Updated `src/lib/db/client.ts` to use getDatabaseConfig() instead of raw process.env
+  - ✓ Added clearEnvCache() function for test isolation
+  - ✓ All TypeScript, ESLint, and build checks passing
   - _Requirements: 1.7, 7.6, 12.4, 16.5, 30.3, 33.5_
+  - _Status: COMPLETE - Runtime env validation ready, tests passing, config module integrated_
 
 ---
 

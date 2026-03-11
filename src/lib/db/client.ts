@@ -1,6 +1,7 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import * as schema from '@/db/schema';
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "@/db/schema";
+import { getDatabaseConfig } from "@/lib/config";
 
 /**
  * Creates a Drizzle ORM instance with service role credentials
@@ -8,11 +9,9 @@ import * as schema from '@/db/schema';
  * For client-side operations, use the authenticated client with user JWT tokens
  */
 export function createServiceDb() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL environment variable is not set');
-  }
+  const { url } = getDatabaseConfig();
 
-  const client = postgres(process.env.DATABASE_URL, {
+  const client = postgres(url, {
     prepare: false,
   });
 
@@ -26,11 +25,9 @@ export function createServiceDb() {
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function createAuthenticatedDb(token: string) {
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL environment variable is not set');
-  }
+  const { url } = getDatabaseConfig();
 
-  const client = postgres(process.env.DATABASE_URL, {
+  const client = postgres(url, {
     prepare: false,
   });
 
@@ -38,5 +35,5 @@ export function createAuthenticatedDb(token: string) {
 }
 
 // Export schema for use in migrations and elsewhere
-export * from '@/db/schema';
+export * from "@/db/schema";
 export { schema };
