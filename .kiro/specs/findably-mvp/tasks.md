@@ -539,7 +539,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 24.3, 24.4_
   - _Status: COMPLETE - 33 tests passing, TDD implementation with expandable details, ARIA accessibility, responsive grid, color-coded progress bars, status icons for pass/partial/fail_
 
-- [ ] 8.6 (P) Build action items list with prioritization and filtering
+- [x] 8.6 (P) Build action items list with prioritization and filtering
   - Create `src/components/dashboard/action-items-list.tsx` component
   - Display tabs: All, Quick Win, Standard, Long-term
   - Each item: priority badge (높음/중간/낮음), title, description, expected impact ("+10점"), effort ("1시간"), expandable details
