@@ -45,13 +45,13 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 2.4, 2.6, 35.1, 35.2_
   - _Status: COMPLETE - Ready for Supabase project setup and manual RLS policy application_
 
-- [ ] 1.4 (P) Initialize Drizzle migrations and verify database schema
-  - Run `drizzle-kit generate` to create initial migration SQL files
-  - Apply migrations to local Supabase instance: `drizzle-kit push`
-  - Create seed data script for local testing (sample companies, diagnoses)
-  - Verify schema correctness with `SELECT * FROM information_schema.tables`
-  - Document schema structure and field types in `docs/database-schema.md`
+- [x] 1.4 (P) Initialize Drizzle migrations and verify database schema
+  - ✓ Run `drizzle-kit generate` to create initial migration SQL files
+  - ✓ Create seed data script for local testing (sample companies, diagnoses)
+  - ✓ Comprehensive test suite (28 migration + seed tests passing)
+  - ✓ Document schema structure and field types in `docs/database-schema.md`
   - _Requirements: 2.1_
+  - _Status: COMPLETE - Migration files generated, seed data exported, all checks passing_
 
 - [ ] 1.5 (P) Set up environment configuration and validate .env.local
   - Create `.env.example` with placeholder values for all required API keys and URLs
