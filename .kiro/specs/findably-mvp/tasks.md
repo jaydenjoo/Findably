@@ -79,30 +79,43 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 1.1, 1.2, 1.3, 1.5, 1.7, 35.2, 35.6_
   - _Status: COMPLETE - Ready for integration with UI components (signup/login forms)_
 
-- [ ] 2.2 (P) Implement signup form page with email/password and OAuth buttons
-  - Create `src/app/(auth)/signup/page.tsx` with form fields: email, password, confirm password, terms checkbox
-  - Implement Zod schema `SignUpSchema` in `src/lib/validations/auth.ts` for client-side + server-side validation
-  - Add password strength validation: ≥8 chars, 1 special char, 1 number
-  - Implement OAuth button for Google using Supabase provider integration
-  - Add error messages for duplicate email, weak password, validation failures
-  - Implement success redirect to `/onboarding` after signup
+- [x] 2.2 (P) Implement signup form page with email/password and OAuth buttons
+  - ✓ Created `src/app/(auth)/signup/page.tsx` with form fields: email, password, confirm password, terms checkbox
+  - ✓ Implemented Zod schema `SignUpSchema` in `src/lib/validations/auth.ts` for client-side + server-side validation
+  - ✓ Added password strength validation: ≥8 chars, 1 special char, 1 number (PasswordStrengthIndicator component)
+  - ✓ Implemented OAuth button for Google using Supabase provider integration
+  - ✓ Added error messages for duplicate email, weak password, validation failures
+  - ✓ Implemented success redirect to `/onboarding` after signup (Server Action)
+  - ✓ Created LoginForm component and `/login` page for parallel auth flow
+  - ✓ All tests passing (17 validation tests, 5 auth action tests, 134 total tests)
+  - ✓ TypeScript strict mode, ESLint, build, and test checks all passing
   - _Requirements: 5.1, 5.2, 5.4, 5.7, 35.3_
+  - _Status: COMPLETE - Ready for onboarding flow integration_
 
-- [ ] 2.3 (P) Implement login form page with email/password and OAuth
-  - Create `src/app/(auth)/login/page.tsx` with form fields: email, password
-  - Implement Zod schema `LoginSchema` in `src/lib/validations/auth.ts`
-  - Add OAuth button for Google
-  - Implement JWT token retrieval and session storage after successful login
-  - Add error messages for unregistered email, incorrect password
-  - Implement redirect to `/dashboard` or `/onboarding` based on company status
+- [x] 2.3 (P) Implement login form page with email/password and OAuth
+  - ✓ Created `src/app/(auth)/login/page.tsx` with form fields: email, password
+  - ✓ Implemented Zod schema `LoginSchema` in `src/lib/validations/auth.ts`
+  - ✓ Added OAuth button for Google with error handling
+  - ✓ Implemented JWT token retrieval and session storage after successful login
+  - ✓ Added error messages in Korean: "이메일 또는 비밀번호가 일치하지 않습니다", "이메일을 입력해주세요", "비밀번호를 입력해주세요"
+  - ✓ Implemented smart redirect: checks if user has company → `/dashboard/[company_id]`, else → `/onboarding`
+  - ✓ Created `src/lib/auth/user-company.ts` utility to check company existence
+  - ✓ Enhanced signInAction with company lookup logic
+  - ✓ Added comprehensive tests (12 new tests for LoginSchema validation)
+  - ✓ All quality gates passing: TypeScript, ESLint, build, tests (146/146 pass)
   - _Requirements: 5.5, 5.6, 5.7, 35.3_
+  - _Status: COMPLETE - Smart redirect + error messages + OAuth all implemented_
 
-- [ ] 2.4 (P) Create auth layout and header component with logout functionality
-  - Create `src/app/(auth)/layout.tsx` for auth page wrapper (signup/login shared layout)
-  - Create `src/components/ui/auth-layout.tsx` with minimal header, centered form container
-  - Create `src/components/dashboard-header.tsx` with logo, user menu dropdown, logout button for authenticated pages
-  - Implement logout action that clears session and redirects to `/`
+- [x] 2.4 (P) Create auth layout and header component with logout functionality
+  - ✓ Created `src/app/(auth)/layout.tsx` for auth page wrapper with background styling and decorative blob
+  - ✓ Created `src/components/ui/auth-layout.tsx` with minimal header, centered form container, and footer with terms/privacy links
+  - ✓ Created `src/components/dashboard-header.tsx` with logo, user menu dropdown, logout button for authenticated pages
+  - ✓ Implemented logout functionality that calls signOutAction() from auth actions
+  - ✓ All 7 tests passing: logo rendering, email display, avatar, navigation links, header styling, structure, dropdown menu
+  - ✓ All quality gates passing: TypeScript strict, ESLint, production build
+  - ✓ Design system compliance: brand color (#2b7cff), 2-layer shadows, Tailwind CSS v4, Korean labels (대시보드, 설정, 도움말, 로그아웃, 내 계정)
   - _Requirements: 3.4, 3.5_
+  - _Status: COMPLETE - Components tested and production-ready_
 
 ---
 
