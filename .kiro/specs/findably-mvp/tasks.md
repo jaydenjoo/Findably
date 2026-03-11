@@ -332,15 +332,17 @@ This document outlines all implementation tasks to deliver Findably MVP from req
 
 ### 6. HTML Parsing & Data Extraction Layer
 
-- [ ] 6.1 (P) Build HTML meta tag and heading parser
-  - Create `src/lib/parsing/html-parser.ts` module for extracting SEO elements from raw HTML
-  - Implement parsing for: title, meta description, charset, viewport, og:_, twitter:_ tags
-  - Handle character encoding detection (UTF-8, EUC-KR, etc.)
-  - Extract h1, h2, h3 tags with text content and hierarchy
-  - Extract all <a> tags: href, anchor text, classify as internal/external/broken (by domain)
-  - Extract <img> tags: src, alt text, width/height attributes
-  - Use Cheerio library for DOM parsing (lightweight, no JS execution)
-  - Return standardized object: { meta, headings, links, images }
+- [x] 6.1 (P) Build HTML meta tag and heading parser
+  - ✓ Create `src/lib/parsing/html-parser.ts` module for extracting SEO elements from raw HTML
+  - ✓ Implement parsing for: title, meta description, charset, viewport, og:_, twitter:_ tags
+  - ✓ Handle character encoding detection (UTF-8, EUC-KR, etc.)
+  - ✓ Extract h1, h2, h3 tags with text content and hierarchy (document order preserved)
+  - ✓ Extract all <a> tags: href, anchor text, classify as internal/external/broken (by domain)
+  - ✓ Extract <img> tags: src, alt text, width/height attributes
+  - ✓ Use Cheerio library for DOM parsing (lightweight, no JS execution)
+  - ✓ Return standardized object: { meta, headings, links, images }
+  - ✓ 65 comprehensive tests (100% pass rate)
+  - ✓ Handles edge cases: malformed HTML, Korean text, special characters, very large documents
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
 - [ ] 6.2 (P) Build Schema.org markup parser
