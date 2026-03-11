@@ -1,0 +1,669 @@
+# Implementation Tasks — Findably MVP
+
+## Overview
+This document outlines all implementation tasks to deliver Findably MVP from requirements and design specifications. Tasks are organized into 8 major feature areas covering authentication, database setup, frontend UI, crawling infrastructure, diagnosis engine, asset generation, dashboard, and production deployment.
+
+**Total: 8 major task groups, 43 sub-tasks**
+**Estimated scope: 60-90 hours**
+**Target completion: MVP within 4-6 weeks with continuous integration and testing at each stage**
+
+---
+
+## Task Execution
+
+### 1. Project Setup & Database Infrastructure
+
+- [ ] 1.1 (P) Initialize Next.js 15 project with TypeScript, Tailwind CSS v4, and shadcn/ui v4 CLI
+  - Create Next.js project structure using `create-next-app@latest` with App Router
+  - Install Tailwind CSS v4 and configure `tailwind.config.ts` with Findably brand colors
+  - Initialize shadcn/ui CLI and pull base components (Button, Card, Input, Dialog, Toast, Progress, Tabs)
+  - Configure TypeScript strict mode, ESLint, and Prettier
+  - Set up directory structure: `src/app/`, `src/components/`, `src/lib/`, `src/types/`, `src/constants/`, `src/actions/`, `src/db/`
+  - _Requirements: 3.6_
+
+- [ ] 1.2 (P) Set up Supabase PostgreSQL project and Drizzle ORM integration
+  - Create Supabase project and configure PostgreSQL connection
+  - Install Drizzle ORM v0.30+ and `drizzle-kit` CLI
+  - Create `src/db/schema.ts` with Drizzle table definitions for `users` (via Supabase Auth), `companies`, `crawl_results`, `diagnoses`, `action_items`, `generated_assets`
+  - Configure Drizzle config file (`drizzle.config.ts`) with migration output directory
+  - Set up database migrations for schema initialization
+  - Create `.env.local` with Supabase credentials: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+
+- [ ] 1.3 (P) Configure Supabase Auth and implement RLS (Row Level Security) policies
+  - Enable Supabase Auth with email + Google OAuth provider
+  - Create RLS policies for `companies` table: users can only read/write their own `company_id` rows
+  - Create RLS policies for `crawl_results`, `diagnoses`, `action_items`, `generated_assets` tables: enforce company-level isolation via company_id foreign key
+  - Test RLS policies with `supabase start` local development server
+  - Document RLS policy structure in `src/lib/supabase/rls-policies.md`
+  - _Requirements: 2.4, 2.6, 35.1, 35.2_
+
+- [ ] 1.4 (P) Initialize Drizzle migrations and verify database schema
+  - Run `drizzle-kit generate` to create initial migration SQL files
+  - Apply migrations to local Supabase instance: `drizzle-kit push`
+  - Create seed data script for local testing (sample companies, diagnoses)
+  - Verify schema correctness with `SELECT * FROM information_schema.tables`
+  - Document schema structure and field types in `docs/database-schema.md`
+  - _Requirements: 2.1_
+
+- [ ] 1.5 (P) Set up environment configuration and validate .env.local
+  - Create `.env.example` with placeholder values for all required API keys and URLs
+  - Add runtime validation in `src/lib/env.ts` using Zod to check for required env variables at startup
+  - Configure Next.js `.env.local` with Supabase, Anthropic, Google PageSpeed, n8n, and Sentry keys
+  - Create `src/lib/config.ts` to export typed configuration objects for each service
+  - _Requirements: 1.7, 7.6, 12.4, 16.5, 30.3, 33.5_
+
+---
+
+### 2. Authentication & Authorization Layer
+
+- [ ] 2.1 Build Supabase Auth client and implement authentication service
+  - Create `src/lib/supabase/client.ts` (browser client) and `src/lib/supabase/server.ts` (server-side)
+  - Implement `AuthService` interface in `src/lib/auth/service.ts` with methods: `signUp()`, `signIn()`, `signOut()`, `getCurrentUser()`, `verifyToken()`
+  - Set up Supabase Auth callback handling for email verification and OAuth redirect
+  - Configure JWT custom claims to include user ID for RLS tenant_id enforcement
+  - Create `src/middleware.ts` to validate JWT on protected routes and redirect to login
+  - _Requirements: 1.1, 1.2, 1.3, 1.5, 1.7, 35.2, 35.6_
+
+- [ ] 2.2 (P) Implement signup form page with email/password and OAuth buttons
+  - Create `src/app/(auth)/signup/page.tsx` with form fields: email, password, confirm password, terms checkbox
+  - Implement Zod schema `SignUpSchema` in `src/lib/validations/auth.ts` for client-side + server-side validation
+  - Add password strength validation: ≥8 chars, 1 special char, 1 number
+  - Implement OAuth button for Google using Supabase provider integration
+  - Add error messages for duplicate email, weak password, validation failures
+  - Implement success redirect to `/onboarding` after signup
+  - _Requirements: 5.1, 5.2, 5.4, 5.7, 35.3_
+
+- [ ] 2.3 (P) Implement login form page with email/password and OAuth
+  - Create `src/app/(auth)/login/page.tsx` with form fields: email, password
+  - Implement Zod schema `LoginSchema` in `src/lib/validations/auth.ts`
+  - Add OAuth button for Google
+  - Implement JWT token retrieval and session storage after successful login
+  - Add error messages for unregistered email, incorrect password
+  - Implement redirect to `/dashboard` or `/onboarding` based on company status
+  - _Requirements: 5.5, 5.6, 5.7, 35.3_
+
+- [ ] 2.4 (P) Create auth layout and header component with logout functionality
+  - Create `src/app/(auth)/layout.tsx` for auth page wrapper (signup/login shared layout)
+  - Create `src/components/ui/auth-layout.tsx` with minimal header, centered form container
+  - Create `src/components/dashboard-header.tsx` with logo, user menu dropdown, logout button for authenticated pages
+  - Implement logout action that clears session and redirects to `/`
+  - _Requirements: 3.4, 3.5_
+
+---
+
+### 3. Landing Page & Marketing Site
+
+- [ ] 3.1 (P) Build landing page hero section with animations
+  - Create `src/app/page.tsx` (landing page)
+  - Implement hero section with h1 title, subtitle, brand description, 2 CTA buttons ("Get Started", "View Demo")
+  - Add subtle background: dot pattern or brand color blob at 5-10% opacity (using Tailwind + CSS radial-gradient)
+  - Implement sequential fade-in animations (0.1s stagger) for all hero elements using Tailwind animation classes
+  - Add Next.js Image components for hero illustration/screenshot (lazy loading, webp)
+  - _Requirements: 4.1, 4.2, 4.3, 4.6, 36.4_
+
+- [ ] 3.2 (P) Build landing page features section and social proof
+  - Create Features section: 1 large featured card (brand background, white text) + 2 smaller cards in grid
+  - Add Social Proof section: logo carousel or trust metrics (e.g., "Trusted by 500+ founders")
+  - Implement responsive grid: 3 col desktop → 1 col mobile (Tailwind breakpoints)
+  - Add sequential animations matching hero (0.1s stagger with animation-delay CSS)
+  - _Requirements: 4.1, 4.2_
+
+- [ ] 3.3 (P) Build landing page "How It Works" section with steps and visual flow
+  - Create 3-step section: Step 1 (URL input), Step 2 (Wait for diagnosis), Step 3 (Review results)
+  - Add step icons and numbered badges (1/2/3)
+  - Implement connecting line/arrow between steps (SVG or Tailwind border)
+  - Add step descriptions and estimated time (e.g., "3-5 minutes")
+  - Responsive: horizontal on desktop, vertical stack on mobile
+  - _Requirements: 4.1, 4.2_
+
+- [ ] 3.4 (P) Build landing page FAQ and bottom CTA section
+  - Create FAQ section with 5-6 common questions (expandable accordion component from shadcn/ui)
+  - Add bottom CTA section with dark background (gray-900), headline, 2 buttons, optional newsletter signup
+  - Implement optional Resend email capture for newsletter (future feature, skip if timeline tight)
+  - Add sequential animations for FAQs
+  - _Requirements: 4.1, 4.2_
+
+- [ ] 3.5 (P) Implement responsive design and mobile optimization for landing page
+  - Test landing page at breakpoints: 480px, 768px, 1024px, 1440px
+  - Adjust font sizes: 44-56px hero → ~32px mobile (scale ~85%)
+  - Adjust padding/spacing: 80px sections → 48px mobile
+  - Test touch-friendly button sizes (min 44px height)
+  - Verify Lighthouse performance score ≥80 (Performance)
+  - _Requirements: 4.5, 36.1, 36.4_
+
+---
+
+### 4. Onboarding Flow Implementation
+
+- [ ] 4.1 Create onboarding flow container and step progression UI
+  - Create `src/app/onboarding/page.tsx` with step state management (useState for current step 1-3)
+  - Create `src/components/onboarding/progress-indicator.tsx` showing "Step X of 3" with visual progress bar
+  - Implement step transitions with smooth animations (fade-in/out)
+  - Create error boundary for onboarding page
+  - Add guard: redirect to `/dashboard` if user already completed onboarding
+  - _Requirements: 6.7_
+
+- [ ] 4.2 (P) Build Step 1: URL input form with validation
+  - Create `src/components/onboarding/step-url.tsx` with single input field for URL
+  - Implement Zod schema `URLValidationSchema` accepting `https://example.com` format
+  - Add client-side validation with error message: "올바른 URL을 입력하세요 (예: https://example.com)"
+  - Add "Next" button to advance to Step 2
+  - _Requirements: 6.1, 6.2, 6.3_
+
+- [ ] 4.3 (P) Build Step 2: Industry/category selector
+  - Create `src/components/onboarding/step-industry.tsx` with radio/select options: 전자상거래, 서비스, 블로그, 기타
+  - Store selection in component state
+  - Add "Previous" and "Next" buttons
+  - _Requirements: 6.4_
+
+- [ ] 4.4 (P) Build Step 3: Company size selector
+  - Create `src/components/onboarding/step-company-size.tsx` with radio options: 1인, 소규모(2-10명), 중규모(11-50명)
+  - Store selection in component state
+  - Add "Previous" and "시작하기" (Start button) buttons
+  - Show "Loading..." state once user clicks "시작하기"
+  - _Requirements: 6.5_
+
+- [ ] 4.5 Integrate onboarding form state management and API submission
+  - Create `src/lib/hooks/useOnboarding.ts` custom hook to manage step state + form data (url, industry, company_size)
+  - Implement Server Action `submitOnboarding()` in `src/actions/onboarding.ts` that:
+    - Validates input with Zod schema
+    - Creates company record in Supabase
+    - Triggers n8n crawling webhook
+    - Returns company_id and crawl job id
+  - Implement client-side form submission and redirect to loading/diagnosis page
+  - Add error handling: show toast with error message and allow retry
+  - _Requirements: 6.1, 6.6, 7.1, 7.2_
+
+- [ ] 4.6 Create diagnosis loading page with progress feedback
+  - Create `src/app/onboarding/diagnosing/page.tsx` with loading state display
+  - Implement polling interval (2s) checking `/api/diagnosis/status?company_id=` for completion
+  - Display progress text: "진단 중... (크롤링 대기 중)" → "크롤링 완료, AI 분석 중..." → "AI 분석 완료..."
+  - Set max retry limit (10 retries = 20s) with timeout message: "크롤링이 실패했습니다. 잠시 후 다시 시도하세요"
+  - Auto-redirect to `/dashboard/[company_id]` when diagnosis completes
+  - _Requirements: 6.5, 7.3, 7.5_
+
+---
+
+### 5. Crawling Integration & n8n Orchestration
+
+- [ ] 5.1 Design and implement n8n crawling workflow
+  - Design n8n workflow in Railway/self-hosted instance with following steps:
+    1. Webhook trigger: receive {company_id, url}
+    2. Playwright node: open URL in headless browser, wait 3s, capture full HTML
+    3. Error handler for network failures (timeout 300s, store status "failed_network")
+    4. HTML parsing node: extract meta tags, h1-h3, images, links (using JS code node)
+    5. Schema parsing node: parse JSON-LD, Microdata, store separately
+    6. Fetch robots.txt and sitemap.xml
+    7. Call Google PageSpeed Insights API (mobile + desktop)
+    8. Insert crawl_results into Supabase with timestamp and status
+  - Document workflow steps and error handling in `docs/n8n-workflow.md`
+  - Configure n8n environment variables and basic auth
+  - Test workflow locally with mock data
+  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
+
+- [ ] 5.2 (P) Build Server Action for triggering n8n crawling webhook
+  - Create `src/actions/crawl.ts` with `triggerCrawling()` Server Action
+  - Implement POST to n8n webhook URL: `${process.env.N8N_WEBHOOK_URL}/webhook/findably-crawl`
+  - Send JSON body: { company_id, url, industry, company_size }
+  - Add error handling: if n8n returns error, log to Sentry and return failure
+  - Validate N8N_WEBHOOK_URL is set in environment
+  - _Requirements: 7.1, 7.2, 7.6, 39.1_
+
+- [ ] 5.3 (P) Create API endpoint for polling crawl status
+  - Create `src/app/api/crawl/status/route.ts` Server Action endpoint
+  - Implement `GET /api/crawl/status?company_id=` query
+  - Query Supabase for latest `crawl_results` WHERE company_id
+  - Return JSON: { status: "completed" | "in_progress" | "failed", result_id?, error_message? }
+  - Add RLS check to ensure user owns the company_id
+  - Handle case where crawl hasn't started yet: return { status: "pending" }
+  - _Requirements: 7.3, 7.4, 35.2_
+
+- [ ] 5.4 (P) Implement n8n error handling and retry logic
+  - Add exponential backoff retry in n8n workflow: fail after 3 retries with 10s/30s/60s delays
+  - Store error details in crawl_results.error_message field
+  - Add network timeout handling: if Playwright > 300s, abort and log "failed_timeout"
+  - Add PageSpeed API failure handling: if quota exceeded, set performance_metrics = null and continue
+  - Document error codes and recovery procedures in `docs/crawl-error-handling.md`
+  - _Requirements: 7.5, 8.3, 37.1, 37.2, 37.3_
+
+---
+
+### 6. HTML Parsing & Data Extraction Layer
+
+- [ ] 6.1 (P) Build HTML meta tag and heading parser
+  - Create `src/lib/parsing/html-parser.ts` module for extracting SEO elements from raw HTML
+  - Implement parsing for: title, meta description, charset, viewport, og:*, twitter:* tags
+  - Handle character encoding detection (UTF-8, EUC-KR, etc.)
+  - Extract h1, h2, h3 tags with text content and hierarchy
+  - Extract all <a> tags: href, anchor text, classify as internal/external/broken (by domain)
+  - Extract <img> tags: src, alt text, width/height attributes
+  - Use Cheerio library for DOM parsing (lightweight, no JS execution)
+  - Return standardized object: { meta, headings, links, images }
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
+
+- [ ] 6.2 (P) Build Schema.org markup parser
+  - Create `src/lib/parsing/schema-parser.ts` module
+  - Parse JSON-LD script tags: extract @type, @context, properties (name, description, url, image, aggregateRating, etc.)
+  - Parse Microdata (itemscope, itemtype, itemprop): convert to JSON structure
+  - Recognize schema types: Product, LocalBusiness, Organization, BlogPosting, FAQPage, BreadcrumbList
+  - Return standardized object: { schemas: [{ type, properties }], schemaFound: boolean, schemaTypes: [] }
+  - If no schema found, return { schemas: [], schemaFound: false }
+  - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
+
+- [ ] 6.3 (P) Build robots.txt and sitemap.xml parser
+  - Create `src/lib/parsing/sitemap-parser.ts` module
+  - Implement robots.txt parser: extract Disallow, Allow, User-agent, Crawl-delay rules
+  - Implement sitemap.xml parser: extract <loc>, <lastmod>, <changefreq>, <priority>
+  - Handle sitemap index files (sitemap_index.xml referencing multiple sitemaps)
+  - Return: { robotsTxtFound, robotsRules, sitemapUrls: [], sitemapCount, lastModified }
+  - Handle missing files: return { robotsTxtFound: false, sitemapUrls: [] }
+  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
+
+- [ ] 6.4 Create CMS detection module
+  - Create `src/lib/parsing/cms-detector.ts` module
+  - Detect CMS by: meta generator tag, script paths (wp-content, /cdn/shop/, etc.), class/id patterns
+  - Recognize: WordPress, Shopify, WIX, 카페24, 고도몰, 아임웹, Blogger, Medium, Unknown
+  - Return: { cms: "WordPress" | "Shopify" | ..., confidence: 0-100 }
+  - _Requirements: 23.1, 23.2_
+
+---
+
+### 7. Scoring & Diagnosis Engine
+
+- [ ] 7.1 (P) Implement SEO score calculation logic
+  - Create `src/lib/scoring/seo-scorer.ts` module
+  - Implement scoring rules (100 points total):
+    - Title tag existence + length (50-60 chars): 20 pts
+    - Meta description existence + length (120-160 chars): 20 pts
+    - H1 tag (exactly 1): 15 pts
+    - Mobile responsive (viewport meta tag): 15 pts
+    - Internal link structure (depth ≤ 3): 15 pts
+    - Sitemap existence: 10 pts
+    - robots.txt existence: 5 pts
+  - Accept parsed crawl data, return { seoScore, details: [{ item, points, status }] }
+  - Each item that fails = 0 points
+  - _Requirements: 14.1, 14.2, 14.3_
+
+- [ ] 7.2 (P) Implement GEO (Generative Engine Optimization) score calculation logic
+  - Create `src/lib/scoring/geo-scorer.ts` module
+  - Implement scoring rules (100 points total):
+    - Schema.org markup presence (≥1 type): 30 pts
+    - Structured data (Product/Organization/LocalBusiness): 20 pts
+    - FAQ page Schema: 15 pts
+    - Content length (≥500 chars): 15 pts
+    - Image optimization (alt text + format): 15 pts
+    - E-E-A-T signals (author, publish date, author bio): 5 pts
+  - Accept parsed crawl data + schema data, return { geoScore, details: [{ item, points, status }] }
+  - _Requirements: 15.1, 15.2, 15.3_
+
+- [ ] 7.3 (P) Implement PageSpeed performance score normalization
+  - Create `src/lib/scoring/performance-scorer.ts` module
+  - Normalize Google PageSpeed scores (0-100) to internal performance scale (0-100)
+  - If performance_metrics = null (API failure), assign 50 (neutral penalty)
+  - Extract Core Web Vitals: LCP, FID, CLS values
+  - Return { performanceScore: 0-100, coreWebVitals: { lcp, fid, cls } }
+  - _Requirements: 12.1, 12.2, 12.3, 12.5_
+
+- [ ] 7.4 (P) Create Claude API content analyzer
+  - Create `src/lib/ai/claude-analyzer.ts` module with `analyzeContent()` async function
+  - Send to Claude (Sonnet) with system prompt: structured analysis of content quality, keyword density, originality
+  - Input context: title, description, h1-h3, first 2000 chars of body, industry, company_size
+  - Expected output JSON: { contentQuality: 0-100, keywordDensity: %, uniqueness: %, recommendations: [3 items], aiScore: 0-100 }
+  - Add error handling: if API fails, log to Sentry, return { aiScore: 0, error: "Failed to analyze" }
+  - Token budget: ~1000-2000 tokens per request
+  - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6_
+
+- [ ] 7.5 Implement overall score aggregation and grading
+  - Create `src/lib/scoring/score-aggregator.ts` module with `aggregateScores()` function
+  - Formula: overallScore = (SEO × 0.35) + (GEO × 0.35) + (Performance × 0.2) + (AI × 0.1)
+  - Assign grade: A (85-100), B (70-84), C (55-69), D (40-54), F (0-39)
+  - Return { overallScore, grade, breakdown: { seo, geo, performance, ai } }
+  - _Requirements: 17.1, 17.2, 17.3, 17.4_
+
+- [ ] 7.6 Implement Quick Win identification logic
+  - Create `src/lib/diagnosis/quick-win-engine.ts` module with `identifyQuickWins()` function
+  - Detect Quick Wins:
+    - Title tag missing → provide recommended title
+    - Meta description missing → provide recommended description
+    - H1 tag missing → provide H1 creation guide
+    - No Schema.org → provide basic Organization schema
+    - Missing image alt text → list images needing alt text
+  - Each Quick Win: { title, description, effort: "1시간 이내", expectedImpact: "+5-10점", priority: "높음" }
+  - Return array of Quick Wins sorted by impact/effort ratio
+  - _Requirements: 18.1, 18.2, 18.3, 18.4_
+
+- [ ] 7.7 Create comprehensive diagnosis result generation
+  - Create `src/actions/diagnosis.ts` Server Action with `runDiagnosis()` function
+  - Orchestrate: SEO scorer → GEO scorer → Performance scorer → AI analyzer → Score aggregator → Quick Win engine
+  - Create `src/lib/diagnosis/orchestrator.ts` to coordinate all scoring steps
+  - Handle partial failures: if AI analyzer fails, continue with other scores and mark AI as "unavailable"
+  - Store result in `diagnoses` table: company_id, crawl_result_id, diagnosed_at, seo_score, geo_score, performance_score, overall_score, grade, ai_insights (JSON), quick_wins (JSON), action_items (JSON)
+  - Update previous diagnoses: set is_latest = false for older records
+  - Return diagnosis record to client
+  - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5_
+
+---
+
+### 8. Asset Generation & Dashboard Components
+
+- [ ] 8.1 (P) Implement Schema Markup (JSON-LD) generation logic
+  - Create `src/lib/generation/schema-generator.ts` module with `generateSchema()` async function
+  - Generate schema based on industry + crawled data mapping:
+    - Organization: { name, url, logo, description, contactPoint }
+    - Product (e-commerce): { name, price, description, image, aggregateRating }
+    - BlogPosting (blog): { headline, author, datePublished, image }
+    - LocalBusiness: { name, address, telephone, openingHours }
+  - Auto-map crawled fields: og:image → logo, meta description → description, title → name
+  - Prompt user for missing required fields (company name, etc.)
+  - Return valid JSON-LD string with comments
+  - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5_
+
+- [ ] 8.2 (P) Implement meta tag optimization generation
+  - Create `src/lib/generation/meta-optimizer.ts` module with `optimizeMeta()` async function
+  - Call Claude API with prompt: optimize current title/description for SEO + industry keywords
+  - Constraints: Title 50-60 chars, Description 120-160 chars
+  - Return: { currentMeta: { title, description }, recommendations: { title, description, ogTitle, ogDescription, ogImage, twitterTitle, twitterDescription, twitterImage }, reasons: {} }
+  - Include before/after comparison with improvement reasons
+  - _Requirements: 21.1, 21.2, 21.3, 21.4, 21.5_
+
+- [ ] 8.3 (P) Create action items prioritization matrix
+  - Create `src/lib/diagnosis/action-prioritizer.ts` module with `prioritizeActions()` function
+  - Input: list of action items with impact (SEO/GEO score increase %) and effort (hours)
+  - Calculate priority score = impact / (1 + effort)
+  - Classify: Quick Win (≤1hr), Standard (1-8hr), Long-term (>8hr)
+  - Return: [{ id, title, priority: "높음"|"중간"|"낮음", impact, effort, category, details }]
+  - _Requirements: 22.1, 22.2, 22.3, 22.4_
+
+- [ ] 8.4 (P) Build dashboard layout and score visualization
+  - Create `src/app/dashboard/[company_id]/page.tsx` with:
+    - Header: company name, URL, "재진단" button
+    - Circular progress chart (0-100) showing overall score + grade (A-F) + color coding
+    - Animated count-up: 0 → score over 1 second
+    - Subtitle: "귀사 마케팅 건강도: A등급 (87점) 🎉"
+    - Diagnostic timestamp: "2026-03-11 11:30 기준"
+  - Add shadcn/ui Tabs for switching between Score, Action Items, Schema, Meta tags, AI Insights
+  - Use Next.js Image for any visual assets
+  - _Requirements: 24.1, 24.2, 24.3, 24.4, 24.5_
+
+- [ ] 8.5 (P) Build category score cards (SEO/GEO/Performance/AI)
+  - Create `src/components/dashboard/score-cards.tsx` component
+  - Display 4 cards in grid: SEO (35%), GEO (35%), Performance (20%), AI (10%)
+  - Each card: score/100, progress bar, weight percentage
+  - Add expandable detail: click to show sub-items (e.g., Title ✓, Description ✓, H1 ✗)
+  - Color coding: green (pass), red (fail)
+  - _Requirements: 24.3, 24.4_
+
+- [ ] 8.6 (P) Build action items list with prioritization and filtering
+  - Create `src/components/dashboard/action-items-list.tsx` component
+  - Display tabs: All, Quick Win, Standard, Long-term
+  - Each item: priority badge (높음/중간/낮음), title, description, expected impact ("+10점"), effort ("1시간"), expandable details
+  - Sort by priority score within each tab
+  - Add expandable row with full description, implementation steps, CMS guide
+  - Optional: add checkbox to mark completed (stores in action_items.status = "completed")
+  - _Requirements: 25.1, 25.2, 25.3, 25.4_
+
+- [ ] 8.7 (P) Build Schema Markup code view with copy functionality
+  - Create `src/components/dashboard/schema-view.tsx` component
+  - Display generated Schema Markup in code block with syntax highlighting
+  - Add selector buttons: Organization, Product, BlogPosting, LocalBusiness to switch schema type
+  - Add "Copy" button that copies JSON-LD code to clipboard + show toast "복사되었습니다!"
+  - Add "HTML 추가 방법" collapsible guide text
+  - If required fields missing, show user input form and regenerate on save
+  - _Requirements: 26.1, 26.2, 26.3, 26.4, 26.5_
+
+- [ ] 8.8 (P) Build meta tag optimization comparison view
+  - Create `src/components/dashboard/meta-view.tsx` component
+  - Two-column layout: Current (gray background) | Recommended (blue highlight)
+  - Show: title, description, og:title, og:description, og:image, twitter:title, twitter:description, twitter:image
+  - Highlight changes in recommended column (bold, blue color)
+  - Add improvement reason tooltip/explanation under each tag
+  - Add "Copy HTML" button to copy all meta tags as <meta> elements
+  - Include length guide (Title: 50-60 chars, Description: 120-160 chars)
+  - _Requirements: 27.1, 27.2, 27.3, 27.4_
+
+- [ ] 8.9 (P) Build AI insights card display
+  - Create `src/components/dashboard/ai-insights.tsx` component
+  - Display 3 insight cards (top 3 issues from Claude analysis):
+    - Card 1 (Red): Problem + icon (⚠️), background color red-light
+    - Card 2 (Yellow): Tip + icon (💡), background color yellow-light
+    - Card 3 (Blue): Action + icon (🎯), background color blue-light
+  - Each card: problem title, recommended action, expected benefit ("검색 노출도 +35%")
+  - Clickable: expand to modal with detailed explanation + related action items + reference links
+  - Content in Korean, practical and specific
+  - _Requirements: 28.1, 28.2, 28.3, 28.4, 28.5_
+
+- [ ] 8.10 Implement re-diagnosis trigger and polling
+  - Add "재진단" button in dashboard header
+  - On click: show confirmation ("진단이 최근 이루어졌습니다. 1시간 후에 다시 시도하세요" if <1 hour)
+  - Trigger new crawl via `triggerCrawling()` Server Action
+  - Show loading state with progress text
+  - Poll for new diagnosis results (same as onboarding flow)
+  - Auto-refresh dashboard on completion
+  - Show toast: "✓ 재진단 완료! 점수가 업데이트되었습니다"
+  - _Requirements: 29.1, 29.2, 29.3, 29.4_
+
+---
+
+### 9. Error Handling, Monitoring & Observability
+
+- [ ] 9.1 (P) Set up Sentry error tracking for frontend and backend
+  - Install `@sentry/nextjs` package
+  - Initialize Sentry in `src/instrumentation.ts` (Next.js instrumentation hook)
+  - Configure environment: `process.env.SENTRY_DSN`
+  - Capture unhandled exceptions in Server Components and API Routes
+  - Add breadcrumb logging for key actions (onboarding submit, diagnosis start, etc.)
+  - _Requirements: 33.1, 33.2, 33.3, 33.4, 33.5_
+
+- [ ] 9.2 (P) Set up PostHog analytics for user behavior tracking
+  - Install `posthog-js` (or use PostHog open-source)
+  - Configure client-side tracking in root layout with PostHog provider
+  - Track events: signup, login, onboarding_start, onboarding_complete, schema_copied, meta_tag_copied, re_diagnose
+  - Track metrics: DAU, WAU, onboarding completion rate, average session time
+  - _Requirements: 34.1, 34.2, 34.3, 34.4_
+
+- [ ] 9.3 (P) Create health check endpoint
+  - Create `src/app/api/health/route.ts` endpoint
+  - Implement GET /api/health that checks:
+    - Supabase connectivity: attempt simple query
+    - Claude API availability: check rate limits
+    - PageSpeed Insights API: check quota
+    - n8n availability: ping webhook URL
+  - Return JSON: { status: "healthy"|"degraded"|"unhealthy", timestamp, services: { database, claude, pagespeed, n8n } }
+  - Alert if any service unhealthy: send email/Slack
+  - _Requirements: 40.1, 40.2, 40.3, 40.4_
+
+- [ ] 9.4 (P) Implement request/response logging
+  - Create `src/lib/logging/request-logger.ts` middleware
+  - Log all API requests: timestamp, user_id, path, method, response status, response time
+  - Store logs in Supabase `api_logs` table or Sentry
+  - Implement 30-day retention policy for logs
+  - _Requirements: 39.1, 39.2, 39.3, 39.4_
+
+---
+
+### 10. Accessibility, Performance & Testing
+
+- [ ] 10.1 (P) Implement WCAG 2.1 AA accessibility standards
+  - Add semantic HTML: <nav>, <main>, <section>, <article> tags
+  - Add ARIA labels to interactive elements (buttons, inputs, modals)
+  - Ensure color contrast ratio ≥4.5:1 (WCAG AA)
+  - Enable keyboard navigation: Tab/Enter for all buttons and forms
+  - Test with screen reader (NVDA, JAWS, or VoiceOver)
+  - Ensure error messages are text-based + colored (not color-only)
+  - Add alt text to all images
+  - _Requirements: 38.1, 38.2, 38.3, 38.4, 38.5_
+
+- [ ] 10.2 (P) Optimize images and verify performance targets
+  - Use Next.js Image component for all product images
+  - Configure image optimization: auto webp, lazy loading, responsive srcSet
+  - Verify Lighthouse metrics:
+    - Landing page: FCP ≤1.5s, Performance score ≥80
+    - Dashboard: TTI ≤3s, Performance score ≥80
+  - Minify CSS/JS, enable gzip compression (Vercel default)
+  - _Requirements: 36.1, 36.2, 36.3, 36.4, 36.5_
+
+- [ ] 10.3 * Unit tests for scoring logic
+  - Write tests for `seo-scorer.ts`: mock crawl data, verify score calculation
+  - Write tests for `geo-scorer.ts`: schema detection, score assignment
+  - Write tests for `score-aggregator.ts`: formula, grading logic
+  - Write tests for `quick-win-engine.ts`: detection rules
+  - Use Vitest framework, ≥80% line coverage
+  - _Requirements: 14.1, 15.1, 17.1, 18.1_
+
+- [ ] 10.4 * Integration tests for diagnosis flow
+  - Test full diagnosis pipeline: crawl → parse → score → aggregate → diagnose
+  - Mock n8n webhook responses, Claude API responses
+  - Verify database inserts (diagnoses, action_items, generated_assets)
+  - Test RLS isolation: user can only access own data
+  - Use integration test harness with test database
+  - _Requirements: 19.1, 35.1, 35.2_
+
+- [ ] 10.5 * E2E tests for critical user flows
+  - E2E: signup → onboarding (URL + industry + company size) → diagnosis → dashboard view
+  - E2E: view schema markup → copy code
+  - E2E: re-diagnosis trigger
+  - Use Playwright or Cypress, run against staging environment
+  - _Requirements: 6.1, 24.1, 29.1_
+
+---
+
+### 11. Deployment & Infrastructure Configuration
+
+- [ ] 11.1 (P) Configure Vercel deployment for Next.js frontend
+  - Connect GitHub repository to Vercel project
+  - Set build command: `pnpm build`
+  - Set start command: `pnpm start`
+  - Configure environment variables in Vercel dashboard: all .env.local vars
+  - Enable automatic deployments on main branch push
+  - Configure preview deployments for feature branches
+  - _Requirements: 30.1, 30.2, 30.3, 30.4_
+
+- [ ] 11.2 (P) Deploy n8n server to Railway or Fly.io
+  - Create Railway/Fly.io account and project
+  - Deploy n8n Docker image with PostgreSQL backend
+  - Configure n8n environment variables: N8N_BASIC_AUTH_ACTIVE, N8N_BASIC_AUTH_USER, N8N_BASIC_AUTH_PASSWORD
+  - Set DB_CONNECTION_URL to Supabase PostgreSQL (or separate managed DB)
+  - Configure n8n webhook URL accessible from Next.js: `https://n8n-prod.railway.app/webhook/findably-crawl`
+  - Test webhook connectivity
+  - _Requirements: 31.1, 31.2, 31.3, 31.4, 31.5_
+
+- [ ] 11.3 (P) Set up custom domain and SSL certificate
+  - Register domain (findably.com or similar) via registrar
+  - Configure Vercel custom domain: add CNAME record to DNS
+  - Enable automatic SSL certificate via Let's Encrypt (Vercel auto-handles)
+  - Test HTTPS access to custom domain
+  - _Requirements: 32.1, 32.2, 32.3, 32.4, 32.5_
+
+- [ ] 11.4 Configure production environment variables and secrets
+  - Set all secrets in Vercel environment (not in git)
+  - Set all secrets in Railway n8n environment
+  - Verify no hardcoded secrets in source code (use gitleaks)
+  - Document required env vars in `.env.example`
+  - _Requirements: 30.3, 31.2_
+
+---
+
+### 12. Pre-Launch Validation & Documentation
+
+- [ ] 12.1 (P) Run security and build verification pipeline
+  - Run `npx tsc --noEmit` to check TypeScript
+  - Run `pnpm lint` (ESLint)
+  - Run `pnpm build` to verify production build succeeds
+  - Run security check: `pnpm gitleaks` (or `npm audit`)
+  - Verify Sentry integration is working in staging
+  - Test health check endpoint: `/api/health`
+  - _Requirements: 35.1, 35.3, 35.5, 35.6, 40.1_
+
+- [ ] 12.2 (P) End-to-end testing of critical flows
+  - Test signup → onboarding → diagnosis → dashboard → copy schema/meta tags
+  - Test re-diagnosis trigger and polling
+  - Test error scenarios: invalid URL, API failures, timeouts
+  - Verify all error messages are user-friendly and in Korean
+  - Test on mobile (iOS Safari, Android Chrome)
+  - Verify accessibility with screen reader
+  - _Requirements: 1.1, 6.1, 19.1, 24.1, 28.1, 36.1, 38.1_
+
+- [ ] 12.3 Document architecture and deployment procedures
+  - Create `docs/architecture.md` describing domain layers, data flow, external integrations
+  - Create `docs/deployment.md` with Vercel and Railway setup instructions
+  - Create `docs/api-contracts.md` documenting Server Actions and API route interfaces
+  - Create `docs/n8n-setup.md` with workflow export and environment configuration
+  - Create `docs/troubleshooting.md` with common errors and solutions
+  - _Requirements: 30.1, 31.1, 32.1, 33.1, 34.1_
+
+---
+
+## Requirement Coverage Summary
+
+**All 40 requirements mapped to implementation tasks**:
+
+- **Req 1 (Auth)**: Tasks 2.1, 2.2, 2.3
+- **Req 2 (Database)**: Tasks 1.2, 1.3, 1.4
+- **Req 3 (Layout/Routing)**: Tasks 1.1, 2.4, 3.1
+- **Req 4 (Landing)**: Tasks 3.1, 3.2, 3.3, 3.4, 3.5
+- **Req 5 (Signup/Login)**: Tasks 2.2, 2.3, 2.4
+- **Req 6 (Onboarding)**: Tasks 4.1, 4.2, 4.3, 4.4, 4.5, 4.6
+- **Req 7 (Crawl API)**: Tasks 5.2, 5.3
+- **Req 8 (n8n Workflow)**: Task 5.1
+- **Req 9 (HTML Parser)**: Task 6.1
+- **Req 10 (Schema Parser)**: Task 6.2
+- **Req 11 (Sitemap Parser)**: Task 6.3
+- **Req 12 (PageSpeed)**: Task 7.3
+- **Req 13 (Crawl Storage)**: Tasks 5.1, 5.2
+- **Req 14 (SEO Scoring)**: Task 7.1
+- **Req 15 (GEO Scoring)**: Task 7.2
+- **Req 16 (Claude Analysis)**: Task 7.4
+- **Req 17 (Score Aggregation)**: Task 7.5
+- **Req 18 (Quick Win)**: Task 7.6
+- **Req 19 (Diagnosis)**: Task 7.7
+- **Req 20 (Schema Gen)**: Task 8.1
+- **Req 21 (Meta Optimizer)**: Task 8.2
+- **Req 22 (Prioritization)**: Task 8.3
+- **Req 23 (CMS Detection)**: Task 6.4
+- **Req 24 (Dashboard Score)**: Task 8.4
+- **Req 25 (Action Items)**: Task 8.6
+- **Req 26 (Schema View)**: Task 8.7
+- **Req 27 (Meta View)**: Task 8.8
+- **Req 28 (AI Insights)**: Task 8.9
+- **Req 29 (Re-diagnosis)**: Task 8.10
+- **Req 30 (Vercel)**: Task 11.1
+- **Req 31 (n8n Deploy)**: Task 11.2
+- **Req 32 (Domain/SSL)**: Task 11.3
+- **Req 33 (Sentry)**: Task 9.1
+- **Req 34 (PostHog)**: Task 9.2
+- **Req 35 (Security)**: Tasks 1.3, 2.1, 5.3, 10.1, 12.1
+- **Req 36 (Performance)**: Task 10.2
+- **Req 37 (Crawl Timeout)**: Task 5.4
+- **Req 38 (WCAG)**: Task 10.1
+- **Req 39 (Logging)**: Task 9.4
+- **Req 40 (Health Check)**: Task 9.3
+
+---
+
+## Notes for Implementation
+
+1. **Parallel Execution**: Tasks marked `(P)` can be executed in parallel within logical groups. For example, all auth tasks (2.x) can run in parallel after database setup (1.x).
+
+2. **Sequential Dependencies**:
+   - Database setup (1.x) must complete before auth (2.x) and onboarding (4.x)
+   - Onboarding (4.x) depends on crawl integration (5.x) and n8n workflow (5.1)
+   - Dashboard (8.x) depends on scoring (7.x) and diagnosis (7.7)
+   - Deployment (11.x) can begin after core functionality (7.x, 8.x) is complete
+
+3. **Testing**: Unit tests (10.3-10.5) are marked optional with `*` checkbox. They are deferrable post-MVP, though recommended for production readiness.
+
+4. **Document References**: Refer to `design.md` for component interfaces, architecture patterns, and data contracts. All task implementations should align with the Hexagonal Architecture and domain boundaries defined in design.md.
+
+---
+
+## Completion Criteria
+
+MVP is complete when:
+- All code tasks (1.1-12.2) are implemented and tested
+- TypeScript/ESLint/build verification passes
+- Sentry error tracking is active and functioning
+- Health check endpoint returns healthy status
+- E2E critical flows (signup → diagnosis → dashboard → copy assets) complete successfully
+- Vercel and Railway deployments are live and accessible
+- Documentation is complete and accurate

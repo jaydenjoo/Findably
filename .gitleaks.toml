@@ -1,0 +1,7 @@
+[allowlist]
+  paths = [
+    ".env.example",
+    ".env.sample",
+    "*.test.*",
+    "*.spec.*"
+  ]

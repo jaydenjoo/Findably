@@ -1,0 +1,72 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'BRANCH=$(git -C \"$CLAUDE_PROJECT_DIR\" branch --show-current 2>/dev/null); [ \"$BRANCH\" != \"main\" ] || { echo \"{\\\"block\\\": true, \\\"message\\\": \\\"main 브랜치 직접 수정 금지. /new-task 이름 으로 브랜치를 만드세요.\\\"}\" >&2; exit 2; }'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'cd \"$CLAUDE_PROJECT_DIR\" && CHANGED=$(git diff --name-only HEAD 2>/dev/null | head -1); if [ -n \"$CHANGED\" ]; then npx prettier --write \"$CHANGED\" 2>/dev/null; if echo \"$CHANGED\" | grep -qE \"\\.(ts|tsx)$\"; then npx eslint \"$CHANGED\" --fix --max-warnings 0 2>/dev/null || echo \"{\\\"feedback\\\": \\\"⚠️ ESLint 경고: $CHANGED\\\"}\" >&2; fi; fi; exit 0'",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'cd \"$CLAUDE_PROJECT_DIR\" && SECRETS=$(git diff --cached --diff-filter=ACMR -U0 2>/dev/null | grep -iE \"(sk-ant-|sk-[a-zA-Z0-9]{20,}|AKIA[A-Z0-9]{16}|ghp_[a-zA-Z0-9]{36}|glpat-[a-zA-Z0-9-]{20}|eyJ[a-zA-Z0-9]{30,}|xox[bprs]-[a-zA-Z0-9-]{10,}|-----BEGIN (RSA |EC )?PRIVATE KEY)\" 2>/dev/null | head -3); if [ -n \"$SECRETS\" ]; then echo \"{\\\"feedback\\\": \\\"🚨 시크릿 유출 감지! API 키/토큰이 코드에 포함되어 있습니다. .env.local로 이동하세요.\\\"}\" >&2; fi; git add -A && if ! git diff-index --quiet HEAD 2>/dev/null; then git commit -m \"wip: auto-save on stop\" 2>/dev/null && echo \"{\\\"feedback\\\": \\\"✅ 미저장 변경사항 자동 커밋됨\\\"}\" >&2; fi; exit 0'",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Claude Code 확인 필요\" with title \"Claude Code\" sound name \"Ping\"' 2>/dev/null; exit 0"
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Bash(git *)",
+      "Bash(npx prettier *)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(pnpm *)",
+      "Bash(vitest *)",
+      "Bash(npx semgrep *)",
+      "Bash(npx gitleaks *)"
+    ]
+  }
+}
