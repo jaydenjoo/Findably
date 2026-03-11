@@ -253,13 +253,22 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 6.1, 6.6, 7.1, 7.2_
   - _Status: COMPLETE - TDD methodology applied, all tests pass, production-ready_
 
-- [ ] 4.6 Create diagnosis loading page with progress feedback
-  - Create `src/app/onboarding/diagnosing/page.tsx` with loading state display
-  - Implement polling interval (2s) checking `/api/diagnosis/status?company_id=` for completion
-  - Display progress text: "진단 중... (크롤링 대기 중)" → "크롤링 완료, AI 분석 중..." → "AI 분석 완료..."
-  - Set max retry limit (10 retries = 20s) with timeout message: "크롤링이 실패했습니다. 잠시 후 다시 시도하세요"
-  - Auto-redirect to `/dashboard/[company_id]` when diagnosis completes
+- [x] 4.6 Create diagnosis loading page with progress feedback
+  - ✓ Created `src/app/onboarding/diagnosing/page.tsx` — Server Component with auth checks + RLS verification
+  - ✓ Created `src/components/onboarding/diagnosing-client.tsx` — Client Component with 2s polling + step indicators
+  - ✓ Created `src/app/api/diagnosis/status/route.ts` — GET endpoint returning diagnosis status based on crawl_results + diagnoses tables
+  - ✓ Implemented polling interval: 2000ms with max 10 retries (20s timeout)
+  - ✓ Progress messages: "진단 중... (크롤링 대기 중)" → "크롤링 완료, AI 분석 중..." → "AI 분석 완료!"
+  - ✓ Step indicators with icons: ① 크롤링 → ② AI 분석 → ③ 결과 생성 (pending/active/completed states)
+  - ✓ Error handling: timeout message "크롤링이 실패했습니다. 잠시 후 다시 시도하세요" with retry button
+  - ✓ Auto-redirect: 1.5s delay after status='complete' → `/dashboard/[company_id]`
+  - ✓ Created error.tsx + loading.tsx for page lifecycle
+  - ✓ Created mocks/supabase.ts for test support
+  - ✓ Comprehensive test suite: 22 tests passing (API endpoint + client component + page component)
+  - ✓ All quality gates verified: tsc (0 errors), eslint (0 errors), npm run build (success), vitest (460/460 tests pass)
+  - ✓ Design system compliance: brand color (#2b7cff), 2-layer shadows, Korean UI text, responsive layout
   - _Requirements: 6.5, 7.3, 7.5_
+  - _Status: COMPLETE - TDD methodology applied, all quality gates passing, production-ready_
 
 ---
 
