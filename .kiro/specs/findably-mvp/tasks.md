@@ -203,12 +203,16 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 6.7_
   - _Status: COMPLETE - TDD methodology applied, all tests pass_
 
-- [ ] 4.2 (P) Build Step 1: URL input form with validation
-  - Create `src/components/onboarding/step-url.tsx` with single input field for URL
-  - Implement Zod schema `URLValidationSchema` accepting `https://example.com` format
-  - Add client-side validation with error message: "올바른 URL을 입력하세요 (예: https://example.com)"
-  - Add "Next" button to advance to Step 2
+- [x] 4.2 (P) Build Step 1: URL input form with validation
+  - ✓ Created `src/components/onboarding/step-url.tsx` with single input field for URL
+  - ✓ Implemented Zod schema `URLValidationSchema` in `src/lib/validations/onboarding.ts` accepting `https://` and `http://` URLs
+  - ✓ Added client-side validation with error message: "올바른 URL을 입력하세요 (예: https://example.com)"
+  - ✓ Add "다음" (Next) button to advance to Step 2 (disabled until URL is valid)
+  - ✓ Integrated StepUrl component into OnboardingForm (Step 1)
+  - ✓ All 15 component tests passing + 13 validation tests passing
+  - ✓ All quality gates passing: TypeScript strict, ESLint, production build
   - _Requirements: 6.1, 6.2, 6.3_
+  - _Status: COMPLETE - TDD methodology applied, all tests pass_
 
 - [ ] 4.3 (P) Build Step 2: Industry/category selector
   - Create `src/components/onboarding/step-industry.tsx` with radio/select options: 전자상거래, 서비스, 블로그, 기타

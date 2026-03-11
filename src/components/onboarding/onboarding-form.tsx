@@ -9,12 +9,28 @@
 
 import { useState } from "react";
 import ProgressIndicator from "./progress-indicator";
+import StepUrl from "./step-url";
 
 const TOTAL_STEPS = 3;
+
+interface FormData {
+  url: string;
+  industry: string;
+  companySize: string;
+}
 
 export default function OnboardingForm() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [formData, setFormData] = useState<FormData>({
+    url: "",
+    industry: "ecommerce",
+    companySize: "solo",
+  });
+
+  const handleUrlChange = (url: string) => {
+    setFormData((prev) => ({ ...prev, url }));
+  };
 
   const handleNextStep = async () => {
     if (currentStep < TOTAL_STEPS) {
@@ -44,7 +60,8 @@ export default function OnboardingForm() {
       <div
         className="absolute inset-0 opacity-5 pointer-events-none"
         style={{
-          backgroundImage: "radial-gradient(circle, #2b7cff 0.5px, transparent 0.5px)",
+          backgroundImage:
+            "radial-gradient(circle, #2b7cff 0.5px, transparent 0.5px)",
           backgroundSize: "22px 22px",
         }}
       />
@@ -61,7 +78,10 @@ export default function OnboardingForm() {
         <div className="bg-white rounded-2xl shadow-md overflow-hidden">
           {/* Header */}
           <div className="px-8 py-12 sm:px-12 border-b border-gray-100">
-            <ProgressIndicator currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+            <ProgressIndicator
+              currentStep={currentStep}
+              totalSteps={TOTAL_STEPS}
+            />
           </div>
 
           {/* Content */}
@@ -74,25 +94,11 @@ export default function OnboardingForm() {
                 }`}
               >
                 {currentStep === 1 && (
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      웹사이트 URL을 입력하세요
-                    </h2>
-                    <p className="text-gray-600 text-sm mb-6">
-                      마케팅 진단을 시작하기 위해 분석할 웹사이트의 URL을 입력해주세요.
-                    </p>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        웹사이트 URL
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://example.com"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
-                        defaultValue=""
-                      />
-                    </div>
-                  </div>
+                  <StepUrl
+                    url={formData.url}
+                    onUrlChange={handleUrlChange}
+                    onNext={handleNextStep}
+                  />
                 )}
 
                 {currentStep === 2 && (
@@ -117,9 +123,11 @@ export default function OnboardingForm() {
                               className="w-4 h-4"
                               defaultChecked={industry === "전자상거래"}
                             />
-                            <span className="ml-3 text-gray-900">{industry}</span>
+                            <span className="ml-3 text-gray-900">
+                              {industry}
+                            </span>
                           </label>
-                        )
+                        ),
                       )}
                     </div>
                   </div>
@@ -149,7 +157,7 @@ export default function OnboardingForm() {
                             />
                             <span className="ml-3 text-gray-900">{size}</span>
                           </label>
-                        )
+                        ),
                       )}
                     </div>
                   </div>
