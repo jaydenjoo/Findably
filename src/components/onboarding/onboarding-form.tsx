@@ -10,6 +10,7 @@
 import { useState } from "react";
 import ProgressIndicator from "./progress-indicator";
 import StepUrl from "./step-url";
+import StepIndustry from "./step-industry";
 
 const TOTAL_STEPS = 3;
 
@@ -30,6 +31,10 @@ export default function OnboardingForm() {
 
   const handleUrlChange = (url: string) => {
     setFormData((prev) => ({ ...prev, url }));
+  };
+
+  const handleIndustryChange = (industry: string) => {
+    setFormData((prev) => ({ ...prev, industry }));
   };
 
   const handleNextStep = async () => {
@@ -102,35 +107,12 @@ export default function OnboardingForm() {
                 )}
 
                 {currentStep === 2 && (
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      업종을 선택하세요
-                    </h2>
-                    <p className="text-gray-600 text-sm mb-6">
-                      정확한 진단을 위해 업종을 선택해주세요.
-                    </p>
-                    <div className="space-y-3">
-                      {["전자상거래", "블로그", "서비스", "기타"].map(
-                        (industry) => (
-                          <label
-                            key={industry}
-                            className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition"
-                          >
-                            <input
-                              type="radio"
-                              name="industry"
-                              value={industry}
-                              className="w-4 h-4"
-                              defaultChecked={industry === "전자상거래"}
-                            />
-                            <span className="ml-3 text-gray-900">
-                              {industry}
-                            </span>
-                          </label>
-                        ),
-                      )}
-                    </div>
-                  </div>
+                  <StepIndustry
+                    industry={formData.industry}
+                    onIndustryChange={handleIndustryChange}
+                    onNext={handleNextStep}
+                    onPrev={handlePreviousStep}
+                  />
                 )}
 
                 {currentStep === 3 && (

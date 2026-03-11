@@ -214,11 +214,17 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 6.1, 6.2, 6.3_
   - _Status: COMPLETE - TDD methodology applied, all tests pass_
 
-- [ ] 4.3 (P) Build Step 2: Industry/category selector
-  - Create `src/components/onboarding/step-industry.tsx` with radio/select options: 전자상거래, 서비스, 블로그, 기타
-  - Store selection in component state
-  - Add "Previous" and "Next" buttons
+- [x] 4.3 (P) Build Step 2: Industry/category selector
+  - ✓ Created `src/components/onboarding/step-industry.tsx` with 5 industry options: 전자상거래, 블로그/미디어, SaaS/소프트웨어, 지역 비즈니스, 기타
+  - ✓ Store selection in component state with icons (ShoppingCart, FileText, Monitor, MapPin, Settings)
+  - ✓ Add "이전" (Previous) and "다음" (Next) buttons with proper styling
+  - ✓ Integrated into OnboardingForm with handleIndustryChange handler
+  - ✓ Added IndustryValidationSchema to `src/lib/validations/onboarding.ts`
+  - ✓ Comprehensive test suite: 20 tests all passing (366 total tests)
+  - ✓ Design system compliance: brand colors, rounded cards, hover effects, responsive grid (1 col mobile → 2 cols desktop)
+  - ✓ All quality gates passing: TypeScript strict, ESLint, production build
   - _Requirements: 6.4_
+  - _Status: COMPLETE - TDD methodology applied, component production-ready_
 
 - [ ] 4.4 (P) Build Step 3: Company size selector
   - Create `src/components/onboarding/step-company-size.tsx` with radio options: 1인, 소규모(2-10명), 중규모(11-50명)
