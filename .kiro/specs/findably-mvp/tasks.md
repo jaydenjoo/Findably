@@ -597,7 +597,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 28.1, 28.2, 28.3, 28.4, 28.5_
   - _Status: COMPLETE - TDD methodology applied, 30 tests all pass, production-ready, ready for dashboard integration_
 
-- [ ] 8.10 Implement re-diagnosis trigger and polling
+- [x] 8.10 Implement re-diagnosis trigger and polling
   - Add "재진단" button in dashboard header
   - On click: show confirmation ("진단이 최근 이루어졌습니다. 1시간 후에 다시 시도하세요" if <1 hour)
   - Trigger new crawl via `triggerCrawling()` Server Action
@@ -606,6 +606,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - Auto-refresh dashboard on completion
   - Show toast: "✓ 재진단 완료! 점수가 업데이트되었습니다"
   - _Requirements: 29.1, 29.2, 29.3, 29.4_
+  - _Status: COMPLETE - TDD methodology applied, 13 tests all pass (Server Actions + Hook + Component), state machine (idle → confirming → loading → complete/error), 1-hour cooldown enforced, auto-refresh integrated_
 
 ---
 

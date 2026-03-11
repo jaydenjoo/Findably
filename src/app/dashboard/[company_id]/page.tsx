@@ -1,10 +1,10 @@
-import { createClient } from '@/lib/supabase/server';
-import { createServiceDb } from '@/lib/db/client';
-import { eq } from 'drizzle-orm';
-import { companiesTable, diagnosesTable } from '@/db/schema';
-import { redirect } from 'next/navigation';
-import DashboardHeader from '@/components/dashboard/dashboard-header';
-import DashboardTabs from '@/components/dashboard/dashboard-tabs';
+import { createClient } from "@/lib/supabase/server";
+import { createServiceDb } from "@/lib/db/client";
+import { eq } from "drizzle-orm";
+import { companiesTable, diagnosesTable } from "@/db/schema";
+import { redirect } from "next/navigation";
+import DashboardHeader from "@/components/dashboard/dashboard-header";
+import DashboardTabs from "@/components/dashboard/dashboard-tabs";
 
 interface DashboardPageProps {
   params: {
@@ -22,7 +22,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   } = await supabase.auth.getUser();
 
   if (!user || userError) {
-    redirect('/login');
+    redirect("/login");
   }
 
   // Get database client
@@ -31,7 +31,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   // Convert company_id from string to number
   const companyId = Number(params.company_id);
   if (isNaN(companyId)) {
-    redirect('/dashboard');
+    redirect("/dashboard");
   }
 
   // Fetch company data with RLS
@@ -42,14 +42,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     .limit(1);
 
   if (!companyData || companyData.length === 0) {
-    redirect('/dashboard');
+    redirect("/dashboard");
   }
 
   const company = companyData[0];
 
   // Verify user owns this company
   if (company.userId !== user.id) {
-    redirect('/dashboard');
+    redirect("/dashboard");
   }
 
   // Fetch latest diagnosis
@@ -71,7 +71,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   let displayName = company.url;
   try {
     const urlObj = new URL(company.url);
-    displayName = urlObj.hostname.replace('www.', '');
+    displayName = urlObj.hostname.replace("www.", "");
   } catch {
     // If URL parsing fails, use the raw URL
   }
@@ -81,13 +81,16 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       <DashboardHeader
         companyName={displayName}
         url={company.url}
-        diagnosedAt={diagnosis.diagnosedAt?.toISOString() || new Date().toISOString()}
+        diagnosedAt={
+          diagnosis.diagnosedAt?.toISOString() || new Date().toISOString()
+        }
+        companyId={companyId}
       />
 
       <main className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <DashboardTabs
           score={Number(diagnosis.overallScore) || 0}
-          grade={(diagnosis.grade as 'A' | 'B' | 'C' | 'D' | 'F') || 'F'}
+          grade={(diagnosis.grade as "A" | "B" | "C" | "D" | "F") || "F"}
         />
       </main>
     </div>
