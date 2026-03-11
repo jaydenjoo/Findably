@@ -357,14 +357,18 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
   - _Status: COMPLETE - Parser tested and production-ready_
 
-- [ ] 6.3 (P) Build robots.txt and sitemap.xml parser
-  - Create `src/lib/parsing/sitemap-parser.ts` module
-  - Implement robots.txt parser: extract Disallow, Allow, User-agent, Crawl-delay rules
-  - Implement sitemap.xml parser: extract <loc>, <lastmod>, <changefreq>, <priority>
-  - Handle sitemap index files (sitemap_index.xml referencing multiple sitemaps)
-  - Return: { robotsTxtFound, robotsRules, sitemapUrls: [], sitemapCount, lastModified }
-  - Handle missing files: return { robotsTxtFound: false, sitemapUrls: [] }
+- [x] 6.3 (P) Build robots.txt and sitemap.xml parser
+  - ✓ Created `src/lib/parsing/sitemap-parser.ts` module
+  - ✓ Implemented robots.txt parser: extract Disallow, Allow, User-agent, Crawl-delay rules
+  - ✓ Implemented sitemap.xml parser: extract <loc>, <lastmod>, <changefreq>, <priority>
+  - ✓ Handle sitemap index files (sitemap_index.xml referencing multiple sitemaps)
+  - ✓ Return: { robotsTxtFound, robotsRules, sitemapUrls: [], sitemapCount, lastModified }
+  - ✓ Handle missing files: return { robotsTxtFound: false, sitemapUrls: [] }
+  - ✓ Comprehensive test suite: 32 tests passing (parseRobotsTxt + parseSitemapXml + edge cases)
+  - ✓ TypeScript strict mode, ESLint, and build checks all passing
+  - ✓ CDATA section handling with HTML entity decoding
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
+  - _Status: COMPLETE - Pure functions with no side effects, ready for integration_
 
 - [ ] 6.4 Create CMS detection module
   - Create `src/lib/parsing/cms-detector.ts` module
