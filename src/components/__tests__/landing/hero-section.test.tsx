@@ -54,8 +54,8 @@ describe('HeroSection', () => {
   it('should apply correct typography styles to title', () => {
     render(<HeroSection />);
     const h1 = screen.getByRole('heading', { level: 1 });
-    // Check for correct class names (Tailwind classes for 44-56px, weight 800)
-    expect(h1).toHaveClass('text-4xl', 'sm:text-5xl', 'lg:text-6xl');
+    // Check for correct class names (Tailwind classes for responsive sizing 30-60px, weight 900)
+    expect(h1).toHaveClass('text-3xl', 'sm:text-4xl', 'md:text-5xl', 'lg:text-6xl');
     expect(h1).toHaveClass('font-black', 'tracking-tighter');
   });
 

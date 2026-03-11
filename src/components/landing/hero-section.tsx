@@ -5,7 +5,7 @@ import { ArrowRight } from 'lucide-react';
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#fafbfc] to-white pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+    <section className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#fafbfc] to-white pt-20 sm:pt-24 lg:pt-32 pb-12 sm:pb-16 lg:pb-20 px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
       {/* Background blob with brand color at 5-10% opacity */}
       <div
         className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none"
@@ -42,7 +42,7 @@ export default function HeroSection() {
 
             {/* H1 Title */}
             <h1
-              className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter leading-tight animate-fade-in"
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-tight animate-fade-in"
               style={{ animationDelay: '0.2s', letterSpacing: '-0.03em' }}
             >
               <span className="text-gray-900">
@@ -72,7 +72,7 @@ export default function HeroSection() {
               {/* Primary CTA */}
               <Link
                 href="/signup"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold transition-all duration-200 hover:bg-blue-700 hover:shadow-lg hover:translate-y-[-2px] shadow-md"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-8 sm:py-3 rounded-lg bg-blue-600 text-white font-semibold transition-all duration-200 hover:bg-blue-700 hover:shadow-lg hover:translate-y-[-2px] shadow-md min-h-[44px]"
               >
                 무료 진단 시작하기 <ArrowRight className="w-4 h-4" />
               </Link>
@@ -80,7 +80,7 @@ export default function HeroSection() {
               {/* Secondary CTA */}
               <Link
                 href="#demo"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-semibold bg-white transition-all duration-200 hover:border-blue-600 hover:text-blue-600 hover:shadow-md hover:translate-y-[-2px]"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-8 sm:py-3 rounded-lg border border-gray-300 text-gray-700 font-semibold bg-white transition-all duration-200 hover:border-blue-600 hover:text-blue-600 hover:shadow-md hover:translate-y-[-2px] min-h-[44px]"
               >
                 데모 보기
               </Link>
@@ -88,7 +88,7 @@ export default function HeroSection() {
 
             {/* Trust metrics */}
             <div
-              className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 animate-fade-in"
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-4 animate-fade-in"
               style={{ animationDelay: '0.5s' }}
             >
               <div className="text-center sm:text-left">
@@ -108,7 +108,7 @@ export default function HeroSection() {
 
           {/* Right column: Hero illustration/screenshot placeholder */}
           <div
-            className="lg:col-span-6 animate-fade-in"
+            className="lg:col-span-6 animate-fade-in hidden lg:block"
             style={{ animationDelay: '0.3s' }}
             role="region"
             aria-label="Hero illustration"
