@@ -612,7 +612,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
 
 ### 9. Error Handling, Monitoring & Observability
 
-- [ ] 9.1 (P) Set up Sentry error tracking for frontend and backend
+- [x] 9.1 (P) Set up Sentry error tracking for frontend and backend
   - Install `@sentry/nextjs` package
   - Initialize Sentry in `src/instrumentation.ts` (Next.js instrumentation hook)
   - Configure environment: `process.env.SENTRY_DSN`

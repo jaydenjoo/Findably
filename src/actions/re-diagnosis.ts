@@ -12,6 +12,7 @@ import { createServiceDb } from '@/lib/db/client';
 import { diagnosesTable, companiesTable } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { triggerCrawling } from './crawl';
+import { addBreadcrumb, captureError } from '@/lib/logging/sentry';
 
 /**
  * Check if company can be re-diagnosed (last diagnosis >1 hour ago)
@@ -50,6 +51,9 @@ export async function checkCanReDiagnose(
   try {
     const validated = CheckCanReDiagnoseInputSchema.safeParse(companyId);
     if (!validated.success) {
+      addBreadcrumb('re-diagnosis', 'Input validation failed', {
+        error: '유효한 회사 ID를 제공하세요',
+      });
       return {
         success: false,
         data: {
@@ -70,6 +74,9 @@ export async function checkCanReDiagnose(
 
     if (latestDiagnosis.length === 0) {
       // No diagnosis yet, can re-diagnose immediately
+      addBreadcrumb('re-diagnosis', 'No previous diagnosis found', {
+        companyId: validated.data,
+      });
       return {
         success: true,
         data: {
@@ -87,6 +94,12 @@ export async function checkCanReDiagnose(
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
     const canReDiagnose = lastDiagnosedAt < oneHourAgo;
 
+    addBreadcrumb('re-diagnosis', 'Re-diagnosis eligibility checked', {
+      companyId: validated.data,
+      canReDiagnose,
+      lastDiagnosedAt,
+    });
+
     return {
       success: true,
       data: {
@@ -97,7 +110,11 @@ export async function checkCanReDiagnose(
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : '알 수 없는 오류';
-    console.error('checkCanReDiagnose error:', error);
+    captureError(error, {
+      action: 'checkCanReDiagnose',
+      phase: 'database_query',
+      companyId,
+    });
     return {
       success: false,
       data: {
@@ -147,6 +164,9 @@ export async function triggerReDiagnosis(
     // 1. Validate input
     const validated = TriggerReDiagnosisInputSchema.safeParse(companyId);
     if (!validated.success) {
+      addBreadcrumb('re-diagnosis', 'Input validation failed', {
+        error: '유효한 회사 ID를 제공하세요',
+      });
       return {
         success: false,
         data: {
@@ -156,6 +176,9 @@ export async function triggerReDiagnosis(
     }
 
     const companyIdNumber = validated.data;
+    addBreadcrumb('re-diagnosis', 'Re-diagnosis triggered', {
+      companyId: companyIdNumber,
+    });
 
     // 2. Check if re-diagnosis is allowed
     const checkResult = await checkCanReDiagnose(companyIdNumber);
@@ -169,6 +192,10 @@ export async function triggerReDiagnosis(
     }
 
     if (!checkResult.data.canReDiagnose) {
+      addBreadcrumb('re-diagnosis', 'Re-diagnosis rate limit exceeded', {
+        companyId: companyIdNumber,
+        lastDiagnosedAt: checkResult.data.lastDiagnosedAt,
+      });
       return {
         success: false,
         data: {
@@ -186,6 +213,9 @@ export async function triggerReDiagnosis(
       .where(eq(companiesTable.id, companyIdNumber));
 
     if (companies.length === 0) {
+      addBreadcrumb('re-diagnosis', 'Company not found', {
+        companyId: companyIdNumber,
+      });
       return {
         success: false,
         data: {
@@ -205,6 +235,10 @@ export async function triggerReDiagnosis(
     });
 
     if (!crawlResult.success) {
+      addBreadcrumb('re-diagnosis', 'Crawl trigger failed', {
+        companyId: companyIdNumber,
+        error: crawlResult.error,
+      });
       return {
         success: false,
         data: {
@@ -212,6 +246,10 @@ export async function triggerReDiagnosis(
         },
       };
     }
+
+    addBreadcrumb('re-diagnosis', 'Re-diagnosis completed', {
+      companyId: companyIdNumber,
+    });
 
     return {
       success: true,
@@ -222,7 +260,11 @@ export async function triggerReDiagnosis(
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : '알 수 없는 오류';
-    console.error('triggerReDiagnosis error:', error);
+    captureError(error, {
+      action: 'triggerReDiagnosis',
+      phase: 'unknown',
+      companyId,
+    });
     return {
       success: false,
       data: {

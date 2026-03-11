@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createServiceDb, companiesTable } from '@/lib/db/client';
 import { OnboardingFormSchema } from '@/lib/validations/onboarding';
 import { getN8nConfig } from '@/lib/config';
+import { addBreadcrumb, captureError } from '@/lib/logging/sentry';
 
 /**
  * Result type for successful submission
@@ -92,6 +93,9 @@ export async function submitOnboarding(
   const validation = OnboardingFormSchema.safeParse(input);
   if (!validation.success) {
     const errorMessage = validation.error.issues[0]?.message || '입력 정보를 확인하세요';
+    addBreadcrumb('onboarding', 'Validation failed', {
+      error: errorMessage,
+    });
     return {
       success: false,
       error: errorMessage,
@@ -106,6 +110,9 @@ export async function submitOnboarding(
     const { data: authData, error: authError } = await supabase.auth.getUser();
 
     if (authError || !authData.user) {
+      addBreadcrumb('onboarding', 'Authentication failed', {
+        error: authError?.message || 'No user found',
+      });
       return {
         success: false,
         error: '로그인이 필요합니다',
@@ -113,6 +120,7 @@ export async function submitOnboarding(
     }
 
     const userId = authData.user.id;
+    addBreadcrumb('onboarding', 'User authenticated', { userId });
 
     // Step 3: Create company record in database
     try {
@@ -128,6 +136,10 @@ export async function submitOnboarding(
         .returning();
 
       if (!result || result.length === 0) {
+        addBreadcrumb('onboarding', 'Database insert failed', {
+          userId,
+          url,
+        });
         return {
           success: false,
           error: '회사 정보를 저장할 수 없습니다. 다시 시도해주세요.',
@@ -135,6 +147,11 @@ export async function submitOnboarding(
       }
 
       const companyId = result[0].id;
+      addBreadcrumb('onboarding', 'Company created', {
+        companyId,
+        userId,
+        industry,
+      });
 
       // Step 4: Trigger n8n webhook (non-blocking, best-effort)
       const crawlTriggered = await triggerN8nWebhook(
@@ -143,6 +160,11 @@ export async function submitOnboarding(
         industry,
         companySize
       );
+
+      addBreadcrumb('onboarding', 'Onboarding completed', {
+        companyId,
+        crawlTriggered,
+      });
 
       return {
         success: true,
@@ -154,6 +176,7 @@ export async function submitOnboarding(
       const errorMessage = dbError instanceof Error ? dbError.message : '';
 
       if (errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint')) {
+        addBreadcrumb('onboarding', 'Duplicate company URL', { url });
         return {
           success: false,
           error: '이미 등록된 URL입니다. 대시보드에서 확인하세요.',
@@ -161,7 +184,11 @@ export async function submitOnboarding(
       }
 
       // Generic database error
-      console.error('Database error:', dbError);
+      captureError(dbError, {
+        action: 'submitOnboarding',
+        phase: 'database_insert',
+        url,
+      });
       return {
         success: false,
         error: '서버 오류가 발생했습니다. 다시 시도해주세요.',
@@ -169,7 +196,11 @@ export async function submitOnboarding(
     }
   } catch (error) {
     // Catch all other errors
-    console.error('Submission error:', error);
+    captureError(error, {
+      action: 'submitOnboarding',
+      phase: 'unknown',
+      url,
+    });
     return {
       success: false,
       error: '서버 오류가 발생했습니다. 다시 시도해주세요.',

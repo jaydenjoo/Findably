@@ -1,7 +1,8 @@
+'use server';
+
 /**
  * Diagnosis Server Action
  * 크롤링 결과를 기반으로 종합 진단 결과를 생성하고 저장합니다.
- * Server Action이므로 'use server' 필요 — 실제 구현 시 추가
  */
 
 import { z } from 'zod';
@@ -13,6 +14,7 @@ import {
 } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { runDiagnosisOrchestration } from '@/lib/diagnosis/orchestrator';
+import { addBreadcrumb, captureError } from '@/lib/logging/sentry';
 import type {
   CrawlResult,
   SchemaMarkupItem,
@@ -100,6 +102,9 @@ export async function runDiagnosis(input: RunDiagnosisInput): Promise<RunDiagnos
       const errorMessage = errorMessages.length > 0
         ? errorMessages.join(', ')
         : '입력 검증 실패';
+      addBreadcrumb('diagnosis', 'Input validation failed', {
+        error: errorMessage,
+      });
       return {
         success: false,
         data: {
@@ -109,6 +114,10 @@ export async function runDiagnosis(input: RunDiagnosisInput): Promise<RunDiagnos
     }
 
     const { companyId, crawlResultId } = validated.data;
+    addBreadcrumb('diagnosis', 'Diagnosis started', {
+      companyId,
+      crawlResultId,
+    });
 
     // 2. 크롤링 결과 조회
     const db = createServiceDb();
@@ -123,6 +132,10 @@ export async function runDiagnosis(input: RunDiagnosisInput): Promise<RunDiagnos
       );
 
     if (crawlResults.length === 0) {
+      addBreadcrumb('diagnosis', 'Crawl result not found', {
+        companyId,
+        crawlResultId,
+      });
       return {
         success: false,
         data: {
@@ -163,6 +176,10 @@ export async function runDiagnosis(input: RunDiagnosisInput): Promise<RunDiagnos
     });
 
     if (!orchestrationResult.success) {
+      addBreadcrumb('diagnosis', 'Orchestration failed', {
+        companyId,
+        error: orchestrationResult.data.error,
+      });
       return {
         success: false,
         data: {
@@ -172,6 +189,12 @@ export async function runDiagnosis(input: RunDiagnosisInput): Promise<RunDiagnos
     }
 
     const orchestrationData = orchestrationResult.data;
+    addBreadcrumb('diagnosis', 'Orchestration completed', {
+      companyId,
+      seoScore: orchestrationData.seoScore,
+      geoScore: orchestrationData.geoScore,
+      overallScore: orchestrationData.overallScore,
+    });
 
     // 4. 이전 진단 레코드의 is_latest = false로 업데이트 (트랜잭션 시작)
     await db
@@ -205,6 +228,9 @@ export async function runDiagnosis(input: RunDiagnosisInput): Promise<RunDiagnos
       .returning();
 
     if (insertedDiagnoses.length === 0) {
+      addBreadcrumb('diagnosis', 'Database insert failed', {
+        companyId,
+      });
       return {
         success: false,
         data: {
@@ -214,6 +240,11 @@ export async function runDiagnosis(input: RunDiagnosisInput): Promise<RunDiagnos
     }
 
     const diagnosisId = insertedDiagnoses[0].id;
+    addBreadcrumb('diagnosis', 'Diagnosis record created', {
+      companyId,
+      diagnosisId,
+      grade: orchestrationData.grade,
+    });
 
     // 6. Quick Win을 action_items 테이블에 삽입
     if (orchestrationData.quickWins && orchestrationData.quickWins.length > 0) {
@@ -249,6 +280,12 @@ export async function runDiagnosis(input: RunDiagnosisInput): Promise<RunDiagnos
     // 7. 최종 진단 레코드 반환
     const finalDiagnosis = insertedDiagnoses[0];
 
+    addBreadcrumb('diagnosis', 'Diagnosis completed', {
+      companyId,
+      diagnosisId,
+      grade: finalDiagnosis.grade,
+    });
+
     return {
       success: true,
       data: {
@@ -270,7 +307,11 @@ export async function runDiagnosis(input: RunDiagnosisInput): Promise<RunDiagnos
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '알 수 없는 에러가 발생했습니다';
-    console.error('runDiagnosis error:', error);
+    captureError(error, {
+      action: 'runDiagnosis',
+      phase: 'unknown',
+      companyId: (input as unknown as { companyId?: unknown })?.companyId,
+    });
     return {
       success: false,
       data: {

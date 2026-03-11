@@ -12,6 +12,7 @@
 
 import { z } from 'zod';
 import { getN8nConfig } from '@/lib/config';
+import { addBreadcrumb, captureError } from '@/lib/logging/sentry';
 
 /**
  * Input validation schema for triggerCrawling
@@ -36,6 +37,7 @@ const TriggerCrawlingSchema = z.object({
 });
 
 type TriggerCrawlingInput = z.infer<typeof TriggerCrawlingSchema>;
+// Note: TriggerCrawlingInput is used for documentation and schema inference
 
 /**
  * Success response for triggerCrawling
@@ -88,17 +90,29 @@ export async function triggerCrawling(
   const validation = TriggerCrawlingSchema.safeParse(input);
   if (!validation.success) {
     const errorMessage = validation.error.issues[0]?.message || '입력 정보를 확인하세요';
+    addBreadcrumb('crawl', 'Input validation failed', {
+      error: errorMessage,
+    });
     return {
       success: false,
       error: errorMessage,
     };
   }
 
+  addBreadcrumb('crawl', 'Crawl triggered', {
+    companyId: validation.data.company_id,
+    url: validation.data.url,
+    industry: validation.data.industry,
+  });
+
   try {
     // Step 2: Get n8n webhook URL from environment
     const config = getN8nConfig();
 
     if (!config.webhookBaseUrl) {
+      addBreadcrumb('crawl', 'Webhook URL not configured', {
+        companyId: validation.data.company_id,
+      });
       return {
         success: false,
         error: 'N8N_WEBHOOK_URL 환경변수가 설정되지 않았습니다',
@@ -127,14 +141,13 @@ export async function triggerCrawling(
 
     // Step 6: Check response status
     if (!response.ok) {
-      const errorText = await response.text();
+      // Consume response to prevent warnings
+      await response.text();
       const errorMessage = `n8n 웹훅 호출 실패: 상태 ${response.status}`;
 
-      // Log to console for debugging (Sentry will be added in future)
-      console.error('n8n webhook error:', {
-        url: webhookUrl,
+      addBreadcrumb('crawl', 'Webhook call failed', {
+        companyId: validation.data.company_id,
         status: response.status,
-        body: errorText,
       });
 
       return {
@@ -144,6 +157,10 @@ export async function triggerCrawling(
     }
 
     // Step 7: Return success
+    addBreadcrumb('crawl', 'Crawl started successfully', {
+      companyId: validation.data.company_id,
+    });
+
     return {
       success: true,
       message: 'n8n 크롤링이 시작되었습니다',
@@ -152,11 +169,10 @@ export async function triggerCrawling(
     // Handle unexpected errors
     const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
 
-    // Log to console for debugging (Sentry will be added in future)
-    console.error('triggerCrawling error:', {
+    captureError(error, {
       action: 'triggerCrawling',
       phase: 'webhook_call',
-      error: errorMessage,
+      companyId: validation.data.company_id,
     });
 
     return {
