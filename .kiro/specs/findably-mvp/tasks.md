@@ -530,13 +530,14 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - Use Next.js Image for any visual assets
   - _Requirements: 24.1, 24.2, 24.3, 24.4, 24.5_
 
-- [ ] 8.5 (P) Build category score cards (SEO/GEO/Performance/AI)
+- [x] 8.5 (P) Build category score cards (SEO/GEO/Performance/AI)
   - Create `src/components/dashboard/score-cards.tsx` component
   - Display 4 cards in grid: SEO (35%), GEO (35%), Performance (20%), AI (10%)
   - Each card: score/100, progress bar, weight percentage
   - Add expandable detail: click to show sub-items (e.g., Title ✓, Description ✓, H1 ✗)
   - Color coding: green (pass), red (fail)
   - _Requirements: 24.3, 24.4_
+  - _Status: COMPLETE - 33 tests passing, TDD implementation with expandable details, ARIA accessibility, responsive grid, color-coded progress bars, status icons for pass/partial/fail_
 
 - [ ] 8.6 (P) Build action items list with prioritization and filtering
   - Create `src/components/dashboard/action-items-list.tsx` component
