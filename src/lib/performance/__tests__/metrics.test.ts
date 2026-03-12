@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   reportWebVitals,
   PERFORMANCE_CONFIG,
+  type WebVitalsMetric,
 } from '../metrics';
 
 describe('Performance Metrics', () => {
@@ -9,7 +10,7 @@ describe('Performance Metrics', () => {
     it('should log Core Web Vitals metric', () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-      const metric = {
+      const metric: WebVitalsMetric = {
         name: 'LCP',
         value: 1200,
         rating: 'good',
@@ -34,7 +35,7 @@ describe('Performance Metrics', () => {
     it('should report FCP metric', () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-      const metric = {
+      const metric: WebVitalsMetric = {
         name: 'FCP',
         value: 1400,
         rating: 'good',
@@ -51,7 +52,7 @@ describe('Performance Metrics', () => {
     it('should report CLS metric', () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-      const metric = {
+      const metric: WebVitalsMetric = {
         name: 'CLS',
         value: 0.05,
         rating: 'good',
@@ -68,7 +69,7 @@ describe('Performance Metrics', () => {
     it('should handle poor ratings', () => {
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const metric = {
+      const metric: WebVitalsMetric = {
         name: 'LCP',
         value: 3500,
         rating: 'poor',
@@ -114,7 +115,7 @@ describe('Performance Metrics', () => {
     it('should support metric with all required fields', () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-      const metric = {
+      const metric: WebVitalsMetric = {
         name: 'FCP',
         value: 1200,
         rating: 'good',
@@ -131,7 +132,7 @@ describe('Performance Metrics', () => {
     it('should handle different metric types', () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-      const metrics = [
+      const metrics: WebVitalsMetric[] = [
         {
           name: 'LCP',
           value: 1200,

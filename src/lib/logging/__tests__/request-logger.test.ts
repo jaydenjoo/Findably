@@ -22,7 +22,7 @@ describe('request-logger', () => {
         values: vi.fn().mockResolvedValue(undefined),
       });
       const mockDb = { insert: mockInsert };
-      (createServiceDb as any).mockReturnValue(mockDb);
+      (createServiceDb as unknown as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
       const logData: RequestLogData = {
         timestamp: new Date('2026-03-12T10:00:00Z'),
@@ -47,7 +47,7 @@ describe('request-logger', () => {
         values: vi.fn().mockResolvedValue(undefined),
       });
       const mockDb = { insert: mockInsert };
-      (createServiceDb as any).mockReturnValue(mockDb);
+      (createServiceDb as unknown as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
       const logData: RequestLogData = {
         timestamp: new Date('2026-03-12T10:00:00Z'),
@@ -72,7 +72,7 @@ describe('request-logger', () => {
         values: vi.fn().mockResolvedValue(undefined),
       });
       const mockDb = { insert: mockInsert };
-      (createServiceDb as any).mockReturnValue(mockDb);
+      (createServiceDb as unknown as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
       const logData: RequestLogData = {
         timestamp: new Date('2026-03-12T10:00:00Z'),
@@ -97,7 +97,7 @@ describe('request-logger', () => {
         values: vi.fn().mockRejectedValue(new Error('DB error')),
       });
       const mockDb = { insert: mockInsert };
-      (createServiceDb as any).mockReturnValue(mockDb);
+      (createServiceDb as unknown as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
       const logData: RequestLogData = {
         timestamp: new Date('2026-03-12T10:00:00Z'),
@@ -121,7 +121,7 @@ describe('request-logger', () => {
         values: vi.fn().mockResolvedValue(undefined),
       });
       const mockDb = { insert: mockInsert };
-      (createServiceDb as any).mockReturnValue(mockDb);
+      (createServiceDb as unknown as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
       const methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
 
@@ -150,7 +150,7 @@ describe('request-logger', () => {
         values: vi.fn().mockResolvedValue(undefined),
       });
       const mockDb = { insert: mockInsert };
-      (createServiceDb as any).mockReturnValue(mockDb);
+      (createServiceDb as unknown as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
 
       const statusCodes = [200, 201, 400, 401, 403, 404, 500, 502, 503];
 

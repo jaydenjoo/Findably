@@ -32,3 +32,5 @@ export function robots(): MetadataRoute.Robots {
     sitemap: `${APP_URL}/sitemap.xml`,
   };
 }
+
+export default robots;

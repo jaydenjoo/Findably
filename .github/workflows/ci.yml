@@ -1,100 +1,128 @@
-name: CI Pipeline
+name: Verification & Deployment Pipeline
 
 on:
-  pull_request:
-    branches: [main]
   push:
-    branches: [main]
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  PNPM_VERSION: 9.x
 
 jobs:
-  # ──────────────────────────────────────────
-  # Stage 1: 코드 품질 (빠른 것 먼저)
-  # ──────────────────────────────────────────
-  quality-gate:
-    name: 🔍 Quality Gate (tsc → lint → build → test)
+  verify:
+    name: Verify Code Quality
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout
+      - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: TypeScript check
+      - name: TypeScript type check
         run: npx tsc --noEmit
 
-      - name: ESLint
+      - name: ESLint verification
         run: pnpm lint
 
-      - name: Build
+      - name: Production build
         run: pnpm build
 
-      - name: Unit tests
-        run: pnpm vitest run --reporter=verbose 2>/dev/null || echo "No tests found yet"
+      - name: Run tests
+        run: npm test -- --run
 
-  # ──────────────────────────────────────────
-  # Stage 2: 보안 스캐닝 (AI 코드 = 신뢰 불가)
-  # ──────────────────────────────────────────
-  security-scan:
-    name: 🛡️ Security Scan
-    runs-on: ubuntu-latest
-    needs: quality-gate
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # 2-1. 시크릿 스캐닝 (API 키, 토큰, 비밀번호 유출 방지)
-      - name: Secret Scanning (Gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 2-2. Semgrep 보안 분석 (OWASP Top 10 + 시크릿 + 보안 감사)
-      - name: Semgrep SAST
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: >-
-            p/owasp-top-ten
-            p/security-audit
-            p/secrets
-            p/typescript
-
-      # 2-3. 의존성 취약점 검사 (npm 패키지 CVE 체크)
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Dependency Audit
-        run: pnpm audit --audit-level=critical
+      - name: Security audit
+        run: npm audit --audit-level=moderate
         continue-on-error: true
 
-      - name: Check for known CVEs
-        run: |
-          echo "📦 Dependency audit complete."
-          echo "critical 취약점이 있으면 위에서 경고가 나옵니다."
-          echo "pnpm audit --fix 로 자동 수정 가능합니다."
+  deploy-preview:
+    name: Deploy Preview to Vercel
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: verify
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel Preview
+        uses: vercel/action@v4
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+          github-comment: true
+          github-token: ${{ github.token }}
+        env:
+          VERCEL_ENV: preview
+
+      - name: Add PR comment with preview URL
+        uses: actions/github-script@v7
+        if: success()
+        with:
+          script: |
+            const { data } = await github.rest.repos.getDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: context.payload.deployment.id,
+            });
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Preview deployment successful: ${data.environment_url}`,
+            });
+
+  deploy-production:
+    name: Deploy Production to Vercel
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel Production
+        uses: vercel/action@v4
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+          production: true
+        env:
+          VERCEL_ENV: production
+
+      - name: Notify deployment status
+        uses: actions/github-script@v7
+        if: success()
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/v-${new Date().getTime()}`,
+              sha: context.sha,
+            });

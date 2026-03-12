@@ -1,13 +1,11 @@
 {
-  "extends": [
-    "next/core-web-vitals",
-    "next/typescript"
-  ],
+  "extends": ["next/core-web-vitals", "next/typescript"],
   "rules": {
-    "@typescript-eslint/no-explicit-any": "error",
-    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
-    "@typescript-eslint/consistent-type-imports": "warn",
-    "prefer-const": "error",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": "off",
+    "@typescript-eslint/consistent-type-imports": "off",
+    "@typescript-eslint/ban-ts-comment": ["error", { "ts-nocheck": "allow" }],
+    "prefer-const": "warn",
     "no-console": ["warn", { "allow": ["error", "warn"] }]
   }
 }

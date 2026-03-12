@@ -40,12 +40,6 @@ const nextConfig: NextConfig = {
 
   // React strict mode for development
   reactStrictMode: true,
-
-  // 국제화 설정 (한국어 기본)
-  i18n: {
-    locales: ["ko"],
-    defaultLocale: "ko",
-  },
 };
 
 export default withSentryConfig(nextConfig, {

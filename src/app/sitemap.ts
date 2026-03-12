@@ -36,3 +36,5 @@ export async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return publicSitemapEntries;
 }
+
+export default sitemap;

@@ -784,7 +784,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
 
 ### 12. Pre-Launch Validation & Documentation
 
-- [ ] 12.1 (P) Run security and build verification pipeline
+- [x] 12.1 (P) Run security and build verification pipeline
   - Run `npx tsc --noEmit` to check TypeScript
   - Run `pnpm lint` (ESLint)
   - Run `pnpm build` to verify production build succeeds

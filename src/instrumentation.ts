@@ -12,8 +12,8 @@ export async function register(): Promise<void> {
     validateEnv();
   } catch (error) {
     console.error("❌ 환경변수 검증 실패:", error);
-    // 프로덕션 환경에서는 애플리케이션 시작 중단
-    if (process.env.NODE_ENV === "production") {
+    // 프로덕션 환경에서는 애플리케이션 시작 중단 (Node.js 런타임에서만)
+    if (process.env.NODE_ENV === "production" && process.env.NEXT_RUNTIME === "nodejs") {
       process.exit(1);
     }
   }
