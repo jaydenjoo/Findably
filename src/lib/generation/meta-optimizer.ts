@@ -169,7 +169,7 @@ URL: ${input.url}
 위 정보를 분석하고 JSON 형식의 최적화 제안을 제공하세요.`;
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: config.model,
       max_tokens: 1024,
       system: systemPrompt,
       messages: [
