@@ -201,7 +201,7 @@ Vercel Dashboard → Deployments 탭 → 최신 배포 선택
 
 ---
 
-## Phase 2: 커스텀 도메인 연결 (선택사항)
+## Phase 2: 커스텀 도메인 연결 (필수)
 
 ### 2.1 도메인 구입
 
@@ -211,43 +211,204 @@ Vercel Dashboard → Deployments 탭 → 최신 배포 선택
 findably.com (또는 원하는 도메인)
 ```
 
+**레지스트라 선택 가이드:**
+
+| 서비스         | 특징                          | 비용    |
+| -------------- | ----------------------------- | ------- |
+| **Namecheap**  | 저렴, 관리 UI 직관적          | $8/년~  |
+| **Route53**    | AWS 통합, DNS 자동화 우수     | $0.5/월 |
+| **Cloudflare** | 무료 DNS, CDN 통합, DDoS 보호 | 무료~   |
+| **GoDaddy**    | 초보자 친화적, 24/7 지원      | $12/년~ |
+
 ### 2.2 Vercel에 도메인 추가
 
+#### 방법 1: Vercel DNS 사용 (권장)
+
 ```
-Vercel Dashboard → Settings → Domains
-→ "Add Domain"
-→ "findably.com" 입력
+1. Vercel Dashboard → Settings → Domains
+2. "Add Domain" 클릭
+3. "findably.com" 입력
+4. "Add" 클릭
+5. Vercel이 자동으로 DNS 레코드 생성
+```
+
+**장점:** 자동 SSL, 간편한 관리, 도메인 레지스트라에서 Nameserver만 변경
+
+#### 방법 2: 기존 DNS 제공자 유지 (CNAME)
+
+```
+1. Vercel Dashboard → Settings → Domains
+2. "findably.com" 입력 후 "Add"
+3. Vercel이 제공하는 CNAME 값 복사
+4. 도메인 레지스트라의 DNS 설정으로 이동
 ```
 
 ### 2.3 DNS 레코드 설정
 
-Vercel이 제공하는 CNAME 값을 도메인 레지스트라의 DNS에 추가:
+#### 옵션 A: Vercel Nameserver로 변경 (권장)
+
+도메인 레지스트라의 Nameserver 설정 변경:
 
 ```
-도메인: findably.com
-Type: CNAME
-Target: cname.vercel-dns.com
-TTL: 3600
-```
-
-**또는 Vercel이 제공한 Nameserver 사용:**
-
-```
-기존 nameserver 교체:
+기존 nameserver → Vercel의 nameserver로 변경:
 ns1.vercel-dns.com
 ns2.vercel-dns.com
 ```
 
+**단계:**
+
+```
+1. 도메인 레지스트라 대시보드 접속
+2. DNS / Nameserver 설정 찾기
+3. 기존 nameserver 삭제
+4. Vercel nameserver 추가
+5. 변경사항 저장
+6. DNS 전파 대기 (5분~48시간)
+```
+
+**예시 (Namecheap):**
+
+```
+Namecheap Dashboard
+→ Domain List
+→ Manage (해당 도메인)
+→ Nameservers
+→ "Custom DNS" 선택
+→ ns1.vercel-dns.com 추가
+→ ns2.vercel-dns.com 추가
+→ Save
+```
+
+#### 옵션 B: CNAME 레코드 추가 (기존 DNS 제공자 유지)
+
+```
+레코드 타입: CNAME
+호스트명: @ (또는 www)
+값: cname.vercel-dns.com
+TTL: 3600 (또는 auto)
+```
+
 ### 2.4 SSL 인증서 자동 발급
 
-```
-Vercel이 Let's Encrypt를 통해 자동으로 SSL 인증서 발급 및 갱신
-```
-
-**확인:**
+Vercel은 Let's Encrypt를 통해 자동으로 SSL 인증서를 발급하고 갱신합니다:
 
 ```
-https://findably.com (자동 HTTPS 활성화)
+특징:
+✓ 자동 발급 (일반적으로 10분 이내)
+✓ 자동 갱신 (만료 30일 전)
+✓ 와일드카드 지원 (*.findably.com)
+✓ 추가 비용 없음
+```
+
+**확인 단계:**
+
+```
+1. Vercel Dashboard → Settings → Domains
+2. 도메인 상태 확인 (Verifying... → Valid)
+3. https://findably.com 접속
+4. 브라우저 주소창의 자물쇠 아이콘 확인
+```
+
+### 2.5 DNS 전파 확인
+
+DNS 변경사항이 전 세계에 전파되는 데 시간이 걸립니다:
+
+```bash
+# DNS 전파 상태 확인 (여러 방법)
+
+# 방법 1: nslookup 사용
+nslookup findably.com
+
+# 방법 2: dig 사용
+dig findably.com
+
+# 방법 3: Online DNS Checker 사용
+https://dnschecker.org
+```
+
+**예상 결과:**
+
+```
+findably.com → ns1.vercel-dns.com / ns2.vercel-dns.com 포인팅
+```
+
+### 2.6 환경변수 업데이트
+
+Vercel에 배포된 애플리케이션의 환경변수 업데이트:
+
+```
+Vercel Dashboard → Settings → Environment Variables
+→ NEXT_PUBLIC_APP_URL 수정
+```
+
+**변경 전:**
+
+```
+NEXT_PUBLIC_APP_URL=https://findably-production.vercel.app
+```
+
+**변경 후:**
+
+```
+NEXT_PUBLIC_APP_URL=https://findably.com
+```
+
+**적용:**
+
+```
+1. 환경변수 저장
+2. Vercel Dashboard → Deployments
+3. 최신 배포 우측의 "..." 클릭
+4. "Redeploy" 선택
+5. 재배포 완료 대기
+```
+
+### 2.7 도메인 연결 확인
+
+#### 1단계: 기본 접근성 테스트
+
+```bash
+# HTTPS 접근 테스트
+curl -I https://findably.com
+
+# 예상 응답:
+# HTTP/2 200
+# content-type: text/html; charset=utf-8
+```
+
+#### 2단계: SSL 인증서 확인
+
+```bash
+# SSL 인증서 정보 확인
+openssl s_client -connect findably.com:443
+
+# 또는 온라인 도구:
+# https://www.ssl-shopper.com/ssl-checker.html
+```
+
+#### 3단계: 메타데이터 확인
+
+```
+1. https://findably.com 접속
+2. 브라우저 DevTools → Network 탭
+3. 첫 요청 (GET /) 선택
+4. Headers 탭에서 다음 확인:
+   - Server: Vercel
+   - X-Powered-By: Next.js
+   - content-type: text/html
+```
+
+#### 4단계: SEO 검증
+
+```
+1. Google Search Console 접속
+   https://search.google.com/search-console
+2. 도메인 추가
+3. robots.txt 확인
+   https://findably.com/robots.txt
+4. sitemap.xml 확인
+   https://findably.com/sitemap.xml
+5. 인덱싱 요청 (Google → "Request Indexing")
 ```
 
 ---

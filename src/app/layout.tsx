@@ -2,6 +2,15 @@ import type { Metadata } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import { SentryProvider } from "@/components/sentry-provider";
 import { PostHogProviderComponent } from "@/components/posthog-provider";
+import {
+  APP_NAME,
+  APP_URL,
+  APP_DESCRIPTION,
+  APP_TAGLINE,
+  DEFAULT_METADATA,
+  DEFAULT_OG_METADATA,
+  DEFAULT_TWITTER_METADATA,
+} from "@/constants/app";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -16,14 +25,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Findably — AI 마케팅 자동화 플랫폼",
-  description:
-    "URL 하나로 마케팅 전체를 진단받으세요. AI가 SEO, 콘텐츠, 검색 노출을 분석하고 즉시 실행 가능한 개선안을 제공합니다.",
-  keywords: ["마케팅", "SEO", "AI", "자동화", "진단"],
+  metadataBase: new URL(APP_URL),
+  title: DEFAULT_METADATA.title,
+  description: DEFAULT_METADATA.description,
+  keywords: DEFAULT_METADATA.keywords,
   openGraph: {
-    title: "Findably — AI 마케팅 자동화 플랫폼",
-    description: "URL 하나로 마케팅 전체를 진단받으세요",
-    type: "website",
+    title: DEFAULT_OG_METADATA.title,
+    description: DEFAULT_OG_METADATA.description,
+    type: DEFAULT_OG_METADATA.type as "website",
+    locale: DEFAULT_OG_METADATA.locale,
+    url: APP_URL,
+  },
+  twitter: {
+    card: DEFAULT_TWITTER_METADATA.card as "summary_large_image",
+    title: DEFAULT_TWITTER_METADATA.title,
+    description: DEFAULT_TWITTER_METADATA.description,
+  },
+  alternates: {
+    canonical: APP_URL,
   },
 };
 
@@ -44,14 +63,8 @@ export default function RootLayout({
           href="https://<NEXT_PUBLIC_SUPABASE_URL>"
           crossOrigin="anonymous"
         />
-        <link
-          rel="dns-prefetch"
-          href="https://api.anthropic.com"
-        />
-        <link
-          rel="dns-prefetch"
-          href="https://cdn.posthog.com"
-        />
+        <link rel="dns-prefetch" href="https://api.anthropic.com" />
+        <link rel="dns-prefetch" href="https://cdn.posthog.com" />
         <link
           rel="dns-prefetch"
           href="https://o<SENTRY_ORG_ID>.ingest.sentry.io"
