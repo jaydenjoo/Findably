@@ -1,7 +1,81 @@
+# Gitleaks 설정
+# 소스 코드에 하드코딩된 비밀정보를 감지합니다.
+# https://github.com/gitleaks/gitleaks
+
+title = "Findably Secret Detection Configuration"
+
+# 기본 규칙 활성화
+[rules]
+# Anthropic API Key
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API Key"
+regex = '''sk-ant-[a-zA-Z0-9_-]{48}'''
+tags = ["api-key", "anthropic"]
+entropy = 3.5
+
+# Supabase Service Role Key (long base64)
+[[rules]]
+id = "supabase-service-key"
+description = "Supabase Service Role Key"
+regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+'''
+tags = ["api-key", "supabase"]
+
+# Generic API Key patterns
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key in comments or code"
+regex = '''(API_KEY|api_key|apiKey)\s*=\s*['\"]([a-zA-Z0-9_-]{20,})['\"]'''
+tags = ["api-key", "secret"]
+
+# N8N API Key
+[[rules]]
+id = "n8n-api-key"
+description = "N8N API Key or Webhook URL"
+regex = '''n8n_[a-zA-Z0-9_-]{40}|https://[^/]+/webhook'''
+tags = ["api-key", "automation"]
+
+# Google API Key
+[[rules]]
+id = "google-api-key"
+description = "Google API Key"
+regex = '''AIza[0-9A-Za-z\-_]{35}'''
+tags = ["api-key", "google"]
+
+# PostgreSQL Connection String
+[[rules]]
+id = "postgres-connection"
+description = "PostgreSQL Database Connection String"
+regex = '''postgresql://[^:]+:[^@]+@[^/]+/\w+'''
+tags = ["database", "credential"]
+
+# Generic password patterns
+[[rules]]
+id = "password-assignment"
+description = "Possible password assignment"
+regex = '''(password|passwd|pwd)\s*[=:]\s*['\"]([^'\"]+)['\"]'''
+tags = ["credential", "password"]
+
+# Allowlist configuration
 [allowlist]
+  # 이 파일들은 테스트 비용, 문서용이므로 제외
   paths = [
-    ".env.example",
-    ".env.sample",
-    "*.test.*",
-    "*.spec.*"
+    "\.env\.example$",
+    "\.env\.sample$",
+    "docs/secrets-management\.md$",
+    ".*\.test\.(ts|js)$",
+    ".*\.spec\.(ts|js)$",
+    "src/lib/__tests__/.*",
+    "__tests__/.*",
+    "\.test\..*"
+  ]
+
+  # Allowlist specific regexes for known safe patterns
+  regexes = [
+    "placeholder|example|test|demo|mock|your_.*_here",
+    "test-.*-key|demo-.*-token",
+    "https://test\.",
+    "https://example\.",
+    "postgresql://.*localhost.*",
+    "sk-test-.*"  # Test keys from various services
   ]

@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { getEnvConfig } from './lib/env';
 
 /**
  * Middleware for Supabase authentication and route protection
@@ -10,9 +11,12 @@ export async function middleware(request: NextRequest) {
     request,
   });
 
+  // 환경변수 검증된 설정 로드
+  const config = getEnvConfig();
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    config.supabase.url,
+    config.supabase.anonKey,
     {
       cookies: {
         getAll() {
