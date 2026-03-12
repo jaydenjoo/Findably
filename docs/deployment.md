@@ -9,13 +9,13 @@
 
 Findably는 다음 인프라로 구성됩니다:
 
-| 컴포넌트 | 배포 대상 | 목적 |
-|---------|---------|------|
-| **Next.js 15 Frontend** | Vercel | 사용자 인터페이스 |
-| **Supabase PostgreSQL** | Supabase Cloud | 데이터베이스 |
-| **n8n Automation** | Railway | 크롤링 워크플로우 |
-| **Sentry** | Sentry Cloud | 에러 모니터링 |
-| **PostHog** | PostHog Cloud | 사용자 분석 |
+| 컴포넌트                | 배포 대상      | 목적              |
+| ----------------------- | -------------- | ----------------- |
+| **Next.js 15 Frontend** | Vercel         | 사용자 인터페이스 |
+| **Supabase PostgreSQL** | Supabase Cloud | 데이터베이스      |
+| **n8n Automation**      | Railway        | 크롤링 워크플로우 |
+| **Sentry**              | Sentry Cloud   | 에러 모니터링     |
+| **PostHog**             | PostHog Cloud  | 사용자 분석       |
 
 ---
 
@@ -24,6 +24,7 @@ Findably는 다음 인프라로 구성됩니다:
 ### 1.1 사전 준비
 
 **필수 사항:**
+
 - GitHub 저장소 (이미 푸시됨)
 - Vercel 계정 (vercel.com 가입)
 - 모든 환경변수 준비 (아래 참조)
@@ -49,6 +50,7 @@ Install Command: pnpm install --frozen-lockfile (vercel.json에서 자동 감지
 ```
 
 **Screenshot 예시:**
+
 - Framework: Next.js
 - Build Settings 체크 → 자동 감지됨 (vercel.json 참조)
 
@@ -62,7 +64,8 @@ Settings → Environment Variables 탭
 
 다음 환경변수를 추가합니다 (**모두 필수**):
 
-**공개 변수 (NEXT_PUBLIC_):**
+**공개 변수 (NEXT*PUBLIC*):**
+
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi... (Supabase에서 복사)
@@ -73,6 +76,7 @@ NEXT_PUBLIC_POSTHOG_HOST=https://us.posthog.com
 ```
 
 **비공개 변수 (서버 측 환경):**
+
 ```
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi... (Supabase 대시보드에서 복사)
 DATABASE_URL=postgresql://... (Supabase Connection String)
@@ -84,6 +88,7 @@ SENTRY_AUTH_TOKEN=sntrys_... (Sentry에서 복사)
 ```
 
 **Environment 선택:**
+
 - `Production`: 모든 환경변수
 - `Preview`: 위와 동일 (테스트 용도)
 - `Development`: 로컬 개발용 (`.env.local` 사용, Vercel 불필요)
@@ -91,6 +96,7 @@ SENTRY_AUTH_TOKEN=sntrys_... (Sentry에서 복사)
 #### 각 환경변수 값 확보 방법
 
 **Supabase:**
+
 ```
 1. https://supabase.com/dashboard 접속
 2. 프로젝트 선택
@@ -102,6 +108,7 @@ SENTRY_AUTH_TOKEN=sntrys_... (Sentry에서 복사)
 ```
 
 **Anthropic API:**
+
 ```
 1. https://console.anthropic.com 접속
 2. API Keys 탭
@@ -109,6 +116,7 @@ SENTRY_AUTH_TOKEN=sntrys_... (Sentry에서 복사)
 ```
 
 **Google PageSpeed Insights API:**
+
 ```
 1. https://console.cloud.google.com 접속
 2. APIs & Services → Enabled APIs
@@ -118,6 +126,7 @@ SENTRY_AUTH_TOKEN=sntrys_... (Sentry에서 복사)
 ```
 
 **Sentry:**
+
 ```
 1. https://sentry.io/auth/login 접속
 2. 조직 및 프로젝트 선택
@@ -129,6 +138,7 @@ SENTRY_AUTH_TOKEN=sntrys_... (Sentry에서 복사)
 ```
 
 **PostHog:**
+
 ```
 1. https://app.posthog.com 접속
 2. Project Settings → API Keys
@@ -146,6 +156,7 @@ Deploy on Push: Enabled (기본값)
 ```
 
 **동작:**
+
 - `git push origin main` → 자동으로 Vercel에서 빌드 및 배포
 - 빌드 실패 시 GitHub에 체크 표시 (빨강)
 - 빌드 성공 시 GitHub에 배포됨 표시 (녹색)
@@ -158,6 +169,7 @@ Preview URL: https://findably-[branch-name].vercel.app
 ```
 
 **사용:**
+
 ```bash
 git checkout -b feature/add-schema-generation
 git push origin feature/add-schema-generation
@@ -174,6 +186,7 @@ Vercel Dashboard → Deployments 탭 → 최신 배포 선택
 ```
 
 **성공 기준:**
+
 ```
 ✓ Build completed successfully
 ✓ 크기: ~1-2 MB (Next.js 최적화)
@@ -181,6 +194,7 @@ Vercel Dashboard → Deployments 탭 → 최신 배포 선택
 ```
 
 **실패 시:**
+
 - **TypeScript 에러**: `pnpm build` 로컬에서 실행 후 수정
 - **테스트 실패**: 없음 (빌드 파이프라인에 포함 안 됨)
 - **환경변수 누락**: Vercel Dashboard에서 환경변수 다시 확인
@@ -231,6 +245,7 @@ Vercel이 Let's Encrypt를 통해 자동으로 SSL 인증서 발급 및 갱신
 ```
 
 **확인:**
+
 ```
 https://findably.com (자동 HTTPS 활성화)
 ```
@@ -264,6 +279,7 @@ https://pagespeed.web.dev 에서 도메인 입력
 ```
 
 **기준:**
+
 - First Contentful Paint (FCP): < 1.5초
 - Largest Contentful Paint (LCP): < 2.5초
 - Cumulative Layout Shift (CLS): < 0.1
@@ -272,20 +288,23 @@ https://pagespeed.web.dev 에서 도메인 입력
 ### 3.3 환경변수 검증
 
 **프론트엔드에서 사용 가능:**
+
 ```javascript
 // 클라이언트 컴포넌트에서만 가능
-console.log(process.env.NEXT_PUBLIC_SUPABASE_URL) // ✓ 표시됨
+console.log(process.env.NEXT_PUBLIC_SUPABASE_URL); // ✓ 표시됨
 ```
 
 **서버 컴포넌트에서만:**
+
 ```javascript
 // Server Component / API Route에서만 가능
-console.log(process.env.ANTHROPIC_API_KEY) // ✓ 표시됨 (클라이언트에는 숨김)
+console.log(process.env.ANTHROPIC_API_KEY); // ✓ 표시됨 (클라이언트에는 숨김)
 ```
 
 ### 3.4 에러 모니터링 확인
 
 **Sentry Dashboard:**
+
 ```
 1. https://sentry.io/issues/
 2. findably-mvp 프로젝트 선택
@@ -293,14 +312,16 @@ console.log(process.env.ANTHROPIC_API_KEY) // ✓ 표시됨 (클라이언트에�
 ```
 
 **의도적 에러 테스트:**
+
 ```javascript
 // src/app/test-error/page.tsx (임시)
-throw new Error('Sentry test error');
+throw new Error("Sentry test error");
 ```
 
 ### 3.5 사용자 분석 확인
 
 **PostHog Dashboard:**
+
 ```
 1. https://app.posthog.com/insights
 2. 이벤트 트래킹 활성화 확인
@@ -311,18 +332,74 @@ throw new Error('Sentry test error');
 
 ## Phase 4: n8n 배포 (크롤링 자동화)
 
-> 이 섹션은 Task 11.2에서 다룹니다. 여기서는 개요만 제공합니다.
+> 자세한 가이드: [`docs/n8n-setup.md`](./n8n-setup.md) 참조
 
-### n8n 배포 대상: Railway
+n8n은 Findably의 자동화 엔진으로, 웹사이트 크롤링과 데이터 추출을 담당합니다.
 
+### 배포 구성
+
+| 환경          | 대상           | 설정                   |
+| ------------- | -------------- | ---------------------- |
+| **로컬 개발** | Docker Compose | `docker-compose up -d` |
+| **프로덕션**  | Railway        | PostgreSQL 백엔드 포함 |
+
+### 빠른 시작
+
+#### 로컬 개발 (Docker Compose)
+
+```bash
+# 1. Docker Compose 시작
+docker-compose up -d
+
+# 2. n8n UI 접속
+# URL: http://localhost:5678
+# 기본 계정: admin@example.com / your_secure_password_here
+
+# 3. 웹훅 테스트
+curl -X POST http://localhost:5678/webhook/findably-crawl \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_id": 1,
+    "url": "https://example.com",
+    "industry": "ecommerce",
+    "company_size": "small"
+  }'
 ```
+
+#### 프로덕션 (Railway)
+
+```bash
 1. https://railway.app 가입
-2. GitHub와 연결
-3. Docker 컨테이너로 n8n 배포
-4. PostgreSQL 백엔드 설정
-5. Webhook URL 설정: https://n8n.railway.app/webhook/findably-crawl
-6. Vercel의 N8N_WEBHOOK_URL 환경변수로 업데이트
+2. GitHub 연결
+3. PostgreSQL 데이터베이스 추가
+4. n8n Docker 이미지 배포 (Dockerfile.n8n 사용)
+5. 환경변수 설정 (아래 참조)
+6. Vercel의 N8N_WEBHOOK_URL 업데이트
 ```
+
+### 환경변수 설정
+
+**Vercel (프론트엔드):**
+
+```
+N8N_WEBHOOK_BASE_URL=https://findably-n8n-production.up.railway.app
+N8N_WEBHOOK_URL=https://findably-n8n-production.up.railway.app/webhook/findably-crawl
+```
+
+**Railway (n8n):**
+
+```
+N8N_BASIC_AUTH_ACTIVE=true
+N8N_BASIC_AUTH_USER=your_email@example.com
+N8N_BASIC_AUTH_PASSWORD=your_secure_password (최소 16글자)
+DB_TYPE=postgres
+LOG_LEVEL=info
+NODE_ENV=production
+```
+
+### 완전한 가이드
+
+상세한 설정 및 문제 해결 방법은 [`docs/n8n-setup.md`](./n8n-setup.md)를 참조하세요.
 
 ---
 
@@ -337,6 +414,7 @@ git push origin main
 ```
 
 **검증:**
+
 ```
 모든 환경변수 설정됨
 Database 마이그레이션 적용됨
@@ -352,6 +430,7 @@ git push origin feature/add-something
 ```
 
 **사용:**
+
 ```
 1. PR 생성
 2. Vercel Preview URL 클릭
@@ -492,16 +571,19 @@ pnpm build
 ### 실시간 로그 확인
 
 **Vercel:**
+
 ```
 Vercel Dashboard → Deployments → 배포 선택 → "Logs" 탭
 ```
 
 **Sentry:**
+
 ```
 https://sentry.io/issues/ → findably-mvp
 ```
 
 **PostHog:**
+
 ```
 https://app.posthog.com/insights → 이벤트 트래킹
 ```
@@ -509,6 +591,7 @@ https://app.posthog.com/insights → 이벤트 트래킹
 ### 알림 설정
 
 **Sentry Alert Rules:**
+
 ```
 1. https://sentry.io/settings/organizations/[org]/alerts/rules/
 2. "Create Alert Rule"
@@ -517,6 +600,7 @@ https://app.posthog.com/insights → 이벤트 트래킹
 ```
 
 **Vercel Notifications:**
+
 ```
 Vercel Dashboard → Settings → Notifications
 → Deploy 실패 시 이메일 알림

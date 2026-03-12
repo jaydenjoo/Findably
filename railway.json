@@ -1,0 +1,56 @@
+{
+  "$schema": "https://railway.app/rail.schema.json",
+  "build": {
+    "builder": "dockerfile",
+    "buildpack": "heroku/buildpacks:20"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "startCommand": "npm start",
+    "restartPolicy": "on-failure",
+    "healthchecks": {
+      "checks": [
+        {
+          "type": "http",
+          "path": "/api/v1/health",
+          "interval": 30,
+          "timeout": 10
+        }
+      ]
+    }
+  },
+  "variables": {
+    "N8N_PROTOCOL": {
+      "description": "Protocol for n8n instance",
+      "value": "https"
+    },
+    "N8N_HOST": {
+      "description": "Hostname (auto-set by Railway)",
+      "value": "0.0.0.0"
+    },
+    "N8N_PORT": {
+      "description": "Port for n8n to listen on",
+      "value": "5678"
+    },
+    "NODE_ENV": {
+      "description": "Node environment",
+      "value": "production"
+    },
+    "N8N_BASIC_AUTH_ACTIVE": {
+      "description": "Enable basic authentication",
+      "value": "true"
+    },
+    "DB_TYPE": {
+      "description": "Database type",
+      "value": "postgres"
+    },
+    "LOG_LEVEL": {
+      "description": "Log level",
+      "value": "info"
+    },
+    "N8N_LOG_OUTPUT": {
+      "description": "Log output format",
+      "value": "console"
+    }
+  }
+}

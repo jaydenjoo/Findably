@@ -1,0 +1,75 @@
+{
+  "name": "Findably Crawl Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "findably-crawl"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract input parameters\nconst { company_id, url, industry, company_size } = $json.body;\n\n// Validate input\nif (!company_id || !url || !industry || !company_size) {\n  throw new Error('Missing required parameters: company_id, url, industry, company_size');\n}\n\n// Return structured crawl request\nreturn {\n  company_id,\n  url,\n  industry,\n  company_size,\n  crawled_at: new Date().toISOString(),\n  status: 'pending'\n};"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "{{ $json.url }}",
+        "method": "GET",
+        "options": {}
+      },
+      "id": "fetch-webpage",
+      "name": "Fetch Webpage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "responseCode": 200
+      },
+      "id": "response-success",
+      "name": "Return Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 150]
+    },
+    {
+      "parameters": {
+        "responseCode": 400
+      },
+      "id": "response-error",
+      "name": "Return Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 450]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [[{ "node": "validate-input", "branch": 0, "type": "main" }]]
+    },
+    "validate-input": {
+      "main": [[{ "node": "fetch-webpage", "branch": 0, "type": "main" }]]
+    },
+    "fetch-webpage": {
+      "main": [
+        [{ "node": "response-success", "branch": 0, "type": "main" }],
+        [{ "node": "response-error", "branch": 0, "type": "main" }]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
