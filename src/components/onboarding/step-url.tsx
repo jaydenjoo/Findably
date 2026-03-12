@@ -70,12 +70,12 @@ export default function StepUrl({ url, onUrlChange, onNext }: StepUrlProps) {
       <h2 className="text-2xl font-bold text-gray-900 mb-2">
         웹사이트 URL을 입력하세요
       </h2>
-      <p className="text-gray-600 text-sm mb-6">
+      <p className="text-gray-700 text-sm mb-6">
         진단할 웹사이트 주소를 입력하세요
       </p>
 
       <div>
-        <label htmlFor="url-input" className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="url-input" className="block text-sm font-semibold text-gray-700 mb-2">
           웹사이트 URL
         </label>
         <input
@@ -85,21 +85,26 @@ export default function StepUrl({ url, onUrlChange, onNext }: StepUrlProps) {
           value={url}
           onChange={handleChange}
           onBlur={handleBlur}
+          aria-invalid={touched && error ? "true" : "false"}
+          aria-describedby={touched && error ? "url-error" : "url-helper"}
           className={`w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:border-transparent ${
             touched && error
               ? "border-red-500 bg-red-50 focus:ring-red-200"
               : "border-gray-300 bg-gray-50 focus:ring-blue-200"
           }`}
+          required
         />
 
         {/* Error message */}
         {touched && error && (
-          <p className="text-red-500 text-sm mt-2 block">{error}</p>
+          <p id="url-error" className="text-red-600 text-sm mt-2 block font-medium" role="alert">
+            ⚠️ {error}
+          </p>
         )}
 
         {/* Helper text when no error */}
         {!error && (
-          <p className="text-gray-500 text-xs mt-2">
+          <p id="url-helper" className="text-gray-700 text-xs mt-2">
             예: https://example.com, http://shop.example.com
           </p>
         )}
@@ -111,7 +116,8 @@ export default function StepUrl({ url, onUrlChange, onNext }: StepUrlProps) {
           type="button"
           onClick={handleNext}
           disabled={!isValid}
-          className="w-full px-6 py-3 rounded-lg bg-brand text-white font-medium hover:bg-brand-hover disabled:bg-gray-300 disabled:cursor-not-allowed transition min-h-[44px]"
+          aria-busy={false}
+          className="w-full px-6 py-3 rounded-lg bg-brand text-white font-medium hover:bg-brand-hover disabled:bg-gray-300 disabled:cursor-not-allowed transition min-h-[44px] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white"
         >
           다음
         </button>

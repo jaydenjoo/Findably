@@ -45,7 +45,7 @@ export default function ProgressIndicator({
       </div>
 
       {/* Step Labels */}
-      <div className="flex justify-between gap-4 mt-6">
+      <div className="flex justify-between gap-4 mt-6" role="group" aria-label="온보딩 단계">
         {STEP_LABELS.map((label, index) => {
           const stepNumber = index + 1;
           const isCompleted = stepNumber < currentStep;
@@ -59,12 +59,14 @@ export default function ProgressIndicator({
                     ? "text-brand"
                     : isCompleted
                       ? "text-green-600"
-                      : "text-gray-400"
+                      : "text-gray-500"
                 }`}
+                aria-current={isActive ? "step" : undefined}
+                aria-label={`${label}: ${isCompleted ? "완료됨" : isActive ? "진행 중" : "시작되지 않음"}`}
               >
                 {isCompleted ? "✓" : stepNumber}
               </div>
-              <p className="text-xs text-gray-600 text-center mt-1 leading-tight">
+              <p className="text-xs text-gray-700 text-center mt-1 leading-tight">
                 {label}
               </p>
             </div>

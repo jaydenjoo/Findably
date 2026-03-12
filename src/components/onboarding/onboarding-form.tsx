@@ -69,12 +69,14 @@ export default function OnboardingForm() {
             "radial-gradient(circle, #2b7cff 0.5px, transparent 0.5px)",
           backgroundSize: "22px 22px",
         }}
+        aria-hidden="true"
       />
       <div
         className="absolute top-0 right-0 w-96 h-96 rounded-full pointer-events-none opacity-6"
         style={{
           background: "radial-gradient(circle, #2b7cff 0%, transparent 70%)",
         }}
+        aria-hidden="true"
       />
 
       {/* Main container */}
@@ -83,6 +85,7 @@ export default function OnboardingForm() {
         <div className="bg-white rounded-2xl shadow-md overflow-hidden">
           {/* Header */}
           <div className="px-8 py-12 sm:px-12 border-b border-gray-100">
+            <h1 className="sr-only">마케팅 진단 온보딩</h1>
             <ProgressIndicator
               currentStep={currentStep}
               totalSteps={TOTAL_STEPS}
@@ -91,7 +94,7 @@ export default function OnboardingForm() {
 
           {/* Content */}
           <div className="px-8 py-12 sm:px-12">
-            <form onSubmit={(e) => e.preventDefault()}>
+            <form onSubmit={(e) => e.preventDefault()} noValidate>
               {/* Step content with fade animation */}
               <div
                 className={`transition-opacity duration-300 ${
@@ -128,19 +131,29 @@ export default function OnboardingForm() {
 
               {/* Error message display */}
               {error && (
-                <div className="mt-6 p-4 rounded-lg bg-red-50 border border-red-200">
-                  <p className="text-sm text-red-700">{error}</p>
+                <div
+                  id="onboarding-error"
+                  role="alert"
+                  className="mt-6 p-4 rounded-lg bg-red-50 border border-red-200 flex gap-3"
+                  aria-live="assertive"
+                  aria-atomic="true"
+                >
+                  <span className="text-xl" aria-hidden="true">
+                    ⚠️
+                  </span>
+                  <p className="text-sm text-red-700 font-medium">{error}</p>
                 </div>
               )}
 
               {/* Navigation buttons for steps 1-2 */}
               {currentStep < TOTAL_STEPS && (
-                <div className="flex gap-3 justify-between mt-8">
+                <div className="flex gap-3 justify-between mt-8" role="group" aria-label="온보딩 탐색">
                   <button
                     type="button"
                     onClick={handlePreviousStepWithTransition}
                     disabled={currentStep === 1}
-                    className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition min-h-[44px]"
+                    className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition min-h-[44px] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+                    aria-label={`이전 단계로 이동 (현재: ${currentStep}/${TOTAL_STEPS})`}
                   >
                     이전
                   </button>
@@ -148,7 +161,8 @@ export default function OnboardingForm() {
                   <button
                     type="button"
                     onClick={handleNextStepWithTransition}
-                    className="px-6 py-3 rounded-lg bg-brand text-white font-medium hover:bg-brand-hover transition min-h-[44px] ml-auto"
+                    className="px-6 py-3 rounded-lg bg-brand text-white font-medium hover:bg-brand-hover transition min-h-[44px] ml-auto focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white"
+                    aria-label={`다음 단계로 이동 (현재: ${currentStep}/${TOTAL_STEPS})`}
                   >
                     다음
                   </button>
@@ -159,7 +173,7 @@ export default function OnboardingForm() {
         </div>
 
         {/* Footer text */}
-        <p className="text-center text-sm text-gray-600 mt-6">
+        <p className="text-center text-sm text-gray-700 mt-6">
           진단 완료까지 약 3분이 소요됩니다
         </p>
       </div>

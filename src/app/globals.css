@@ -152,3 +152,21 @@
     @apply font-sans;
   }
 }
+
+/* Accessibility - Screen Reader Only (sr-only) */
+@layer utilities {
+  .sr-only {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden border-0 whitespace-nowrap;
+    clip-path: inset(50%);
+  }
+
+  .focus\:not-sr-only:focus {
+    @apply static w-auto h-auto p-0 m-0 overflow-visible whitespace-normal;
+    clip-path: none;
+  }
+
+  /* Accessibility - Focus Visible Outline */
+  .focus-visible\:ring-2:focus-visible {
+    @apply ring-2 ring-offset-2 ring-blue-500;
+  }
+}

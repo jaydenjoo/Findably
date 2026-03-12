@@ -34,9 +34,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
       <body
         className={`${dmSans.variable} ${geistMono.variable} antialiased font-sans bg-gradient-to-b from-[#fafbfc] to-white`}
       >
+        {/* Skip to main content link for keyboard users */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-0 focus:left-0 focus:z-50 focus:bg-blue-600 focus:text-white focus:p-4"
+        >
+          메인 콘텐츠로 이동
+        </a>
+
         <PostHogProviderComponent>
           <SentryProvider>{children}</SentryProvider>
         </PostHogProviderComponent>

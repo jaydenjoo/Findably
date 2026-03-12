@@ -49,9 +49,16 @@ export default function ScoreCircle({ score, grade }: ScoreCircleProps) {
       className="flex flex-col items-center justify-center"
       data-grade={grade}
       role="img"
-      aria-label={`점수: ${displayScore}점, 등급: ${grade}등급`}
+      aria-label={`종합 점수: ${displayScore}점, 등급: ${grade}등급. 마케팅 건강도 평가`}
     >
-      <svg width="200" height="200" className="mb-4" viewBox="0 0 200 200">
+      <svg
+        width="200"
+        height="200"
+        className="mb-4"
+        viewBox="0 0 200 200"
+        aria-hidden="true"
+        role="presentation"
+      >
         {/* Background circle */}
         <circle
           cx="100"

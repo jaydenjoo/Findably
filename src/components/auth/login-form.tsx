@@ -61,10 +61,19 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-6">
+    <form onSubmit={handleSubmit} className="w-full space-y-6" noValidate>
       {/* Error message */}
       {error && (
-        <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+        <div
+          id="password-error"
+          role="alert"
+          className="p-4 rounded-lg bg-red-50 border border-red-200 flex gap-3"
+          aria-live="assertive"
+          aria-atomic="true"
+        >
+          <span className="text-xl" aria-hidden="true">
+            ⚠️
+          </span>
           <p className="text-sm text-red-700 font-medium">{error}</p>
         </div>
       )}
@@ -101,7 +110,7 @@ export function LoginForm() {
           </Label>
           <Link
             href="/forgot-password"
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            className="text-sm text-blue-600 hover:text-blue-700 font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 rounded px-1"
           >
             비밀번호 잊었나요?
           </Link>
@@ -117,12 +126,15 @@ export function LoginForm() {
             className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors pr-10"
             autoComplete="current-password"
             required
+            aria-describedby={error ? 'password-error' : undefined}
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 text-sm"
-            tabIndex={-1}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-700 hover:text-gray-900 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 rounded px-1 py-1"
+            aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+            aria-pressed={showPassword}
+            tabIndex={0}
           >
             {showPassword ? '숨김' : '표시'}
           </button>
@@ -133,7 +145,8 @@ export function LoginForm() {
       <Button
         type="submit"
         disabled={isLoading}
-        className="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 active:translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-busy={isLoading}
+        className="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 active:translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 rounded-lg"
       >
         {isLoading ? '로그인 중...' : '로그인'}
       </Button>
@@ -153,8 +166,9 @@ export function LoginForm() {
         type="button"
         onClick={handleGoogleSignIn}
         disabled={isLoading}
+        aria-busy={isLoading}
         variant="outline"
-        className="w-full py-2 px-4 border border-gray-300 bg-white text-gray-700 font-semibold rounded-lg hover:bg-gray-50 active:translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full py-2 px-4 border border-gray-300 bg-white text-gray-700 font-semibold rounded-lg hover:bg-gray-50 active:translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 rounded-lg"
       >
         <svg
           className="w-4 h-4"
@@ -162,6 +176,7 @@ export function LoginForm() {
           fill="none"
           stroke="currentColor"
           strokeWidth={2}
+          aria-hidden="true"
         >
           <circle cx={12} cy={12} r={10} />
           <path d="M8 12h8M12 8v8" />
@@ -170,9 +185,9 @@ export function LoginForm() {
       </Button>
 
       {/* Sign up link */}
-      <p className="text-center text-sm text-gray-600">
+      <p className="text-center text-sm text-gray-700">
         계정이 없으신가요?{' '}
-        <Link href="/signup" className="font-semibold text-blue-600 hover:text-blue-700">
+        <Link href="/signup" className="font-semibold text-blue-600 hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 rounded px-1">
           회원가입
         </Link>
       </p>
