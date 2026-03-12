@@ -671,7 +671,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - Helper utilities: getLuminance, getContrastRatio, meetsContrastStandard, focusElement, getFocusableElements, trapFocus, isVisibleToScreenReader, accessibility labels and helpers
   - _Requirements: 38.1, 38.2, 38.3, 38.4, 38.5_
 
-- [ ] 10.2 (P) Optimize images and verify performance targets
+- [x] 10.2 (P) Optimize images and verify performance targets
   - Use Next.js Image component for all product images
   - Configure image optimization: auto webp, lazy loading, responsive srcSet
   - Verify Lighthouse metrics:

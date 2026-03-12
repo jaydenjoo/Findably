@@ -37,6 +37,28 @@ export default function RootLayout({
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+        {/* Preload critical resources for performance */}
+        <link
+          rel="preconnect"
+          href="https://<NEXT_PUBLIC_SUPABASE_URL>"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="dns-prefetch"
+          href="https://api.anthropic.com"
+        />
+        <link
+          rel="dns-prefetch"
+          href="https://cdn.posthog.com"
+        />
+        <link
+          rel="dns-prefetch"
+          href="https://o<SENTRY_ORG_ID>.ingest.sentry.io"
+        />
+
+        {/* Performance: Enable faster page transitions */}
+        <link rel="prefetch" href="/" />
       </head>
       <body
         className={`${dmSans.variable} ${geistMono.variable} antialiased font-sans bg-gradient-to-b from-[#fafbfc] to-white`}
