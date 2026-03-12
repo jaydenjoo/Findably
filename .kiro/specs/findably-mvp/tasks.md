@@ -722,14 +722,25 @@ This document outlines all implementation tasks to deliver Findably MVP from req
 
 ### 11. Deployment & Infrastructure Configuration
 
-- [ ] 11.1 (P) Configure Vercel deployment for Next.js frontend
-  - Connect GitHub repository to Vercel project
-  - Set build command: `pnpm build`
-  - Set start command: `pnpm start`
-  - Configure environment variables in Vercel dashboard: all .env.local vars
-  - Enable automatic deployments on main branch push
-  - Configure preview deployments for feature branches
+- [x] 11.1 (P) Configure Vercel deployment for Next.js frontend
+  - ✓ Created `vercel.json` with build settings (pnpm build), region (icn1), security headers, cache control
+  - ✓ Created `.env.example` documenting all required environment variables (Supabase, Claude API, PageSpeed, n8n, Sentry, PostHog)
+  - ✓ Created comprehensive `docs/deployment.md` guide (65 sections) covering:
+    - Vercel project setup and GitHub connection
+    - Step-by-step environment variable configuration for all 13 required vars
+    - Instructions to obtain values from Supabase, Anthropic, Google, Sentry, PostHog
+    - Automatic deployment on main push + preview deployments for feature branches
+    - Custom domain setup with automatic SSL/TLS via Let's Encrypt
+    - Post-deployment validation (health check, Lighthouse, analytics verification)
+    - Troubleshooting guide (TypeScript errors, missing vars, database issues, webhook failures)
+    - Security checklist + performance optimization + branch deployment strategy
+  - Build command verified in package.json: `pnpm build`
+  - Start command verified in package.json: `pnpm start`
+  - Environment variables documented with NEXT*PUBLIC* vs private distinction
+  - Security headers configured: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy
+  - Cache control headers configured for static assets (365 days) and dynamic content (1 hour stale-while-revalidate)
   - _Requirements: 30.1, 30.2, 30.3, 30.4_
+  - _Status: COMPLETE - All deployment configuration files created and documented_
 
 - [ ] 11.2 (P) Deploy n8n server to Railway or Fly.io
   - Create Railway/Fly.io account and project
