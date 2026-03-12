@@ -152,11 +152,11 @@ ${jsonLdContent}
   const selectedJsonLd = getSelectedJsonLd();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="schema-view">
       {/* Schema Type Selector */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-900">Schema 유형 선택</h3>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" data-testid="schema-type-selector">
           {schemas.map((schema, index) => (
             <Button
               key={schema.type}
@@ -187,6 +187,7 @@ ${jsonLdContent}
             size="sm"
             variant="outline"
             className="flex items-center gap-2"
+            data-testid="copy-button"
           >
             <Copy className="w-4 h-4" />
             복사
@@ -194,10 +195,10 @@ ${jsonLdContent}
         </div>
 
         {/* Code Block */}
-        <div className="relative bg-gray-900 text-gray-50 p-6 rounded-16 overflow-auto font-mono text-sm shadow-md">
+        <div className="relative bg-gray-900 text-gray-50 p-6 rounded-16 overflow-auto font-mono text-sm shadow-md" data-testid="schema-code-block">
           {/* Line numbers + code */}
           <pre className="whitespace-pre-wrap break-words">
-            <code>
+            <code data-testid="schema-code-content">
               {selectedJsonLd
                 ? JSON.stringify(selectedJsonLd, null, 2)
                 : '// Schema 데이터가 없습니다'}

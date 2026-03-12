@@ -17,45 +17,50 @@ export default function DashboardTabs({ score, grade }: DashboardTabsProps) {
   };
 
   return (
-    <Tabs defaultValue="score" className="w-full">
-      <TabsList className="grid w-full grid-cols-5 border-b bg-white p-0 h-auto">
+    <Tabs defaultValue="score" className="w-full" data-testid="dashboard-tabs">
+      <TabsList className="grid w-full grid-cols-5 border-b bg-white p-0 h-auto" data-testid="tabs-list">
         <TabsTrigger
           value="score"
           className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-brand data-[state=active]:bg-white"
+          data-testid="tab-score"
         >
           종합 점수
         </TabsTrigger>
         <TabsTrigger
           value="actions"
           className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-brand data-[state=active]:bg-white"
+          data-testid="tab-actions"
         >
           개선 항목
         </TabsTrigger>
         <TabsTrigger
           value="schema"
           className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-brand data-[state=active]:bg-white"
+          data-testid="tab-schema"
         >
           Schema Markup
         </TabsTrigger>
         <TabsTrigger
           value="meta"
           className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-brand data-[state=active]:bg-white"
+          data-testid="tab-meta"
         >
           메타 태그
         </TabsTrigger>
         <TabsTrigger
           value="insights"
           className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-brand data-[state=active]:bg-white"
+          data-testid="tab-insights"
         >
           AI 인사이트
         </TabsTrigger>
       </TabsList>
 
       {/* Score Tab */}
-      <TabsContent value="score" className="p-6 space-y-8">
+      <TabsContent value="score" className="p-6 space-y-8" data-testid="tab-content-score">
         <div className="flex flex-col items-center justify-center">
           <ScoreCircle score={score} grade={grade} />
-          <h2 className="mt-6 text-2xl font-bold text-gray-900">
+          <h2 className="mt-6 text-2xl font-bold text-gray-900" data-testid="score-heading">
             귀사 마케팅 건강도: {grade}등급 ({score}점) 🎉
           </h2>
         </div>
@@ -112,7 +117,7 @@ export default function DashboardTabs({ score, grade }: DashboardTabsProps) {
       </TabsContent>
 
       {/* Schema Tab */}
-      <TabsContent value="schema" className="p-6">
+      <TabsContent value="schema" className="p-6" data-testid="tab-content-schema">
         <div className="text-center text-gray-500 py-12">
           Schema Markup 생성은 다음 Task에서 구현됩니다
         </div>
