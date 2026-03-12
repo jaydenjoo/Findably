@@ -21,7 +21,7 @@ export interface DatabaseConfig {
  */
 export interface AnthropicConfig {
   apiKey: string;
-  model: 'claude-3-5-sonnet-20241022';
+  model: string;
   maxTokens: number;
 }
 
@@ -104,7 +104,7 @@ export function getConfig(): Config {
     },
     anthropic: {
       apiKey: env.anthropic.apiKey,
-      model: 'claude-3-5-sonnet-20241022',
+      model: env.anthropic.model,
       maxTokens: 2048,
     },
     pageSpeed: {

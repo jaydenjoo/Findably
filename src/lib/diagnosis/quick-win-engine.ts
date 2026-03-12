@@ -84,6 +84,7 @@ export function identifyQuickWins(crawl: CrawlResult): QuickWin[] {
         '웹사이트에 Organization 또는 업종 관련 Schema.org 마크업을 추가하세요. JSON-LD 형식으로 회사명, 로고, 설명을 구조화된 데이터로 제공합니다. 예: {\n  "@context": "https://schema.org",\n  "@type": "Organization",\n  "name": "회사명",\n  "url": "https://example.com",\n  "logo": "https://example.com/logo.png"\n}',
       priority: "high",
       effort: "1시간 이내",
+      effortLevel: "<1h",
       expectedImpact: "+10-15점",
     });
   }
@@ -96,6 +97,7 @@ export function identifyQuickWins(crawl: CrawlResult): QuickWin[] {
       description: `웹사이트의 ${imagesWithoutAlt.length}개 이미지에 Alt 텍스트를 추가하세요. 각 이미지가 무엇을 보여주는지 간단히 설명하는 텍스트를 <img> 태그의 alt 속성에 넣습니다. 예: <img src="product.png" alt="우리 제품의 주요 기능">`,
       priority: "medium",
       effort: "1시간 이내",
+      effortLevel: "<1h",
       expectedImpact: "+5-10점",
     });
   }

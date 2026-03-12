@@ -3,9 +3,9 @@
  * Analyzes website content using Claude Sonnet for AI-driven insights
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-import { z } from 'zod';
-import { getAnthropicConfig } from '../config';
+import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+import { getAnthropicConfig } from "../config";
 
 /**
  * Zod schema for Claude API response validation
@@ -30,8 +30,17 @@ const contentAnalysisInputSchema = z.object({
   h1: z.string().max(200),
   headings: z.array(z.string()).optional().default([]),
   bodyText: z.string().max(2000),
-  industry: z.enum(['Technology', 'Healthcare', 'Finance', 'Retail', 'Manufacturing', 'Services', 'Education', 'Other']),
-  company_size: z.enum(['small', 'medium', 'large', 'enterprise']),
+  industry: z.enum([
+    "Technology",
+    "Healthcare",
+    "Finance",
+    "Retail",
+    "Manufacturing",
+    "Services",
+    "Education",
+    "Other",
+  ]),
+  company_size: z.enum(["small", "medium", "large", "enterprise"]),
 });
 
 /**
@@ -112,8 +121,25 @@ function getAnthropicClient(): Anthropic {
  * }
  * ```
  */
-export async function analyzeContent(input: ContentAnalysisInput): Promise<Result> {
+export async function analyzeContent(rawInput: unknown): Promise<Result> {
   try {
+    // Step 1: Validate input with Zod
+    const parseResult = contentAnalysisInputSchema.safeParse(rawInput);
+    if (!parseResult.success) {
+      const errorDetails = parseResult.error.issues
+        .map((issue) => `${Array.isArray(issue.path) ? issue.path.join(".") : "unknown"}: ${issue.message}`)
+        .join("; ");
+      return {
+        success: false,
+        error: "유효하지 않은 입력입니다.",
+        data: {
+          aiScore: 0,
+          error: `Input validation failed: ${errorDetails}`,
+        },
+      };
+    }
+
+    const input = parseResult.data;
     const client = getAnthropicClient();
 
     // System prompt in Korean for Korean website analysis
@@ -137,7 +163,7 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
 
     // Build the user message with all context
     const headingsText =
-      input.headings.length > 0 ? `\n부제목: ${input.headings.join(', ')}` : '';
+      input.headings.length > 0 ? `\n부제목: ${input.headings.join(", ")}` : "";
     const userMessage = `
 웹사이트 콘텐츠 분석 요청:
 
@@ -148,31 +174,31 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
 회사규모: ${input.company_size}
 
 본문 (처음 2000자):
-${input.bodyText.substring(0, 2000)}
+${input.bodyText}
 
 위 정보를 분석하고 JSON 형식의 평가를 제공하세요.`;
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: systemPrompt,
       messages: [
         {
-          role: 'user',
+          role: "user",
           content: userMessage,
         },
       ],
     });
 
     // Extract text from response
-    const textContent = response.content.find((block) => block.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
+    const textContent = response.content.find((block) => block.type === "text");
+    if (!textContent || textContent.type !== "text") {
       return {
         success: false,
-        error: 'Claude API에서 텍스트 응답을 받지 못했습니다.',
+        error: "Claude API에서 텍스트 응답을 받지 못했습니다.",
         data: {
           aiScore: 0,
-          error: 'No text content in response',
+          error: "No text content in response",
         },
       };
     }
@@ -184,57 +210,40 @@ ${input.bodyText.substring(0, 2000)}
     } catch (parseError) {
       return {
         success: false,
-        error: 'Claude API 응답을 파싱할 수 없습니다.',
+        error: "Claude API 응답을 파싱할 수 없습니다.",
         data: {
           aiScore: 0,
-          error: `JSON parse error: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
+          error: `JSON parse error: ${parseError instanceof Error ? parseError.message : "Unknown error"}`,
         },
       };
     }
 
-    // Validate and type the response
-    if (typeof analysisData !== 'object' || analysisData === null) {
+    // Step 2: Validate response structure and type safety using Zod
+    const responseValidation = analysisResponseSchema.safeParse(
+      analysisData
+    );
+    if (!responseValidation.success) {
+      const errorDetails = responseValidation.error.issues
+        .map((issue) => `${Array.isArray(issue.path) ? issue.path.join(".") : "unknown"}: ${issue.message}`)
+        .join("; ");
       return {
         success: false,
-        error: 'Claude API 응답 형식이 올바르지 않습니다.',
+        error: "Claude API 응답 형식이 올바르지 않습니다.",
         data: {
           aiScore: 0,
-          error: 'Response is not an object',
+          error: `Response validation failed: ${errorDetails}`,
         },
       };
     }
 
-    const data = analysisData as Record<string, unknown>;
-
-    // Validate required fields
-    if (
-      typeof data.contentQuality !== 'number' ||
-      typeof data.keywordDensity !== 'number' ||
-      typeof data.uniqueness !== 'number' ||
-      !Array.isArray(data.recommendations) ||
-      typeof data.aiScore !== 'number'
-    ) {
-      return {
-        success: false,
-        error: 'Claude API 응답에 필수 필드가 누락되었습니다.',
-        data: {
-          aiScore: 0,
-          error: 'Missing required fields in response',
-        },
-      };
-    }
-
-    // Limit recommendations to 3 items
-    const recommendations = (data.recommendations as unknown[])
-      .slice(0, 3)
-      .filter((rec): rec is string => typeof rec === 'string');
+    const data: AnalysisResponseData = responseValidation.data;
 
     const result: AnalysisResult = {
-      contentQuality: Math.min(Math.max(data.contentQuality, 0), 100),
-      keywordDensity: Math.min(Math.max(data.keywordDensity, 0), 100),
-      uniqueness: Math.min(Math.max(data.uniqueness, 0), 100),
-      recommendations,
-      aiScore: Math.min(Math.max(data.aiScore, 0), 100),
+      contentQuality: data.contentQuality,
+      keywordDensity: data.keywordDensity,
+      uniqueness: data.uniqueness,
+      recommendations: data.recommendations,
+      aiScore: data.aiScore,
     };
 
     return {
@@ -245,7 +254,7 @@ ${input.bodyText.substring(0, 2000)}
     const errorMessage =
       error instanceof Error
         ? error.message
-        : 'Claude API 분석 중 알 수 없는 오류가 발생했습니다.';
+        : "Claude API 분석 중 알 수 없는 오류가 발생했습니다.";
 
     return {
       success: false,

@@ -22,13 +22,9 @@ export type URLValidationInput = z.infer<typeof URLValidationSchema>;
  * Maps Korean industry names to database enum values
  */
 export const IndustryValidationSchema = z.object({
-  industry: z
-    .enum(["ecommerce", "blog", "saas", "local_business", "other"])
-    .refine(
-      (val) =>
-        ["ecommerce", "blog", "saas", "local_business", "other"].includes(val),
-      "업종을 선택하세요",
-    ),
+  industry: z.enum(["ecommerce", "blog", "saas", "local_business", "other"], {
+    message: "업종을 선택하세요",
+  }),
 });
 
 export type IndustryValidationInput = z.infer<typeof IndustryValidationSchema>;
@@ -38,12 +34,9 @@ export type IndustryValidationInput = z.infer<typeof IndustryValidationSchema>;
  * Validates company size selection: solo (1인), small (2-10명), medium (11-50명)
  */
 export const CompanySizeValidationSchema = z.object({
-  companySize: z
-    .enum(["solo", "small", "medium"])
-    .refine(
-      (val) => ["solo", "small", "medium"].includes(val),
-      "회사 규모를 선택하세요",
-    ),
+  companySize: z.enum(["solo", "small", "medium"], {
+    message: "회사 규모를 선택하세요",
+  }),
 });
 
 export type CompanySizeValidationInput = z.infer<

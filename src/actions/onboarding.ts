@@ -13,7 +13,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createServiceDb, companiesTable } from '@/lib/db/client';
 import { OnboardingFormSchema } from '@/lib/validations/onboarding';
-import { getN8nConfig } from '@/lib/config';
+import { getN8nConfig, getConfig } from '@/lib/config';
 import { addBreadcrumb, captureError } from '@/lib/logging/sentry';
 
 /**
@@ -50,13 +50,24 @@ async function triggerN8nWebhook(
 ): Promise<boolean> {
   try {
     const config = getN8nConfig();
+    const fullConfig = getConfig();
     const webhookUrl = `${config.webhookBaseUrl}/webhook/findably-crawl`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add Authorization header if webhook secret is configured
+    if (fullConfig.anthropic.model && fullConfig.anthropic.apiKey) {
+      const webhookSecret = process.env.N8N_WEBHOOK_SECRET || '';
+      if (webhookSecret) {
+        headers.Authorization = `Bearer ${webhookSecret}`;
+      }
+    }
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         company_id: companyId,
         url,
@@ -67,17 +78,36 @@ async function triggerN8nWebhook(
 
     // Log webhook response for debugging
     if (!response.ok) {
-      console.error(
-        `n8n webhook failed with status ${response.status}:`,
-        await response.text()
+      const errorText = await response.text();
+      captureError(
+        new Error(`n8n webhook failed with status ${response.status}`),
+        {
+          action: 'triggerN8nWebhook',
+          status: response.status,
+          response: errorText,
+          companyId,
+          url,
+        }
       );
+      addBreadcrumb('crawl', 'n8n webhook failed', {
+        status: response.status,
+        companyId,
+      });
       return false;
     }
 
     return true;
   } catch (error) {
-    // Log error but don't fail the onboarding
-    console.error('Failed to trigger n8n webhook:', error);
+    // Capture error in Sentry
+    captureError(error, {
+      action: 'triggerN8nWebhook',
+      phase: 'webhook_call',
+      companyId,
+      url,
+    });
+    addBreadcrumb('crawl', 'Failed to trigger n8n webhook', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return false;
   }
 }

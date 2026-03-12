@@ -11,6 +11,7 @@ import { calculatePerformanceScore } from '@/lib/scoring/performance-scorer';
 import { analyzeContent } from '@/lib/ai/claude-analyzer';
 import { aggregateScores, type Grade } from '@/lib/scoring/score-aggregator';
 import { identifyQuickWins, type QuickWin } from '@/lib/diagnosis/quick-win-engine';
+import { captureError, addBreadcrumb } from '@/lib/logging/sentry';
 
 /**
  * Orchestrator 입력 파라미터
@@ -124,14 +125,19 @@ export async function runDiagnosisOrchestration(
         aiScore = null;
         aiInsights = null;
         aiUnavailable = true;
-        console.error('AI analysis failed:', analysisResult.error);
+        addBreadcrumb('diagnosis', 'AI analysis failed', {
+          error: analysisResult.error,
+        });
       }
     } catch (error) {
       // AI 호출 중 예외 발생 — 로깅하고 계속 진행
       aiScore = null;
       aiInsights = null;
       aiUnavailable = true;
-      console.error('AI analysis exception:', error);
+      captureError(error, {
+        action: 'runDiagnosisOrchestration',
+        phase: 'AI analysis',
+      });
     }
 
     // 3. 종합 점수 계산 (AI 실패 시 aiScore = 0으로 처리)

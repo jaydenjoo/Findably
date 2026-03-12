@@ -19,6 +19,7 @@ const envSchema = z.object({
 
   // AI/Claude API
   ANTHROPIC_API_KEY: z.string().min(1),
+  ANTHROPIC_MODEL: z.string().default('claude-sonnet-4-6'),
 
   // Google PageSpeed
   GOOGLE_PAGESPEED_API_KEY: z.string().min(1),
@@ -28,6 +29,7 @@ const envSchema = z.object({
     .string()
     .url('N8N_WEBHOOK_BASE_URL must be a valid URL'),
   N8N_API_KEY: z.string().min(1),
+  N8N_WEBHOOK_SECRET: z.string().default(''),
 
   // App
   NEXT_PUBLIC_APP_URL: z
@@ -109,6 +111,7 @@ export interface TypedConfig {
   };
   anthropic: {
     apiKey: string;
+    model: string;
   };
   pageSpeed: {
     apiKey: string;
@@ -143,6 +146,7 @@ export function getEnvConfig(): TypedConfig {
     },
     anthropic: {
       apiKey: env.ANTHROPIC_API_KEY,
+      model: env.ANTHROPIC_MODEL,
     },
     pageSpeed: {
       apiKey: env.GOOGLE_PAGESPEED_API_KEY,
