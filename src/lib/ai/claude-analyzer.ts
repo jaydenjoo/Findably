@@ -4,19 +4,40 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { z } from 'zod';
+import { getAnthropicConfig } from '../config';
+
+/**
+ * Zod schema for Claude API response validation
+ * Ensures type safety without resorting to type assertions
+ */
+const analysisResponseSchema = z.object({
+  contentQuality: z.number().int().min(0).max(100),
+  keywordDensity: z.number().int().min(0).max(100),
+  uniqueness: z.number().int().min(0).max(100),
+  recommendations: z.array(z.string()).max(3),
+  aiScore: z.number().int().min(0).max(100),
+});
+
+type AnalysisResponseData = z.infer<typeof analysisResponseSchema>;
+
+/**
+ * Zod schema for input validation with length limits and enum constraints
+ */
+const contentAnalysisInputSchema = z.object({
+  title: z.string().max(200),
+  description: z.string().max(200),
+  h1: z.string().max(200),
+  headings: z.array(z.string()).optional().default([]),
+  bodyText: z.string().max(2000),
+  industry: z.enum(['Technology', 'Healthcare', 'Finance', 'Retail', 'Manufacturing', 'Services', 'Education', 'Other']),
+  company_size: z.enum(['small', 'medium', 'large', 'enterprise']),
+});
 
 /**
  * Input context for content analysis
  */
-export interface ContentAnalysisInput {
-  title: string;
-  description: string;
-  h1: string;
-  headings: string[]; // H2, H3 headings
-  bodyText: string; // First 2000 chars of body
-  industry: string;
-  company_size: string;
-}
+export type ContentAnalysisInput = z.infer<typeof contentAnalysisInputSchema>;
 
 /**
  * Analysis result data structure
@@ -56,10 +77,12 @@ export type Result = SuccessResult | ErrorResult;
 
 /**
  * Create and cache Anthropic client
+ * Uses validated config from getAnthropicConfig()
  */
 function getAnthropicClient(): Anthropic {
+  const config = getAnthropicConfig();
   return new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
+    apiKey: config.apiKey,
   });
 }
 

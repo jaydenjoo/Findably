@@ -4,7 +4,7 @@
  * 순수 함수: 부작용 없음, 입력 크롤 데이터로부터 Quick Win 배열 반환
  */
 
-import type { CrawlResult } from '@/types/crawl';
+import type { CrawlResult } from "@/types/crawl";
 
 /**
  * Quick Win 항목
@@ -12,8 +12,9 @@ import type { CrawlResult } from '@/types/crawl';
 export interface QuickWin {
   title: string; // 한국어 제목 (예: "Title 태그 추가")
   description: string; // 상세 설명 및 구현 가이드
-  priority: 'high' | 'medium'; // 우선순위
-  effort: string; // 구현 난이도 (항상 "1시간 이내")
+  priority: "high" | "medium"; // 우선순위
+  effort: string; // 구현 난이도 한국어 표현 (예: "1시간 이내")
+  effortLevel: "<1h" | "1-8h" | ">8h"; // 정규화된 난이도 레벨
   expectedImpact: string; // 예상 효과 (예: "+10-15점")
 }
 
@@ -39,48 +40,51 @@ export function identifyQuickWins(crawl: CrawlResult): QuickWin[] {
   // 1. Title 태그 누락 확인
   if (isTitleMissing(crawl)) {
     quickWins.push({
-      title: 'Title 태그 추가',
+      title: "Title 태그 추가",
       description:
         '웹사이트의 제목 태그를 추가하세요. 50-60자 사이로 키워드를 포함하는 명확한 제목을 작성합니다. 예: "전자상거래 솔루션 | 스타트업용 쇼핑몰 플랫폼"',
-      priority: 'high',
-      effort: '1시간 이내',
-      expectedImpact: '+10-15점',
+      priority: "high",
+      effort: "1시간 이내",
+      effortLevel: "<1h",
+      expectedImpact: "+10-15점",
     });
   }
 
   // 2. Meta Description 누락 확인
   if (isMetaDescriptionMissing(crawl)) {
     quickWins.push({
-      title: 'Meta Description 추가',
+      title: "Meta Description 추가",
       description:
         '웹사이트의 메타 설명을 추가하세요. 120-160자 사이로 서비스의 가치를 명확히 설명합니다. 예: "우리는 스타트업을 위한 초저가 전자상거래 솔루션을 제공합니다. 3분 가입, 즉시 판매 시작."',
-      priority: 'high',
-      effort: '1시간 이내',
-      expectedImpact: '+10-15점',
+      priority: "high",
+      effort: "1시간 이내",
+      effortLevel: "<1h",
+      expectedImpact: "+10-15점",
     });
   }
 
   // 3. H1 태그 확인
   if (isH1Missing(crawl)) {
     quickWins.push({
-      title: 'H1 태그 추가',
+      title: "H1 태그 추가",
       description:
-        '웹사이트의 메인 제목을 H1 태그로 추가하세요. 한 페이지에 정확히 하나의 H1만 사용합니다. 예: <h1>스타트업을 위한 최고의 전자상거래 솔루션</h1>',
-      priority: 'high',
-      effort: '1시간 이내',
-      expectedImpact: '+10-15점',
+        "웹사이트의 메인 제목을 H1 태그로 추가하세요. 한 페이지에 정확히 하나의 H1만 사용합니다. 예: <h1>스타트업을 위한 최고의 전자상거래 솔루션</h1>",
+      priority: "high",
+      effort: "1시간 이내",
+      effortLevel: "<1h",
+      expectedImpact: "+10-15점",
     });
   }
 
   // 4. Schema.org 마크업 확인
   if (isSchemaMarkupMissing(crawl)) {
     quickWins.push({
-      title: 'Schema.org 마크업 추가',
+      title: "Schema.org 마크업 추가",
       description:
         '웹사이트에 Organization 또는 업종 관련 Schema.org 마크업을 추가하세요. JSON-LD 형식으로 회사명, 로고, 설명을 구조화된 데이터로 제공합니다. 예: {\n  "@context": "https://schema.org",\n  "@type": "Organization",\n  "name": "회사명",\n  "url": "https://example.com",\n  "logo": "https://example.com/logo.png"\n}',
-      priority: 'high',
-      effort: '1시간 이내',
-      expectedImpact: '+10-15점',
+      priority: "high",
+      effort: "1시간 이내",
+      expectedImpact: "+10-15점",
     });
   }
 
@@ -88,11 +92,11 @@ export function identifyQuickWins(crawl: CrawlResult): QuickWin[] {
   const imagesWithoutAlt = getImagesWithoutAlt(crawl);
   if (imagesWithoutAlt.length > 0) {
     quickWins.push({
-      title: '이미지 Alt 텍스트 추가',
+      title: "이미지 Alt 텍스트 추가",
       description: `웹사이트의 ${imagesWithoutAlt.length}개 이미지에 Alt 텍스트를 추가하세요. 각 이미지가 무엇을 보여주는지 간단히 설명하는 텍스트를 <img> 태그의 alt 속성에 넣습니다. 예: <img src="product.png" alt="우리 제품의 주요 기능">`,
-      priority: 'medium',
-      effort: '1시간 이내',
-      expectedImpact: '+5-10점',
+      priority: "medium",
+      effort: "1시간 이내",
+      expectedImpact: "+5-10점",
     });
   }
 
@@ -100,7 +104,8 @@ export function identifyQuickWins(crawl: CrawlResult): QuickWin[] {
   quickWins.sort((a, b) => {
     // 우선순위 정렬 (high > medium)
     const priorityOrder = { high: 0, medium: 1 };
-    const priorityCompare = priorityOrder[a.priority] - priorityOrder[b.priority];
+    const priorityCompare =
+      priorityOrder[a.priority] - priorityOrder[b.priority];
 
     if (priorityCompare !== 0) {
       return priorityCompare;
@@ -112,7 +117,9 @@ export function identifyQuickWins(crawl: CrawlResult): QuickWin[] {
       return match ? parseInt(match[1], 10) : 0;
     };
 
-    return extractMinImpact(b.expectedImpact) - extractMinImpact(a.expectedImpact);
+    return (
+      extractMinImpact(b.expectedImpact) - extractMinImpact(a.expectedImpact)
+    );
   });
 
   return quickWins;

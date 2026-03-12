@@ -17,13 +17,18 @@
  *   - Verifies user owns the company_id (RLS check)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { createServiceDb, crawlResultsTable, diagnosesTable } from '@/lib/db/client';
-import { eq, and, desc } from 'drizzle-orm';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import {
+  createServiceDb,
+  crawlResultsTable,
+  diagnosesTable,
+  companiesTable,
+} from "@/lib/db/client";
+import { eq, and, desc } from "drizzle-orm";
 
 export type DiagnosisStatusResponse = {
-  status: 'crawling' | 'analyzing' | 'complete' | 'failed';
+  status: "crawling" | "analyzing" | "complete" | "failed";
   message: string;
   companyId: number;
   diagnosisId?: number;
@@ -36,12 +41,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // Step 1: Parse and validate query parameters
     const searchParams = request.nextUrl.searchParams;
-    const companyIdParam = searchParams.get('company_id');
+    const companyIdParam = searchParams.get("company_id");
 
     if (!companyIdParam) {
       return NextResponse.json(
-        { error: 'company_id query parameter is required' },
-        { status: 400 }
+        { error: "company_id query parameter is required" },
+        { status: 400 },
       );
     }
 
@@ -50,14 +55,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       companyId = parseInt(companyIdParam, 10);
       if (isNaN(companyId) || companyId <= 0) {
         return NextResponse.json(
-          { error: 'company_id must be a positive integer' },
-          { status: 400 }
+          { error: "company_id must be a positive integer" },
+          { status: 400 },
         );
       }
     } catch {
       return NextResponse.json(
-        { error: 'Invalid company_id parameter' },
-        { status: 400 }
+        { error: "Invalid company_id parameter" },
+        { status: 400 },
       );
     }
 
@@ -70,16 +75,39 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: 'Unauthorized: User not authenticated' },
-        { status: 401 }
+        { error: "Unauthorized: User not authenticated" },
+        { status: 401 },
       );
     }
 
     // Step 3: Verify user owns this company (RLS check via database query)
     const db = createServiceDb();
 
-    // Query to verify user owns company and get crawl/diagnosis status
-    // We'll do this in two steps: 1) verify ownership, 2) get status
+    // Query to verify user owns company
+    const companyResult = await db
+      .select({ id: companiesTable.id, userId: companiesTable.userId })
+      .from(companiesTable)
+      .where(eq(companiesTable.id, companyId))
+      .limit(1);
+
+    if (companyResult.length === 0) {
+      // Company not found → 403 (not 404 to avoid information leakage)
+      return NextResponse.json(
+        { error: "해당 진단에 접근할 권한이 없습니다" },
+        { status: 403 },
+      );
+    }
+
+    const company = companyResult[0];
+    if (company.userId !== user.id) {
+      // User does not own this company
+      return NextResponse.json(
+        { error: "해당 진단에 접근할 권한이 없습니다" },
+        { status: 403 },
+      );
+    }
+
+    // Get crawl results for status check
     const crawlResults = await db
       .select()
       .from(crawlResultsTable)
@@ -87,16 +115,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .orderBy((t) => desc(t.crawledAt))
       .limit(1);
 
-    // Check if we got any results (this verifies the company exists)
-    // For RLS enforcement, we'd add a check against companies table with userId
-    // For now, we rely on crawl_results having company_id FK
-
     // Step 4: Determine diagnosis status
     if (crawlResults.length === 0) {
       // No crawl started yet → still waiting for crawling to begin
       const response: DiagnosisStatusResponse = {
-        status: 'crawling',
-        message: '진단 중... (크롤링 대기 중)',
+        status: "crawling",
+        message: "진단 중... (크롤링 대기 중)",
         companyId,
       };
       return NextResponse.json(response);
@@ -106,36 +130,36 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Check crawl status for failures
     if (
-      latestCrawl.status === 'failed_timeout' ||
-      latestCrawl.status === 'failed_network' ||
-      latestCrawl.status === 'failed_invalid_url'
+      latestCrawl.status === "failed_timeout" ||
+      latestCrawl.status === "failed_network" ||
+      latestCrawl.status === "failed_invalid_url"
     ) {
       const response: DiagnosisStatusResponse = {
-        status: 'failed',
-        message: '크롤링이 실패했습니다',
+        status: "failed",
+        message: "크롤링이 실패했습니다",
         companyId,
       };
       return NextResponse.json(response);
     }
 
     // Crawl was successful, check for diagnosis
-    if (latestCrawl.status === 'success') {
+    if (latestCrawl.status === "success") {
       const diagnoses = await db
         .select()
         .from(diagnosesTable)
         .where(
           and(
             eq(diagnosesTable.companyId, companyId),
-            eq(diagnosesTable.crawlResultId, latestCrawl.id)
-          )
+            eq(diagnosesTable.crawlResultId, latestCrawl.id),
+          ),
         )
         .limit(1);
 
       if (diagnoses.length > 0) {
         // Diagnosis completed
         const response: DiagnosisStatusResponse = {
-          status: 'complete',
-          message: '진단 완료!',
+          status: "complete",
+          message: "진단 완료!",
           companyId,
           diagnosisId: diagnoses[0].id,
         };
@@ -143,8 +167,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       } else {
         // Crawl done, waiting for diagnosis analysis
         const response: DiagnosisStatusResponse = {
-          status: 'analyzing',
-          message: '크롤링 완료, AI 분석 중...',
+          status: "analyzing",
+          message: "크롤링 완료, AI 분석 중...",
           companyId,
         };
         return NextResponse.json(response);
@@ -153,16 +177,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Fallback: assume still crawling
     const response: DiagnosisStatusResponse = {
-      status: 'crawling',
-      message: '진단 중... (크롤링 진행 중)',
+      status: "crawling",
+      message: "진단 중... (크롤링 진행 중)",
       companyId,
     };
     return NextResponse.json(response);
   } catch (error) {
-    console.error('Error checking diagnosis status:', error);
+    console.error("Error checking diagnosis status:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }
