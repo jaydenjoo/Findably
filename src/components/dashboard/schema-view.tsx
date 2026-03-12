@@ -12,6 +12,7 @@ import {
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Copy, ExternalLink } from 'lucide-react';
+import { trackSchemaCopied } from '@/lib/analytics/posthog';
 
 /**
  * Simple toast notification using a callback
@@ -84,6 +85,9 @@ ${jsonLdContent}
 </script>`;
 
       await navigator.clipboard.writeText(scriptContent);
+
+      // Track schema copy event
+      trackSchemaCopied(selectedSchema?.type || 'unknown');
 
       toast({
         description: '복사되었습니다!',

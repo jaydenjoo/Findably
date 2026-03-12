@@ -10,6 +10,7 @@ import {
   TabsTrigger,
 } from '../ui/tabs';
 import { Copy } from 'lucide-react';
+import { trackMetaTagCopied } from '@/lib/analytics/posthog';
 
 /**
  * Simple toast notification using a callback
@@ -173,6 +174,10 @@ export function MetaTagView({
       try {
         const htmlContent = `<meta name="${tagName}" content="${content}" />`;
         await navigator.clipboard.writeText(htmlContent);
+
+        // Track meta tag copy event
+        trackMetaTagCopied(tagName as 'title' | 'description' | 'og' | 'twitter' | 'all');
+
         toast({
           description: '복사되었습니다!',
           duration: 2000,
@@ -203,6 +208,10 @@ export function MetaTagView({
           : '');
 
       await navigator.clipboard.writeText(htmlContent);
+
+      // Track all meta tags copy event
+      trackMetaTagCopied('all');
+
       toast({
         description: '전체 메타 태그가 복사되었습니다!',
         duration: 2000,

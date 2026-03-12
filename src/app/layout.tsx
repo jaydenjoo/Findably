@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import { SentryProvider } from "@/components/sentry-provider";
+import { PostHogProviderComponent } from "@/components/posthog-provider";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -36,7 +37,9 @@ export default function RootLayout({
       <body
         className={`${dmSans.variable} ${geistMono.variable} antialiased font-sans bg-gradient-to-b from-[#fafbfc] to-white`}
       >
-        <SentryProvider>{children}</SentryProvider>
+        <PostHogProviderComponent>
+          <SentryProvider>{children}</SentryProvider>
+        </PostHogProviderComponent>
       </body>
     </html>
   );

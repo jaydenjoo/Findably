@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { RotateCw } from 'lucide-react';
 import { useReDiagnosis } from '@/hooks/use-re-diagnosis';
+import { trackReDiagnose } from '@/lib/analytics/posthog';
 
 interface DashboardHeaderProps {
   companyName: string;
@@ -19,6 +20,12 @@ export default function DashboardHeader({
 }: DashboardHeaderProps) {
   const { state, isLoading, error, startReDiagnosis } =
     useReDiagnosis(companyId);
+
+  // Wrapper to track re-diagnosis event
+  const handleStartReDiagnosis = async () => {
+    trackReDiagnose(companyId);
+    await startReDiagnosis();
+  };
 
   // Format timestamp
   const diagnosedDate = new Date(diagnosedAt);
@@ -58,7 +65,7 @@ export default function DashboardHeader({
 
             {/* Right: Re-diagnose button */}
             <Button
-              onClick={startReDiagnosis}
+              onClick={handleStartReDiagnosis}
               disabled={isLoading}
               variant="outline"
               className="gap-2"
