@@ -647,7 +647,7 @@ This document outlines all implementation tasks to deliver Findably MVP from req
   - Alert if any service unhealthy: send email/Slack
   - _Requirements: 40.1, 40.2, 40.3, 40.4_
 
-- [ ] 9.4 (P) Implement request/response logging
+- [x] 9.4 (P) Implement request/response logging
   - Create `src/lib/logging/request-logger.ts` middleware
   - Log all API requests: timestamp, user_id, path, method, response status, response time
   - Store logs in Supabase `api_logs` table or Sentry
