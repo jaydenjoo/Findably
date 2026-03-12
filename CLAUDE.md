@@ -1,6 +1,6 @@
-# [프로젝트명]
+# Findably
 
-> 한줄 설명
+> URL 하나로 SEO + GEO 통합 진단. AI가 마케팅 점수를 매기고 실행 계획까지 제시하는 SaaS.
 
 ## 시작
 
@@ -13,19 +13,29 @@
 | 카테고리 | 스택 |
 |---------|------|
 | 프레임워크 | Next.js 15 (App Router, SSR) |
-| 스타일링 | Tailwind CSS + shadcn/ui |
-| DB | Supabase PostgreSQL |
-| 인증 | Supabase Auth |
-| AI | Claude API |
+| 스타일링 | Tailwind CSS v4 + shadcn/ui |
+| DB | Supabase PostgreSQL + RLS |
+| 인증 | Supabase Auth (이메일 + Google) |
+| AI | Claude API (Sonnet 4.6) |
+| 크롤링 | Playwright + n8n |
+| 결제 | Toss Payments (건당 9.9만원) |
 | 배포 | Vercel |
+| 에러 | Sentry |
+
+## 보안 분류
+
+- 결제 (billing): 🔴 — 직접 코드 + 수동 검증
+- 인증/크롤링/고객데이터: 🟡 — Supabase Auth + RLS
 
 ## 폴더 구조 (v6.4)
 
 - `src/app/` — 라우트만 (얇게)
 - `src/features/` — 기능별 독립 모듈 (★핵심)
+  - onboarding, crawling, diagnosis-free, diagnosis-paid
+  - geo-engine, competitors, report, actions, payment, sample
 - `src/shared/` — 공통 컴포넌트/유틸
-- `src/lib/adapters/` — 외부 서비스 어댑터 (교체 가능)
-- `src/config/` — 설정 외부화 (하드코딩 금지)
+- `src/lib/adapters/` — 외부 서비스 어댑터 (ai, payment, email, crawler, pdf)
+- `src/config/` — 설정 외부화 (scoring, access-control, features, seo)
 - `e2e/` — E2E 테스트
 
 ## 핵심 규칙
