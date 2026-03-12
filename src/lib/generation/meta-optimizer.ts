@@ -3,7 +3,8 @@
  * Generates SEO-optimized meta tags using Claude API
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropicConfig } from "@/lib/config";
 
 /**
  * Input parameters for meta tag optimization
@@ -12,7 +13,7 @@ export interface MetaOptimizerInput {
   currentTitle: string;
   currentDescription: string;
   url: string;
-  industry: 'ecommerce' | 'blog' | 'saas' | 'local_business' | 'other';
+  industry: "ecommerce" | "blog" | "saas" | "local_business" | "other";
   headings?: string[]; // H1, H2 headings for context
   ogImage?: string; // Current OG image URL
 }
@@ -80,8 +81,9 @@ export type Result = SuccessResult | ErrorResult;
  * Create and cache Anthropic client
  */
 function getAnthropicClient(): Anthropic {
+  const config = getAnthropicConfig();
   return new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
+    apiKey: config.apiKey,
   });
 }
 
@@ -109,11 +111,10 @@ function getAnthropicClient(): Anthropic {
  * }
  * ```
  */
-export async function optimizeMeta(
-  input: MetaOptimizerInput
-): Promise<Result> {
+export async function optimizeMeta(input: MetaOptimizerInput): Promise<Result> {
   try {
     const client = getAnthropicClient();
+    const config = getAnthropicConfig();
 
     // System prompt in Korean for Korean website optimization
     const systemPrompt = `당신은 SEO 전문가이자 메타 태그 최적화 전문가입니다. 주어진 웹사이트의 현재 메타 태그를 분석하고 다음을 생성합니다:
@@ -143,11 +144,11 @@ JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
     // Build the user message with all context
     const headingsText =
       input.headings && input.headings.length > 0
-        ? `\n제목들: ${input.headings.join(', ')}`
-        : '';
+        ? `\n제목들: ${input.headings.join(", ")}`
+        : "";
     const ogImageText = input.ogImage
       ? `\n현재 OG 이미지: ${input.ogImage}`
-      : '';
+      : "";
 
     const userMessage = `
 메타 태그 최적화 요청:
@@ -168,23 +169,23 @@ URL: ${input.url}
 위 정보를 분석하고 JSON 형식의 최적화 제안을 제공하세요.`;
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: systemPrompt,
       messages: [
         {
-          role: 'user',
+          role: "user",
           content: userMessage,
         },
       ],
     });
 
     // Extract text from response
-    const textContent = response.content.find((block) => block.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
+    const textContent = response.content.find((block) => block.type === "text");
+    if (!textContent || textContent.type !== "text") {
       return {
         success: false,
-        error: 'Claude API에서 텍스트 응답을 받지 못했습니다.',
+        error: "Claude API에서 텍스트 응답을 받지 못했습니다.",
       };
     }
 
@@ -195,15 +196,15 @@ URL: ${input.url}
     } catch {
       return {
         success: false,
-        error: 'Claude API 응답을 파싱할 수 없습니다.',
+        error: "Claude API 응답을 파싱할 수 없습니다.",
       };
     }
 
     // Validate and type the response
-    if (typeof optimizationData !== 'object' || optimizationData === null) {
+    if (typeof optimizationData !== "object" || optimizationData === null) {
       return {
         success: false,
-        error: 'Claude API 응답 형식이 올바르지 않습니다.',
+        error: "Claude API 응답 형식이 올바르지 않습니다.",
       };
     }
 
@@ -211,80 +212,77 @@ URL: ${input.url}
 
     // Validate required fields
     const title =
-      typeof data.title === 'string'
-        ? data.title
-        : (data.title as unknown);
+      typeof data.title === "string" ? data.title : (data.title as unknown);
     const description =
-      typeof data.description === 'string'
+      typeof data.description === "string"
         ? data.description
         : (data.description as unknown);
     const ogTitle =
-      typeof data.ogTitle === 'string'
+      typeof data.ogTitle === "string"
         ? data.ogTitle
         : (data.ogTitle as unknown);
     const ogDescription =
-      typeof data.ogDescription === 'string'
+      typeof data.ogDescription === "string"
         ? data.ogDescription
         : (data.ogDescription as unknown);
     const twitterTitle =
-      typeof data.twitterTitle === 'string'
+      typeof data.twitterTitle === "string"
         ? data.twitterTitle
         : (data.twitterTitle as unknown);
     const twitterDescription =
-      typeof data.twitterDescription === 'string'
+      typeof data.twitterDescription === "string"
         ? data.twitterDescription
         : (data.twitterDescription as unknown);
     const titleReason =
-      typeof data.titleReason === 'string'
+      typeof data.titleReason === "string"
         ? data.titleReason
         : (data.titleReason as unknown);
     const descriptionReason =
-      typeof data.descriptionReason === 'string'
+      typeof data.descriptionReason === "string"
         ? data.descriptionReason
         : (data.descriptionReason as unknown);
     const ogTagsReason =
-      typeof data.ogTagsReason === 'string'
+      typeof data.ogTagsReason === "string"
         ? data.ogTagsReason
         : (data.ogTagsReason as unknown);
 
     if (
-      typeof title !== 'string' ||
-      typeof description !== 'string' ||
-      typeof ogTitle !== 'string' ||
-      typeof ogDescription !== 'string' ||
-      typeof twitterTitle !== 'string' ||
-      typeof twitterDescription !== 'string' ||
-      typeof titleReason !== 'string' ||
-      typeof descriptionReason !== 'string' ||
-      typeof ogTagsReason !== 'string'
+      typeof title !== "string" ||
+      typeof description !== "string" ||
+      typeof ogTitle !== "string" ||
+      typeof ogDescription !== "string" ||
+      typeof twitterTitle !== "string" ||
+      typeof twitterDescription !== "string" ||
+      typeof titleReason !== "string" ||
+      typeof descriptionReason !== "string" ||
+      typeof ogTagsReason !== "string"
     ) {
       return {
         success: false,
-        error: 'Claude API 응답에 필수 필드가 누락되었습니다.',
+        error: "Claude API 응답에 필수 필드가 누락되었습니다.",
       };
     }
 
     // Extract and validate og image and twitter image (can be null or string)
     const ogImage =
-      data.ogImage === null || typeof data.ogImage === 'string'
+      data.ogImage === null || typeof data.ogImage === "string"
         ? data.ogImage
         : null;
     const twitterImage =
-      data.twitterImage === null || typeof data.twitterImage === 'string'
+      data.twitterImage === null || typeof data.twitterImage === "string"
         ? data.twitterImage
         : null;
 
     // Calculate improvements
-    const titleLengthOptimal =
-      title.length >= 50 && title.length <= 60;
+    const titleLengthOptimal = title.length >= 50 && title.length <= 60;
     const descriptionLengthOptimal =
       description.length >= 120 && description.length <= 160;
     const titleImproved =
       title.toLowerCase() !== input.currentTitle.toLowerCase() &&
       titleLengthOptimal;
     const descriptionImproved =
-      description.toLowerCase() !==
-        input.currentDescription.toLowerCase() && descriptionLengthOptimal;
+      description.toLowerCase() !== input.currentDescription.toLowerCase() &&
+      descriptionLengthOptimal;
 
     const result: MetaOptimizerResult = {
       currentMeta: {
@@ -324,7 +322,7 @@ URL: ${input.url}
     const errorMessage =
       error instanceof Error
         ? error.message
-        : 'Meta 태그 최적화 중 알 수 없는 오류가 발생했습니다.';
+        : "Meta 태그 최적화 중 알 수 없는 오류가 발생했습니다.";
 
     return {
       success: false,
