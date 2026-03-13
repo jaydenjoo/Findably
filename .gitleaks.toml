@@ -1,0 +1,10 @@
+[allowlist]
+  paths = [
+    ".env.example",
+    ".env.sample",
+    "*.test.*",
+    "*.spec.*",
+    "node_modules",
+    ".next",
+    "pnpm-lock.yaml"
+  ]

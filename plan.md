@@ -1,50 +1,101 @@
 # 현재 계획 (External Memory)
+
 > 이 파일은 /compact, /clear 후에도 살아남는 "외부 메모리"입니다.
 > AI가 세션이 리셋되어도 이 파일을 읽으면 맥락을 이어갈 수 있습니다.
-> 최종 업데이트: 2026-03-12
+> 최종 업데이트: 2026-03-13
 
 ---
 
 ## 🎯 현재 작업
 
-**Epic**: Epic 1 — 프로젝트 셋업
-**Task**: 1.1~1.2 완료, 1.3부터 진행
-**상태**: 진행 중
+**상태**: Epic 1 진행 중 — Task 1.1~1.6 완료, 다음 Task 선택 필요
+**완료**: 1.1, 1.2, 1.3 (Auth), 1.4 (DB), 1.5 (GNB+레이아웃), 1.6 (config)
+**남은 것**: 1.7 (공통 컴포넌트), 1.8 (SEO), 1.9 (Sentry+CI/CD)
 
 ## 📋 기능 목록 (JSON 형식 — AI가 임의 수정하지 않음)
 
 ```json
 [
-  { "id": "1.1", "description": "Next.js 15 + Supabase + shadcn/ui 초기화", "status": "done", "depends_on": [] },
-  { "id": "1.2", "description": "features/ 모듈 구조 + registry + adapters/", "status": "done", "depends_on": ["1.1"] },
-  { "id": "1.3", "description": "Supabase Auth (이메일 + Google)", "status": "not_started", "depends_on": ["1.1"] },
-  { "id": "1.4", "description": "DB 스키마", "status": "not_started", "depends_on": ["1.3"] },
-  { "id": "1.5", "description": "GNB + 라우팅 + 레이아웃", "status": "not_started", "depends_on": ["1.1"] },
-  { "id": "1.6", "description": "config/ (점수, 접근제어, 메뉴, SEO)", "status": "done", "depends_on": ["1.1"] },
-  { "id": "1.7", "description": "공통 컴포넌트 (ErrorBoundary, Skeleton, EmptyState, BlurOverlay)", "status": "in_progress", "depends_on": ["1.1"] },
-  { "id": "1.8", "description": "SEO 기반 (metadata, JSON-LD, sitemap, robots.txt, llms.txt)", "status": "in_progress", "depends_on": ["1.1"] },
-  { "id": "1.9", "description": "Sentry + CI/CD", "status": "not_started", "depends_on": ["1.1"] }
+  {
+    "id": "1.1",
+    "description": "Next.js 15 + Supabase + shadcn/ui 초기화",
+    "status": "done",
+    "depends_on": []
+  },
+  {
+    "id": "1.2",
+    "description": "features/ 모듈 구조 + registry + adapters/",
+    "status": "done",
+    "depends_on": ["1.1"]
+  },
+  {
+    "id": "1.3",
+    "description": "Supabase Auth (이메일 + Google)",
+    "status": "done",
+    "depends_on": ["1.1"]
+  },
+  {
+    "id": "1.4",
+    "description": "DB 스키마 (5개 테이블 + RLS + 타입)",
+    "status": "done",
+    "depends_on": ["1.3"]
+  },
+  {
+    "id": "1.5",
+    "description": "GNB + 라우팅 + 레이아웃",
+    "status": "done",
+    "depends_on": ["1.1"]
+  },
+  {
+    "id": "1.6",
+    "description": "config/ (점수, 접근제어, 메뉴, SEO)",
+    "status": "done",
+    "depends_on": ["1.1"]
+  },
+  {
+    "id": "1.7",
+    "description": "공통 컴포넌트 (ErrorBoundary, Skeleton, EmptyState, BlurOverlay)",
+    "status": "not_started",
+    "depends_on": ["1.1"]
+  },
+  {
+    "id": "1.8",
+    "description": "SEO 기반 (metadata, JSON-LD, sitemap, robots.txt, llms.txt)",
+    "status": "not_started",
+    "depends_on": ["1.1"]
+  },
+  {
+    "id": "1.9",
+    "description": "Sentry + CI/CD",
+    "status": "not_started",
+    "depends_on": ["1.1"]
+  }
 ]
 ```
 
 ## 🏗️ 아키텍처 결정
 
-| 결정 | 선택 | 이유 |
-|------|------|------|
-| 과금 모델 | 건당 9.9만원 | MVP 검증용, 구독은 Phase 2 |
-| 무료 진단 AI 호출 | 안 함 (룰 기반) | 비용 0원 유지 |
-| 유료 진단 | 5-Agent 병렬 | aimarketing 검증 패턴 |
-| 결제 | Toss Payments | 한국 건당 결제 최적 |
+| 결정              | 선택             | 이유                       |
+| ----------------- | ---------------- | -------------------------- |
+| 과금 모델         | 건당 9.9만원     | MVP 검증용, 구독은 Phase 2 |
+| 무료 진단 AI 호출 | 안 함 (룰 기반)  | 비용 0원 유지              |
+| 유료 진단         | 5-Agent 병렬     | aimarketing 검증 패턴      |
+| 결제              | Toss Payments 🔴 | 한국 건당 결제 최적        |
+| DB 접두사         | findably\_       | chatsio-v1 Supabase 공유   |
 
 ## 🔑 핵심 식별자 (파일 경로, 설정값)
 
 ```
 주요 파일:
 - docs/PRD.md: 제품 요구사항 (v3.0, 건당 과금)
+- docs/blueprint.md: 현재 Task 실행 계획
 - src/features/registry.ts: 모듈 등록부
 - src/config/scoring.ts: 점수 기준
 - src/config/access-control.ts: Free/유료 접근 제어
+- src/config/navigation.ts: GNB/사이드바 메뉴 정의
 - src/lib/adapters/ai.ts: AI 어댑터
+- src/types/database.ts: Supabase 자동생성 타입 (5개 테이블)
+- src/middleware.ts: 라우트 보호
 
 환경변수 (필요):
 - NEXT_PUBLIC_SUPABASE_URL
@@ -56,9 +107,9 @@
 - SENTRY_DSN
 ```
 
-## 📝 현재 세션 메모
+## 📝 세션 메모
 
-- v3.0 PRD 기반 (건당 과금 모델 — 구독 아님)
-- 이전 v1.0/v2.0 코드 전부 리셋됨 (9b3d76e 커밋)
-- Phase 1 MVP: 건당 결제만, 월 구독은 Phase 2
-- ErrorBoundary, SEO 기본 파일은 생성 완료 (shared/)
+- Task 1.4: Supabase MCP로 원격 DB 검증 완료 (2026-03-13). 5개 테이블 모두 존재 + RLS 활성화.
+- Task 1.5: 코드 리뷰 ✅ PASS. 4 Gate 통과, 🟡 Nit 2개 (aria-busy, params prop).
+- 빌드: ✅ 27 pages 성공. lint 경고 4개 (pre-existing).
+- 다음 세션: Task 1.7, 1.8, 1.9 중 선택하여 진행. Jayden에게 어떤 Task부터 할지 물어볼 것.

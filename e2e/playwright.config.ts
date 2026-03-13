@@ -1,14 +1,14 @@
 import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
-  testDir: './e2e/flows',
+  testDir: './flows',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:3600',
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'pnpm dev',
-    port: 3000,
+    command: 'pnpm dev --port 3600',
+    port: 3600,
     reuseExistingServer: true,
   },
 })

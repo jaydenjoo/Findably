@@ -13,6 +13,22 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { prefer: "type-imports", fixStyle: "inline-type-imports" },
+      ],
+      "no-console": "warn",
+    },
+  },
+  {
+    files: ["**/*.test.{ts,tsx}", "**/__tests__/**", "src/test-setup.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
