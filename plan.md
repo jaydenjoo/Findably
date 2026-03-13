@@ -8,9 +8,9 @@
 
 ## 🎯 현재 작업
 
-**상태**: Epic 1 진행 중 — Task 1.1~1.6 완료, 다음 Task 선택 필요
-**완료**: 1.1, 1.2, 1.3 (Auth), 1.4 (DB), 1.5 (GNB+레이아웃), 1.6 (config)
-**남은 것**: 1.7 (공통 컴포넌트), 1.8 (SEO), 1.9 (Sentry+CI/CD)
+**상태**: Epic 1 ✅ 완료 → Epic 2 (온보딩) 진입 대기
+**완료**: 1.1~1.9 전체 (커밋 7973d6d + 40c5cd8)
+**다음**: Epic 2.1 랜딩 페이지 + SEO
 
 ## 📋 기능 목록 (JSON 형식 — AI가 임의 수정하지 않음)
 
@@ -55,19 +55,19 @@
   {
     "id": "1.7",
     "description": "공통 컴포넌트 (ErrorBoundary, Skeleton, EmptyState, BlurOverlay)",
-    "status": "not_started",
+    "status": "done",
     "depends_on": ["1.1"]
   },
   {
     "id": "1.8",
     "description": "SEO 기반 (metadata, JSON-LD, sitemap, robots.txt, llms.txt)",
-    "status": "not_started",
+    "status": "done",
     "depends_on": ["1.1"]
   },
   {
     "id": "1.9",
     "description": "Sentry + CI/CD",
-    "status": "not_started",
+    "status": "done",
     "depends_on": ["1.1"]
   }
 ]
@@ -111,5 +111,9 @@
 
 - Task 1.4: Supabase MCP로 원격 DB 검증 완료 (2026-03-13). 5개 테이블 모두 존재 + RLS 활성화.
 - Task 1.5: 코드 리뷰 ✅ PASS. 4 Gate 통과, 🟡 Nit 2개 (aria-busy, params prop).
+- Task 1.7: 공통 컴포넌트 10개 생성. 코드 리뷰 2회 ✅ PASS.
+- Task 1.8: SEO 기반 9개 파일. sitemap.ts, robots.ts, JsonLd, llms.txt 등.
+- Task 1.9: Sentry v10.43.0 + CI/CD workflow.
+- Epic 1 커밋: 7973d6d (153 files) + 40c5cd8 (tsconfig strict + robots.txt 삭제)
 - 빌드: ✅ 27 pages 성공. lint 경고 4개 (pre-existing).
-- 다음 세션: Task 1.7, 1.8, 1.9 중 선택하여 진행. Jayden에게 어떤 Task부터 할지 물어볼 것.
+- 다음 세션: Epic 2.1 랜딩 페이지부터 시작.

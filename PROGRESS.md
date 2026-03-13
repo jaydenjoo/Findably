@@ -158,16 +158,25 @@
 - 위치: `/Users/jayden/project/coding/guide/바이브코딩_통합가이드_v7.0.md`
 - commands→skills, full loading→globs, manual→hooks, cc-sdd→kiro 반영
 
-## 📦 Task 1.8 (SEO 기반) 완료 내역
+## 📦 Task 1.8 (SEO + GEO 기반) 완료 내역
+
+**SEO:**
 
 - `src/config/seo.ts` — URL, OG, JSON-LD Organization 데이터 확장
 - `src/config/site.ts` → re-export 패턴으로 하위 호환
 - `src/components/shared/JsonLd.tsx` — JSON-LD script 렌더링 컴포넌트
-- `src/app/robots.ts` — 동적 robots.txt (AI봇 Allow + 인증 경로 Disallow)
 - `src/app/sitemap.ts` — Public 5개 URL sitemap
-- `public/llms.txt` — AI 크롤러용 사이트 설명
 - `src/app/layout.tsx` — OG, Twitter, icons, canonical + Organization/WebSite JSON-LD
 - `src/app/(public)/page.tsx` — metadata + SoftwareApplication JSON-LD
+
+**GEO (AI 검색 노출 대응):**
+
+- `src/app/robots.ts` — GPTBot, ClaudeBot, PerplexityBot Allow 규칙
+- `public/llms.txt` — AI 크롤러용 사이트 설명 (제품·기능·가격·타겟)
+- JSON-LD 구조화 데이터 — AI가 구조적으로 파싱 가능한 형태
+
+**기타:**
+
 - `public/robots.txt` 삭제 → robots.ts로 대체
 
 ## 📦 Task 1.9 (Sentry + CI/CD) 완료 내역

@@ -12,12 +12,41 @@ export const SEO = {
   ogImage: `${SITE_URL}/og/default.png`,
   ogImageWidth: 1200,
   ogImageHeight: 630,
+  // 랜딩 페이지 전용
+  landing: {
+    title: 'AI 마케팅 진단 — SEO + GEO 통합 분석 | Findably',
+    description:
+      'URL 하나로 SEO + GEO 통합 진단. AI가 마케팅 점수를 매기고 실행 계획까지 제시합니다. 무료로 시작하세요.',
+    ogImage: `${SITE_URL}/og/landing.png`,
+  },
   // JSON-LD Organization 데이터
   organization: {
     name: 'Findably',
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
     description: 'AI 기반 SEO + GEO 통합 마케팅 진단 서비스',
+  },
+} as const
+
+/** 랜딩 페이지 JSON-LD (SoftwareApplication) */
+export const LANDING_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: SEO.siteName,
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  description: SEO.landing.description,
+  url: SEO.siteUrl,
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'KRW',
+    description: '무료 간단 진단',
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: SEO.organization.name,
+    url: SEO.organization.url,
   },
 } as const
 
