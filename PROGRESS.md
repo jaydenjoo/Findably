@@ -1,7 +1,7 @@
 # Findably — 진행상황 문서
 
 > **이 파일을 세션 시작 시 첫 번째로 읽으면 100% 이어서 작업 가능**
-> 최종 업데이트: 2026-03-13
+> 최종 업데이트: 2026-03-14
 
 ---
 
@@ -32,7 +32,7 @@
 - [x] IA 설계 3개 문서 (ia-sitemap, ia-navigation, ia-userflows)
 - [x] docs/spec.md (랜딩 9섹션 + 페이지 명세 + API + DB + 에러 매트릭스)
 
-### Epic 1: 프로젝트 셋업
+### Epic 1: 프로젝트 셋업 ✅
 
 | Task | 설명                                                             | 상태    |
 | ---- | ---------------------------------------------------------------- | ------- |
@@ -46,166 +46,132 @@
 | 1.8  | SEO 기반 (metadata, JSON-LD, sitemap, robots.txt, llms.txt)      | ✅ 완료 |
 | 1.9  | Sentry + CI/CD                                                   | ✅ 완료 |
 
----
+### Epic 2: 온보딩 (진행 중 — 2.1 완료)
 
-## 📦 Task 1.3 (Auth) 완료 내역
+| Task | 설명                        | 상태                  |
+| ---- | --------------------------- | --------------------- |
+| 2.1  | 랜딩 페이지 7섹션 + SEO     | ✅ 완료               |
+| 2.2  | 회원가입/로그인 디자인 보완 | ⏳ 미착수 (plan 존재) |
+| 2.3  | URL 입력 + 선택 정보 폼     | ⏳ 미착수             |
+| 2.4  | 분석 대기 화면              | ⏳ 미착수             |
 
-- `src/lib/supabase/server.ts` — 서버 클라이언트
-- `src/lib/supabase/client.ts` — 브라우저 클라이언트
-- `src/lib/supabase/middleware.ts` — 미들웨어 클라이언트
-- `src/middleware.ts` — 라우트 보호 (PROTECTED_PATHS)
-- `src/app/auth/callback/route.ts` — OAuth 콜백
-- `src/app/(auth)/login/page.tsx` — 로그인 페이지
-- `src/app/(auth)/signup/page.tsx` — 회원가입 페이지
-- `src/features/auth/` — actions, hooks, components, types
-- `supabase/migrations/001_findably_profiles.sql` — profiles 테이블
-- `supabase/migrations/002_findably_profiles_rls_hardening.sql` — RLS 고도화
+### Epic 3: 4-Layer 크롤링 엔진 (진행 중 — 3.1~3.9 완료)
 
-## 📦 Task 1.4 (DB 스키마) 완료 내역
-
-원격 DB에 5개 테이블 모두 존재 + RLS 활성화 확인 (2026-03-13 Supabase MCP 검증):
-
-| 테이블          | 마이그레이션 | RLS |
-| --------------- | ------------ | --- |
-| profiles        | 001 + 002    | ✅  |
-| diagnoses       | 003 (101줄)  | ✅  |
-| diagnosis_items | 003          | ✅  |
-| payments (🔴)   | 004 (51줄)   | ✅  |
-| reports         | 005 (45줄)   | ✅  |
-
-- `src/types/database.ts` — 5개 테이블 타입 생성 완료
-
-## 📦 Task 1.5 (GNB + 라우팅 + 레이아웃) 완료 내역
-
-**레이아웃 4개:**
-
-- `src/app/(public)/layout.tsx` — GNB + Footer
-- `src/app/(dashboard)/layout.tsx` — Sidebar + Header
-- `src/app/(auth)/layout.tsx` — 중앙 카드
-- `src/app/(onboarding)/layout.tsx` — 로고 + 중앙 콘텐츠
-
-**공유 컴포넌트:**
-
-- `src/components/shared/GNB.tsx` — 데스크톱 + 모바일 Sheet
-- `src/components/shared/Footer.tsx` — 저작권 + 약관 링크
-- `src/components/dashboard/Sidebar.tsx` — 220px, locked 상태, Tooltip
-- `src/components/dashboard/Header.tsx` — 페이지 타이틀 + 아바타
-- `src/components/dashboard/MobileMenu.tsx` — Sheet 오버레이
-
-**Placeholder 페이지 (~20개):**
-
-- Public: pricing, reports/sample
-- Dashboard: dashboard, diagnosis/(overview|seo|geo|content|competitors), reports/my, reports/my/[id], actions/(schema|meta-tags|roadmap), settings/(profile|billing)
-- Onboarding: url, info, analyzing
-
-**loading.tsx + error.tsx:** dashboard, diagnosis, onboarding 각각
-
-**코드 리뷰:** ✅ PASS (4 Gate 통과, 🟡 Nit 2개만)
-
-## 📦 Task 1.7 (공통 컴포넌트) 완료 내역
-
-**신규 파일 (10개):**
-
-- `src/types/ui.ts` — 공통 컴포넌트 Props 타입 (OST)
-- `src/config/scoring.ts` — 점수 등급 기준 + 색상 매핑
-- `src/components/ui/badge-variants.ts` — CVA 뱃지 변형 (score/status)
-- `src/components/shared/ErrorBoundary.tsx` — React Error Boundary (class, 'use client')
-- `src/components/shared/Skeleton.tsx` — 재사용 스켈레톤 4종 (card/text/gauge/table-row)
-- `src/components/shared/EmptyState.tsx` — 빈 상태 (아이콘+제목+설명+CTA)
-- `src/components/shared/ErrorCard.tsx` — 에러 표시 (retry+aria-live)
-- `src/components/shared/OfflineBanner.tsx` — 오프라인 감지 배너 (useSyncExternalStore)
-- `src/components/shared/BlurOverlay.tsx` — 유료 전환 블러 + CTA (CSS Variable 방식)
-- `src/components/shared/ScoreGauge.tsx` — SVG 원형 게이지 + 카운트업 (rAF+easeOutCubic)
-
-**수정 파일 (2개):**
-
-- `src/app/(onboarding)/error.tsx` — ErrorCard 컴포넌트 사용으로 리팩토링
-- `src/app/(dashboard)/diagnosis/error.tsx` — ErrorCard 컴포넌트 사용으로 리팩토링
-- `src/app/globals.css` — `.blur-overlay-gradient` 유틸리티 클래스 추가
-
-**코드 리뷰:** ✅ PASS (2회 리뷰 — 1차: 🔴3+🟡3 수정, 2차: 전건 해결 확인)
-
-**설계 결정:**
-
-- BlurOverlay 블러: 인라인 style 대신 CSS Variable + @layer utilities 조합
-- OfflineBanner: useSyncExternalStore로 SSR 안전한 온라인 감지
-- ScoreGauge: prefers-reduced-motion 대응 + rAF cleanup으로 메모리 누수 방지
+| Task | 설명                                     | 상태      | 커밋      |
+| ---- | ---------------------------------------- | --------- | --------- |
+| 3.1  | 크롤링 인프라 (타입/상수/스키마/URL보안) | ✅ 완료   | `3a010f6` |
+| 3.2  | robots.txt 파싱 (AI 봇 14개)             | ✅ 완료   | `825a0ab` |
+| 3.3  | sitemap.xml + llms.txt 파서              | ✅ 완료   | `f898950` |
+| 3.4  | CMS 감지 (15개 CMS/프레임워크)           | ✅ 완료   | `91045a7` |
+| 3.5  | 모바일 크롤링 (viewport/터치 분석)       | ✅ 완료   | `ce4e423` |
+| 3.6  | PageSpeed Insights API                   | ✅ 완료   | `214e296` |
+| 3.7  | CrUX API (실제 사용자 필드 데이터)       | ✅ 완료   | `89794ec` |
+| 3.8  | Safe Browsing API (URL 위협 검사)        | ✅ 완료   | 커밋 대기 |
+| 3.9  | SSL Labs + Mozilla Observatory           | ✅ 완료   | 커밋 대기 |
+| 3.10 | 크롤링 결과 → Supabase 저장              | ⏳ 미착수 | —         |
+| 3.11 | robots.txt 차단 시 대체 데이터 + UI      | ⏳ 미착수 | —         |
 
 ---
 
-## ✅ 인프라 강화 (STEP 6.5 — 2026-03-13)
+## 📦 Epic 3 크롤링 주요 파일
 
-### .claude/rules/ 프로젝트별 Globs 규칙 9개
+### 공통 인프라 (3.1)
 
-| 파일                  | 트리거                                        | 핵심 내용                             |
-| --------------------- | --------------------------------------------- | ------------------------------------- |
-| `frontend.md`         | `src/app/**/*.tsx`, `src/components/**/*.tsx` | Server Component 기본, shadcn/ui 우선 |
-| `api.md`              | `src/app/api/**/*`, `src/lib/api/*`           | Zod 검증, withAuth, 통일 응답         |
-| `design-tokens.md`    | `src/components/**/*.tsx`, `globals.css`      | Brand #2b7cff, 2레이어 그림자         |
-| `testing.md`          | `**/*.test.*`, `**/*.spec.*`                  | Vitest+Playwright, AAA, 70%           |
-| `accessibility.md`    | `src/components/**/*`                         | WCAG AA, 4.5:1 대비                   |
-| `seo.md`              | `src/app/**/page.tsx`, `**/layout.tsx`        | metadata 필수, JSON-LD                |
-| `error-handling.md`   | `src/**/*.ts`, `src/**/*.tsx`                 | 5가지 상태, 한국어 메시지             |
-| `module-structure.md` | `src/features/**/*`                           | 교차 import 금지, adapters            |
-| `security.md`         | `src/features/auth/**/*`, `payment/**/*`      | 결제=🔴, Toss 9.9만원                 |
+- `src/features/crawling/types.ts` — CrawlData, Layer1~3Data 전체 타입
+- `src/features/crawling/constants.ts` — AI_BOT_LIST, 타임아웃, UA 등 상수
+- `src/features/crawling/schemas.ts` — Zod 스키마 (crawlDataSchema)
+- `src/features/crawling/index.ts` — 공개 인터페이스 (re-export)
+- `src/shared/utils/url-security.ts` — URL 보안 검증 (SSRF 방어)
+- `src/config/crawling.ts` — googleApiKey 등 외부 설정
 
-### .claude/settings.json — PostToolUse Hooks
+### 파서 (3.2~3.5) — parsers/ (순수 함수, 네트워크 호출 없음)
 
-- Write/Edit 후 `.ts/.tsx` 파일 자동 `tsc --noEmit` 실행
+- `src/features/crawling/parsers/robots-txt.ts` — parseRobotsTxt
+- `src/features/crawling/parsers/sitemap.ts` — parseSitemap
+- `src/features/crawling/parsers/llms-txt.ts` — parseLlmsTxt
+- `src/features/crawling/parsers/cms.ts` — detectCms (15개 CMS 정규식)
+- `src/features/crawling/parsers/mobile.ts` — checkMobile (viewport+터치)
 
-### 통합가이드 v7.0 재작성
+### 페처 (3.6~3.9) — fetchers/ (외부 API 호출)
 
-- 위치: `/Users/jayden/project/coding/guide/바이브코딩_통합가이드_v7.0.md`
-- commands→skills, full loading→globs, manual→hooks, cc-sdd→kiro 반영
+- `src/features/crawling/fetchers/pagespeed.ts` — fetchPageSpeed (Google PSI v5)
+  - 30초 AbortController 타임아웃
+  - API 키 없으면 null 반환 (graceful)
+  - 방어적 파싱: 필드 누락 시 null
+- `src/features/crawling/fetchers/crux.ts` — fetchCrux (CrUX API v1)
+  - POST origin 기반 쿼리 (28일 rolling p75)
+  - 15초 AbortController 타임아웃
+  - LCP/INP/CLS/TTFB/FCP 수집, CLS 문자열→숫자 변환
+  - 404 = 트래픽 부족 (정상 null 반환, 에러 로깅 안 함)
+- `src/features/crawling/fetchers/safe-browsing.ts` — fetchSafeBrowsing (Google v4)
+  - POST 요청, 4종 위협 타입 (MALWARE 등) 검사
+  - 10초 AbortController 타임아웃, API 키 필수
+  - is_safe + threats[] 반환, 빈 응답 = 안전
+- `src/features/crawling/fetchers/ssl-labs.ts` — fetchSslLabs (SSL Labs API v3)
+  - GET 캐시 우선 (fromCache=on, maxAge=72h)
+  - status=READY만 사용 (폴링 안 함)
+  - grade + valid + expires_at + issuer 추출
+- `src/features/crawling/fetchers/observatory.ts` — fetchObservatory (Mozilla Observatory v1)
+  - 2단계: POST /analyze → GET /getScanResults
+  - state=FINISHED만 사용, issues = 실패 테스트 score_description
+  - getScanResults 실패 시 빈 issues (grade/score는 유지)
 
-## 📦 Task 1.8 (SEO + GEO 기반) 완료 내역
+### 테스트 (250개 전체 통과)
 
-**SEO:**
+- `parsers/__tests__/robots-txt.test.ts` — 21개
+- `parsers/__tests__/sitemap.test.ts` — 21개
+- `parsers/__tests__/llms-txt.test.ts` — 18개
+- `parsers/__tests__/cms.test.ts` — 23개
+- `parsers/__tests__/mobile.test.ts` — 20개
+- `fetchers/__tests__/pagespeed.test.ts` — 13개
+- `fetchers/__tests__/crux.test.ts` — 16개
+- `fetchers/__tests__/safe-browsing.test.ts` — 15개
+- `fetchers/__tests__/ssl-labs.test.ts` — 18개
+- `fetchers/__tests__/observatory.test.ts` — 17개
+- (+ 기타 auth/shared 테스트)
 
-- `src/config/seo.ts` — URL, OG, JSON-LD Organization 데이터 확장
-- `src/config/site.ts` → re-export 패턴으로 하위 호환
-- `src/components/shared/JsonLd.tsx` — JSON-LD script 렌더링 컴포넌트
-- `src/app/sitemap.ts` — Public 5개 URL sitemap
-- `src/app/layout.tsx` — OG, Twitter, icons, canonical + Organization/WebSite JSON-LD
-- `src/app/(public)/page.tsx` — metadata + SoftwareApplication JSON-LD
+### 설계 패턴
 
-**GEO (AI 검색 노출 대응):**
+- **parsers/ vs fetchers/ 분리**: 순수 함수(파서)와 네트워크 호출(페처) 구분
+- **lib/adapters/ 사용 안 함**: PageSpeed API는 crawling 전용 → features/crawling 내부 배치
+- **타입 파생**: `type PageSpeedData = NonNullable<Layer2Data['pagespeed']>` — types.ts 중복 정의 방지
 
-- `src/app/robots.ts` — GPTBot, ClaudeBot, PerplexityBot Allow 규칙
-- `public/llms.txt` — AI 크롤러용 사이트 설명 (제품·기능·가격·타겟)
-- JSON-LD 구조화 데이터 — AI가 구조적으로 파싱 가능한 형태
+---
 
-**기타:**
+## 📦 미커밋 변경 (스테이징 외)
 
-- `public/robots.txt` 삭제 → robots.ts로 대체
-
-## 📦 Task 1.9 (Sentry + CI/CD) 완료 내역
-
-- `@sentry/nextjs` v10.43.0 설치
-- `sentry.client.config.ts` — 브라우저 Sentry 초기화 (DSN 없으면 비활성화)
-- `sentry.server.config.ts` — 서버 Sentry 초기화
-- `sentry.edge.config.ts` — Edge runtime 초기화
-- `src/instrumentation.ts` — Next.js instrumentation hook + onRequestError
-- `src/app/global-error.tsx` — 루트 에러 바운더리 + Sentry 보고
-- `next.config.ts` — withSentryConfig 래핑 (sourcemap 업로드 비활성화)
-- `.github/workflows/ci.yml` — SENTRY_DSN 환경변수 추가
-
-**설정:** tracesSampleRate 10%, replaysOnError 100%, sourcemap 업로드 Phase 2
+- `docs/blueprint.md` — 수정됨 (Task 3.1~3.7 blueprint 통합)
+- `src/features/onboarding/actions/submit-url.ts` — 신규 (Task 2.3 관련 WIP)
+- `src/features/onboarding/schemas.ts` — 수정됨 (Task 2.3 관련 WIP)
 
 ---
 
 ## ⏳ 진행 중
 
-없음 — Epic 1 완료. Epic 2 진입 필요.
+없음 — Task 3.8 + 3.9 구현·검증 완료, 커밋 대기.
 
 ## 🔜 다음 할 일
 
-**Epic 1 ✅ 완료** → Epic 2 (온보딩) 진입:
+**Task 3.10 — 크롤링 결과 → Supabase 저장**
 
-- 2.1: 랜딩 페이지 + SEO
-- 2.2: 회원가입/로그인
-- 2.3: URL 입력 + 선택 정보 폼
-- 2.4: 분석 대기 화면
+- 4-Layer 수집 데이터를 Supabase에 저장하는 로직
+
+이후: 3.11 차단 대응 UI → Epic 4 진단 엔진
+
+---
+
+## 🔧 검증 명령어
+
+```bash
+pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm test
+```
+
+최종 검증: ✅ 전체 통과 (250 tests, 2026-03-14)
+
+## 📝 빌드 참고
+
+- `pnpm lint` 경고 존재 (pre-existing, 블로킹 아님)
+- 개발 서버: `pnpm dev` (포트 3600)
 
 ---
 
@@ -220,18 +186,3 @@
 | 결제      | Toss Payments 🔴        | 한국 시장 최적, 건당 결제 지원         |
 | 배포      | Vercel                  | Next.js 최적화                         |
 | DB 접두사 | findably\_              | chatsio-v1과 Supabase 공유 → 충돌 방지 |
-
----
-
-## 🔧 검증 명령어
-
-```bash
-pnpm tsc --noEmit && pnpm lint && pnpm build
-```
-
-최종 빌드: ✅ 통과 (27 pages, 2026-03-13)
-
-## 📝 빌드 참고
-
-- `pnpm lint` 경고 4개 (pre-existing, 블로킹 아님)
-- 개발 서버: `pnpm dev` (포트 3600)

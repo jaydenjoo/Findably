@@ -28,9 +28,14 @@ export { parseLlmsTxt } from './parsers/llms-txt'
 export { detectCms } from './parsers/cms'
 export { checkMobile } from './parsers/mobile'
 
-// ─── 페처 (Layer 2+) ───
+// ─── 페처 (Layer 2: Google API) ───
 export { fetchPageSpeed } from './fetchers/pagespeed'
 export { fetchCrux } from './fetchers/crux'
+export { fetchSafeBrowsing } from './fetchers/safe-browsing'
+
+// ─── 페처 (Layer 3: 오픈소스) ───
+export { fetchSslLabs } from './fetchers/ssl-labs'
+export { fetchObservatory } from './fetchers/observatory'
 
 // ─── 상수 ───
 export {
