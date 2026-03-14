@@ -50,7 +50,7 @@ export function SignupForm(): React.JSX.Element {
         <div
           role="alert"
           aria-live="polite"
-          className="rounded-lg bg-red-50 p-3 text-sm text-red-600"
+          className="rounded-lg bg-danger-50 p-3 text-sm text-danger-600"
         >
           {state.error}
         </div>
@@ -73,7 +73,7 @@ export function SignupForm(): React.JSX.Element {
         {clientErrors.email && (
           <p
             id="signup-email-error"
-            className="text-sm text-red-500"
+            className="text-sm text-danger-500"
             role="alert"
           >
             {clientErrors.email}
@@ -98,7 +98,7 @@ export function SignupForm(): React.JSX.Element {
         {clientErrors.password && (
           <p
             id="signup-password-error"
-            className="text-sm text-red-500"
+            className="text-sm text-danger-500"
             role="alert"
           >
             {clientErrors.password}

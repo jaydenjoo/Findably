@@ -43,7 +43,7 @@ export function PasswordResetRequestForm(): React.JSX.Element {
         <div
           role="alert"
           aria-live="polite"
-          className="rounded-lg bg-red-50 p-3 text-sm text-red-600"
+          className="rounded-lg bg-danger-50 p-3 text-sm text-danger-600"
         >
           {state.error}
         </div>
@@ -74,7 +74,7 @@ export function PasswordResetRequestForm(): React.JSX.Element {
         {clientError && (
           <p
             id="reset-email-error"
-            className="text-sm text-red-500"
+            className="text-sm text-danger-500"
             role="alert"
           >
             {clientError}

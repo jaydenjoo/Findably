@@ -38,7 +38,7 @@ export function GoogleAuthButton(): React.JSX.Element {
   return (
     <div className="w-full">
       {errorMessage && (
-        <p role="alert" className="mb-2 text-sm text-red-600">
+        <p role="alert" className="mb-2 text-sm text-danger-600">
           {errorMessage}
         </p>
       )}

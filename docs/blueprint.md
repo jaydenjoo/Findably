@@ -1,205 +1,153 @@
-# Task 1.7: 공통 컴포넌트 (ErrorBoundary, Skeleton, EmptyState, BlurOverlay)
+# Task 2.3 — URL 입력 + 선택 정보 폼
 
 ## 목표
 
-Findably의 모든 페이지가 5+2 상태 패턴(로딩/정상/빈/에러/오프라인 + 404/500)을 일관되게 처리해야 한다. 현재 라우트별 error.tsx/loading.tsx가 있지만 재사용 가능한 공유 컴포넌트가 없다. Epic 2(랜딩+온보딩) 진입 전 이 인프라를 완성해야 한다.
+온보딩 2페이지(`/onboarding/url`, `/onboarding/info`) 완성.
+F-001 흐름 중 "URL 입력 → 선택 정보 → 분석 대기" 구간의 앞 2단계.
 
-BlurOverlay는 무료→유료 전환의 핵심 UI이고, ScoreGauge는 대시보드의 중심 요소.
+완료 시: URL 입력 → Zod 검증 → `diagnoses` 테이블 INSERT → `/onboarding/info`로 이동 → 선택 정보 UPDATE → `/onboarding/analyzing`으로 이동.
 
-## 변경 파일 (10개 신규 + 2개 수정)
+---
 
-### 신규 파일
+## 변경 파일 (4개 신규, 2개 수정)
 
-| #   | 파일                                      | 타입         | 설명                                            |
-| --- | ----------------------------------------- | ------------ | ----------------------------------------------- |
-| 1   | `src/types/ui.ts`                         | 타입         | 공통 컴포넌트 Props 타입 (OST)                  |
-| 2   | `src/config/scoring.ts`                   | config 보강  | 점수 등급 기준 + 색상 매핑 (현재 빈 객체)       |
-| 3   | `src/components/shared/ErrorBoundary.tsx` | 'use client' | React Error Boundary (class)                    |
-| 4   | `src/components/shared/Skeleton.tsx`      | Server       | 재사용 스켈레톤 변형 (card, text, gauge, table) |
-| 5   | `src/components/shared/EmptyState.tsx`    | Server       | 빈 상태 (아이콘 + 제목 + 설명 + CTA)            |
-| 6   | `src/components/shared/ErrorCard.tsx`     | 'use client' | 에러 표시 (retry 버튼 + aria-live)              |
-| 7   | `src/components/shared/OfflineBanner.tsx` | 'use client' | navigator.onLine 감지 + 고정 배너               |
-| 8   | `src/components/shared/BlurOverlay.tsx`   | Server       | 유료 전환 블러 + CTA                            |
-| 9   | `src/components/shared/ScoreGauge.tsx`    | 'use client' | SVG 원형 게이지 + 카운트업                      |
-| 10  | `src/components/ui/badge-variants.ts`     | 유틸         | CVA 뱃지 변형 (score/status)                    |
+| 파일                                             | 상태     | 설명                                       |
+| ------------------------------------------------ | -------- | ------------------------------------------ |
+| `src/features/onboarding/schemas.ts`             | **신규** | URL + 선택 정보 Zod 스키마                 |
+| `src/features/onboarding/types.ts`               | **신규** | OnboardingActionState 타입                 |
+| `src/features/onboarding/actions/submit-url.ts`  | **신규** | URL Server Action (diagnoses INSERT)       |
+| `src/features/onboarding/actions/submit-info.ts` | **신규** | 선택 정보 Server Action (diagnoses UPDATE) |
+| `src/app/(onboarding)/onboarding/url/page.tsx`   | **수정** | 스텁 → URL 입력 폼 페이지                  |
+| `src/app/(onboarding)/onboarding/info/page.tsx`  | **수정** | 스텁 → 선택 정보 폼 페이지                 |
 
-### 수정 파일
+---
 
-| 파일                                      | 변경                                 |
-| ----------------------------------------- | ------------------------------------ |
-| `src/app/(onboarding)/error.tsx`          | ErrorCard 컴포넌트 사용으로 리팩토링 |
-| `src/app/(dashboard)/diagnosis/error.tsx` | ErrorCard 컴포넌트 사용으로 리팩토링 |
+## 기술 접근법
 
-## 컴포넌트 상세 설계
-
-### 1. `src/types/ui.ts` — 공통 타입 (OST)
+### 1. `src/features/onboarding/schemas.ts` — Zod 스키마
 
 ```ts
-type ScoreGrade = 'excellent' | 'good' | 'warning' | 'critical'
-type SkeletonVariant = 'card' | 'text' | 'gauge' | 'table-row'
+// URL 입력 스키마 (필수)
+urlSchema = z.object({
+  url: z
+    .string()
+    .min(1, 'URL을 입력해주세요')
+    .url('올바른 URL 형식이 아닙니다')
+    .refine(
+      (url) => url.startsWith('http'),
+      'http:// 또는 https://로 시작해야 합니다'
+    ),
+})
 
-interface EmptyStateProps {
-  icon?: React.ComponentType<{ className?: string }>
-  title: string
-  description?: string
-  action?: { label: string; href: string }
-}
+// 선택 정보 스키마 (모두 optional)
+infoSchema = z.object({
+  targetKeywords: z.string().optional(), // 쉼표 구분 → 배열 변환은 Action에서
+  competitorUrls: z.string().optional(), // 쉼표 구분 → 배열 변환은 Action에서
+  industry: z.string().max(100).optional(), // 업종
+})
+```
 
-interface ErrorCardProps {
-  message?: string
-  onRetry?: () => void
-}
+auth 모듈의 `schemas.ts` 패턴 참고.
 
-interface BlurOverlayProps {
-  children: React.ReactNode
-  visiblePercent?: number // default 25
-  ctaLabel?: string // "상세 분석 받기 — 9.9만원"
-  ctaHref?: string // 결제 트리거
-  sampleLabel?: string // "샘플 먼저 보기 →"
-  sampleHref?: string // "/reports/sample"
-}
+### 2. `src/features/onboarding/types.ts` — 타입
 
-interface ScoreGaugeProps {
-  score: number // 0-100
-  size?: 'sm' | 'md' | 'lg' | 'xl'
-  showLabel?: boolean // default true
-  animated?: boolean // default true
+```ts
+export type OnboardingActionState = {
+  error?: string
+  diagnosisId?: string // URL 제출 성공 시 생성된 diagnosis ID
 }
 ```
 
-### 2. `src/config/scoring.ts` — 점수 기준 보강
+auth의 `AuthActionState` 패턴 동일.
 
-현재 빈 객체 → 등급 기준 + 색상 매핑 추가:
+### 3. `src/features/onboarding/actions/submit-url.ts` — URL 제출 Action
 
-- `GRADE_THRESHOLDS`: excellent(80+), good(60+), warning(40+), critical(0+)
-- `GRADE_LABELS`: 양호/보통/주의/심각
-- `GRADE_COLORS`: Tailwind 클래스 매핑 (text/bg/stroke)
-- `getScoreGrade(score)`: 점수 → 등급
-- `getScoreColor(score)`: 점수 → 색상 객체
+```
+'use server'
+1. FormData에서 url 추출
+2. urlSchema.safeParse() → 실패 시 { error } 반환
+3. supabase.auth.getUser() → 인증 확인
+4. supabase.from('diagnoses').insert({ user_id, url, status: 'pending', tier: 'free' })
+5. 성공 → redirect('/onboarding/info?id={diagnosisId}')
+```
 
-### 3. ErrorBoundary — React Class Component
+- auth의 `signupAction` 패턴 참고 (safeParse → supabase → redirect)
+- 에러 시 generic 메시지 반환 (내부 정보 노출 금지)
 
-- `'use client'` (class component 필수)
-- Props: `children`, `fallback?: ReactNode`
-- 기본 fallback: ErrorCard 사용
-- `componentDidCatch`에서 에러 로깅 (Sentry 슬롯은 Task 1.9)
-- 접근성: fallback에 `role="alert"`
+### 4. `src/features/onboarding/actions/submit-info.ts` — 선택 정보 Action
 
-### 4. Skeleton — 재사용 스켈레톤
+```
+'use server'
+1. FormData에서 targetKeywords, competitorUrls, industry, diagnosisId 추출
+2. infoSchema.safeParse() → 실패 시 { error } 반환
+3. supabase.auth.getUser() → 인증 확인
+4. 쉼표 구분 문자열 → 배열 변환 (targetKeywords, competitorUrls)
+5. supabase.from('diagnoses').update({ target_keywords, competitor_urls, industry })
+   .eq('id', diagnosisId).eq('user_id', userId)   ← 본인 소유 확인
+6. 성공 → redirect('/onboarding/analyzing')
+```
 
-- Server Component (CSS만으로 애니메이션)
-- variant: `card`(200px rect) | `text`(3줄) | `gauge`(원형) | `table-row`(4칸 행)
-- 기존 loading.tsx 패턴: `animate-pulse bg-slate-200 rounded-lg`
-- `aria-busy="true"` `aria-label="로딩 중"`
+- RLS + 쿼리 레벨 이중 보호
+- 스킵 가능: "건너뛰기" 버튼 → 바로 `/onboarding/analyzing`으로 redirect
 
-### 5. EmptyState — 빈 상태
+### 5. `/onboarding/url/page.tsx` — URL 입력 페이지
 
-- Server Component
-- 중앙 정렬: 아이콘(48px, slate-300) + 제목(text-lg) + 설명(text-sm) + CTA(Button)
-- CTA: Button `render={<Link href={...} />}` (기존 GNB 패턴)
-- 기본 아이콘: `Inbox` (lucide-react)
+- 페이지는 **Server Component** (metadata export)
+- 폼은 별도 `_components/UrlForm.tsx` ('use client')
+- 구조: Card > CardHeader(제목 + 설명) > CardContent(폼)
+- 폼 패턴: `useActionState` + `onSubmit`에서 `safeParse` 클라이언트 검증
+- 입력: URL 1개 + 제출 버튼
+- UX: placeholder에 "https://example.com" 예시
+- 접근성: Label + Input 연결, aria-describedby 에러 연결
 
-### 6. ErrorCard — 에러 표시
+### 6. `/onboarding/info/page.tsx` — 선택 정보 페이지
 
-- `'use client'` (onRetry 핸들러)
-- `border-l-4 border-danger-500` + `bg-danger-50`
-- `aria-live="polite"` + `role="alert"`
-- 재시도 버튼: Button variant="outline"
-- 기존 error.tsx 스타일 통합
+- 페이지는 **Server Component** (metadata export)
+- 폼은 별도 `_components/InfoForm.tsx` ('use client')
+- URL param으로 `diagnosisId` 수신 (hidden input)
+- 필드 3개: 타겟 키워드, 경쟁사 URL, 업종 (모두 선택)
+- 하단: "분석 시작 →" (submit) + "건너뛰기 →" (Link to /onboarding/analyzing)
+- "건너뛰기"는 선택 정보 없이 바로 분석 진행
 
-### 7. OfflineBanner — 네트워크 감지
+---
 
-- `'use client'` (navigator.onLine + event listeners)
-- `useEffect`에서 online/offline 이벤트 구독 (SSR 안전)
-- 고정 배너: `fixed top-0 z-50 w-full`
-- `bg-warning-50 text-warning-700`
-- 온라인 복구 시 자동 숨김
+## 구현 순서
 
-### 8. BlurOverlay — 유료 전환 (핵심 전환 UI)
+1. `features/onboarding/schemas.ts` + `types.ts` (기반)
+2. `features/onboarding/actions/submit-url.ts` (URL Action)
+3. `features/onboarding/actions/submit-info.ts` (Info Action)
+4. `onboarding/url/page.tsx` + `_components/UrlForm.tsx` (URL 페이지)
+5. `onboarding/info/page.tsx` + `_components/InfoForm.tsx` (Info 페이지)
+6. 검증: `pnpm tsc --noEmit && pnpm lint && pnpm build`
 
-- Server Component (CTA는 Link)
-- 구조: `relative` 래퍼 > children(`aria-hidden`) + 블러 오버레이 + CTA
-- 블러: `bg-gradient-to-b from-transparent via-white/70 to-white/95` + `backdrop-blur-sm`
-- 상단 25-30% 선명 (데이터 존재 증거)
-- CTA 2개: primary + ghost
-- 블러 영역 `aria-hidden="true"`, CTA에 가격 포함 aria-label
-- 반응형: 모바일에서 CTA 세로 스택
+---
 
-### 9. ScoreGauge — SVG 원형 게이지
+## 스코프 외 (하지 않을 것)
 
-- `'use client'` (카운트업 애니메이션)
-- SVG `<circle>`: 배경 원(slate-200) + 점수 원(color-coded)
-- `strokeDasharray = 2πr`, `strokeDashoffset = (1 - score/100) * circumference`
-- 카운트업: `requestAnimationFrame` 1.5s easeOutCubic
-- `prefers-reduced-motion`: 즉시 표시
-- 접근성: `role="meter"` `aria-valuenow` `aria-valuemin={0}` `aria-valuemax={100}`
-- 폰트: `font-display font-extrabold tabular-nums`
-- 색상: `getScoreColor(score)` from scoring.ts
+- 분석 대기 화면 (`/onboarding/analyzing`) — Task 2.4
+- 실제 크롤링 트리거 — Epic 3
+- 중복 URL 체크 — Phase 2 (현재는 같은 URL 재진단 허용)
+- URL 접근 가능 여부 사전 체크 — Epic 3 크롤링에서 처리
+- DB 마이그레이션 — 이미 `003_findably_diagnoses.sql`에 스키마 완성
 
-| size | 전체  | 텍스트 |
-| ---- | ----- | ------ |
-| sm   | 80px  | 20px   |
-| md   | 120px | 32px   |
-| lg   | 160px | 40px   |
-| xl   | 200px | 56px   |
-
-### 10. badge-variants.ts — CVA 뱃지 변형
-
-button-variants.ts 패턴:
-
-- variant: default/success/warning/danger/info/pro
-- size: sm/md
-- 시맨틱 색상 토큰 사용
-
-## 구현 순서 (4 Phase)
-
-### Phase 1: 기반 (타입 + Config + UI유틸)
-
-1. `src/types/ui.ts`
-2. `src/config/scoring.ts` 보강
-3. `src/components/ui/badge-variants.ts`
-
-### Phase 2: 상태 컴포넌트 (Tier 1) — 병렬 가능
-
-4. `Skeleton.tsx`
-5. `EmptyState.tsx`
-6. `ErrorCard.tsx`
-7. `ErrorBoundary.tsx` (ErrorCard 의존)
-8. `OfflineBanner.tsx`
-
-### Phase 3: 비즈니스 컴포넌트 (Tier 2)
-
-9. `BlurOverlay.tsx`
-10. `ScoreGauge.tsx` (scoring.ts 의존)
-
-### Phase 4: 통합 + 검증
-
-11. 기존 error.tsx 2개 → ErrorCard 사용 리팩토링
-12. `pnpm tsc --noEmit && pnpm lint && pnpm build`
-
-## 기존 코드 재사용
-
-| 재사용 대상        | 위치                                   | 용도                      |
-| ------------------ | -------------------------------------- | ------------------------- |
-| CVA 패턴           | `src/components/ui/button-variants.ts` | badge-variants 참고       |
-| Button render 패턴 | `src/components/shared/GNB.tsx:56`     | BlurOverlay CTA Link 래핑 |
-| error.tsx 스타일   | `src/app/(onboarding)/error.tsx`       | ErrorCard 기본 스타일     |
-| loading.tsx 스타일 | `src/app/(onboarding)/loading.tsx`     | Skeleton 기본 스타일      |
-| 색상 토큰          | `src/app/globals.css:54-72`            | success/warning/danger    |
+---
 
 ## 리스크
 
-| 리스크                   | 대응                                                             |
-| ------------------------ | ---------------------------------------------------------------- |
-| SVG 원형 게이지 수학     | strokeDasharray = 2πr, offset = (1 - score/100) \* circumference |
-| 카운트업 rAF 메모리 누수 | useEffect cleanup → cancelAnimationFrame                         |
-| OfflineBanner SSR 충돌   | useEffect에서만 이벤트 구독, 초기값 true                         |
-| BlurOverlay 접근성       | aria-hidden + CTA에 가격 포함 aria-label                         |
-| prefers-reduced-motion   | 모든 애니메이션에 미디어 쿼리 대응                               |
+| 리스크                          | 대응                                           |
+| ------------------------------- | ---------------------------------------------- |
+| URL 형식 다양성 (www만 입력 등) | Zod refine으로 http:// 필수 + placeholder 안내 |
+| diagnosisId 탈취 시도           | RLS + Action에서 user_id 검증 이중 보호        |
+| 선택 정보 스킵 시 데이터 누락   | DB 컬럼이 nullable이므로 정상 동작             |
+| searchParams 타입 (Next.js 15)  | `searchParams`는 Promise — `await` 필수        |
+
+---
 
 ## 검증 방법
 
 1. `pnpm tsc --noEmit` — 타입 에러 0
-2. `pnpm lint` — 에러 0 (기존 경고 4개 허용)
+2. `pnpm lint` — 에러 0
 3. `pnpm build` — 성공
-4. 파일 수: 10개 신규 + 2개 수정 = 12개 이내
+4. 브라우저: `/onboarding/url` 접근 → URL 입력 → 제출 → `/onboarding/info` 이동 확인
+5. 브라우저: `/onboarding/info` 접근 → 정보 입력 or 건너뛰기 → `/onboarding/analyzing` 이동 확인
+6. Supabase: `diagnoses` 테이블에 레코드 생성 확인

@@ -62,7 +62,7 @@ export function LoginForm({ redirectTo }: LoginFormProps): React.JSX.Element {
         <div
           role="alert"
           aria-live="polite"
-          className="rounded-lg bg-red-50 p-3 text-sm text-red-600"
+          className="rounded-lg bg-danger-50 p-3 text-sm text-danger-600"
         >
           {state.error}
         </div>
@@ -85,7 +85,7 @@ export function LoginForm({ redirectTo }: LoginFormProps): React.JSX.Element {
         {clientErrors.email && (
           <p
             id="login-email-error"
-            className="text-sm text-red-500"
+            className="text-sm text-danger-500"
             role="alert"
           >
             {clientErrors.email}
@@ -109,7 +109,7 @@ export function LoginForm({ redirectTo }: LoginFormProps): React.JSX.Element {
         {clientErrors.password && (
           <p
             id="login-password-error"
-            className="text-sm text-red-500"
+            className="text-sm text-danger-500"
             role="alert"
           >
             {clientErrors.password}

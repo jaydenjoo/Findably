@@ -16,11 +16,11 @@ export default function AuthLayout({
   children: React.ReactNode
 }>): React.JSX.Element {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-8">
+    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 bg-[radial-gradient(circle,#dde0e4_0.5px,transparent_0.5px)] bg-[length:22px_22px] px-4 py-8">
       {/* 로고 / 브랜딩 */}
       <Link
         href="/"
-        className="mb-8 text-2xl font-bold tracking-tight text-slate-900"
+        className="mb-8 font-display text-2xl font-bold tracking-tight text-slate-900"
         aria-label={`${SITE_NAME} 홈으로 이동`}
       >
         {SITE_NAME}

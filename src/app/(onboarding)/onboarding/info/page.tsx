@@ -1,16 +1,59 @@
 import type { Metadata } from 'next'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { InfoForm } from './_components/InfoForm'
 
+/**
+ * 선택 정보 입력 페이지 (/onboarding/info)
+ *
+ * F-001 흐름: 회원가입 → URL 입력 → [선택 정보] → 분석 대기
+ * 타겟 키워드, 경쟁사 URL, 업종 — 모두 선택 사항
+ * 건너뛰기 가능 (URL만으로도 진단 가능)
+ */
 export const metadata: Metadata = {
-  title: '추가 정보',
+  title: '추가 정보 | Findably',
+  description:
+    '타겟 키워드, 경쟁사, 업종 정보를 입력하면 더 정확한 진단이 가능합니다.',
 }
 
-export default function OnboardingInfoPage(): React.JSX.Element {
+export default async function OnboardingInfoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string }>
+}): Promise<React.JSX.Element> {
+  const { id } = await searchParams
+
+  if (!id) {
+    return (
+      <Card>
+        <CardHeader className="text-center">
+          <CardTitle className="text-xl">잘못된 접근입니다</CardTitle>
+          <CardDescription>
+            URL 입력 단계부터 다시 시작해주세요.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-900">추가 정보 (선택)</h1>
-      <p className="mt-2 text-slate-500">
-        타겟 키워드, 경쟁사, 업종 정보를 입력하면 더 정확한 진단이 가능합니다.
-      </p>
-    </div>
+    <Card>
+      <CardHeader className="text-center">
+        <CardTitle className="text-xl">추가 정보 (선택)</CardTitle>
+        <CardDescription>
+          아래 정보를 입력하면 더 정확한 진단 결과를 받을 수 있습니다.
+          건너뛰어도 분석은 정상적으로 진행됩니다.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        <InfoForm diagnosisId={id} />
+      </CardContent>
+    </Card>
   )
 }

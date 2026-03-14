@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { buttonVariants } from '@/components/ui/button-variants'
 /**
  * 이메일 인증 안내 페이지 (/signup/confirm)
  *
@@ -59,7 +60,10 @@ export default function SignupConfirmPage(): React.JSX.Element {
 
         <Link
           href="/login"
-          className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-border bg-background px-2.5 text-sm font-medium hover:bg-muted hover:text-foreground transition-all"
+          className={buttonVariants({
+            variant: 'outline',
+            className: 'w-full',
+          })}
         >
           로그인으로 돌아가기 →
         </Link>
