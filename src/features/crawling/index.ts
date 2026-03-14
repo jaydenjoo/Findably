@@ -23,6 +23,8 @@ export type { CrawlDataInput } from './schemas'
 
 // ─── 파서 ───
 export { parseRobotsTxt } from './parsers/robots-txt'
+export { parseSitemap } from './parsers/sitemap'
+export { parseLlmsTxt } from './parsers/llms-txt'
 
 // ─── 상수 ───
 export {
