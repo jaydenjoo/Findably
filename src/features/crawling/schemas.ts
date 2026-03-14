@@ -98,7 +98,22 @@ const layer2Schema = z.object({
     .nullable(),
   crux: z
     .object({
-      origin_summary: z.unknown(),
+      lcp_ms: z.number(),
+      inp_ms: z.number(),
+      cls: z.number(),
+      ttfb_ms: z.number(),
+      fcp_ms: z.number(),
+      form_factors: z
+        .object({
+          phone: z.number(),
+          desktop: z.number(),
+          tablet: z.number(),
+        })
+        .nullable(),
+      collection_period: z.object({
+        first_date: z.string(),
+        last_date: z.string(),
+      }),
     })
     .nullable(),
   safe_browsing: z

@@ -79,7 +79,20 @@ export interface Layer2Data {
     ttfb_ms: number
   } | null
   crux: {
-    origin_summary: unknown
+    lcp_ms: number
+    inp_ms: number
+    cls: number
+    ttfb_ms: number
+    fcp_ms: number
+    form_factors: {
+      phone: number
+      desktop: number
+      tablet: number
+    } | null
+    collection_period: {
+      first_date: string
+      last_date: string
+    }
   } | null
   safe_browsing: {
     is_safe: boolean

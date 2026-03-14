@@ -30,6 +30,7 @@ export { checkMobile } from './parsers/mobile'
 
 // ─── 페처 (Layer 2+) ───
 export { fetchPageSpeed } from './fetchers/pagespeed'
+export { fetchCrux } from './fetchers/crux'
 
 // ─── 상수 ───
 export {
