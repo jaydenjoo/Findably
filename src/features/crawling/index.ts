@@ -28,6 +28,9 @@ export { parseLlmsTxt } from './parsers/llms-txt'
 export { detectCms } from './parsers/cms'
 export { checkMobile } from './parsers/mobile'
 
+// ─── 페처 (Layer 2+) ───
+export { fetchPageSpeed } from './fetchers/pagespeed'
+
 // ─── 상수 ───
 export {
   AI_BOT_LIST,
