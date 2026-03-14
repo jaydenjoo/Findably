@@ -1,8 +1,7 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState } from 'react'
 import { submitInfoAction } from '@/features/onboarding/actions/submit-info'
-import { infoSchema } from '@/features/onboarding/schemas'
 import type { OnboardingActionState } from '@/features/onboarding/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +12,7 @@ import { Label } from '@/components/ui/label'
  *
  * 타겟 키워드, 경쟁사 URL, 업종 — 모두 선택 사항
  * 입력하면 진단 정확도 향상, 건너뛰어도 분석 가능
+ * 검증은 서버 액션(submit-info)에서 일원화 (클라이언트 중복 검증 제거)
  */
 export function InfoForm({
   diagnosisId,
@@ -23,29 +23,11 @@ export function InfoForm({
     OnboardingActionState,
     FormData
   >(submitInfoAction, {})
-  const [clientError, setClientError] = useState('')
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>): void {
-    const formData = new FormData(e.currentTarget)
-    const result = infoSchema.safeParse({
-      targetKeywords: formData.get('targetKeywords') || undefined,
-      competitorUrls: formData.get('competitorUrls') || undefined,
-      industry: formData.get('industry') || undefined,
-    })
-
-    if (!result.success) {
-      e.preventDefault()
-      setClientError(result.error.issues[0]?.message ?? '입력값을 확인해주세요')
-      return
-    }
-
-    setClientError('')
-  }
-
-  const errorMessage = clientError || state.error
+  const errorMessage = state.error
 
   return (
-    <form action={formAction} onSubmit={handleSubmit} className="space-y-6">
+    <form action={formAction} className="space-y-6">
       <input type="hidden" name="diagnosisId" value={diagnosisId} />
 
       {errorMessage && (
@@ -117,7 +99,7 @@ export function InfoForm({
           className="flex-1"
           disabled={isPending}
           onClick={() => {
-            window.location.href = '/onboarding/analyzing'
+            window.location.href = `/onboarding/analyzing?id=${diagnosisId}`
           }}
         >
           건너뛰기

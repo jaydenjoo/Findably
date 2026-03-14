@@ -3,7 +3,17 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { infoSchema } from '../schemas'
-import type { OnboardingActionState } from '../types'
+import type { DiagnosisUpdateData, OnboardingActionState } from '../types'
+
+/** 쉼표 구분 문자열 → 트림된 배열 (빈 문자열 제거) */
+function parseCommaSeparated(value: string | undefined): string[] | undefined {
+  if (!value) return undefined
+  const items = value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return items.length > 0 ? items : undefined
+}
 
 /**
  * 선택 정보 제출 Server Action
@@ -46,22 +56,10 @@ export async function submitInfoAction(
     return { error: '로그인이 필요합니다. 다시 로그인해주세요.' }
   }
 
-  // 쉼표 구분 문자열 → 배열 변환 (빈 문자열 제거)
-  const targetKeywords = validated.data.targetKeywords
-    ? validated.data.targetKeywords
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : undefined
+  const targetKeywords = parseCommaSeparated(validated.data.targetKeywords)
+  const competitorUrls = parseCommaSeparated(validated.data.competitorUrls)
 
-  const competitorUrls = validated.data.competitorUrls
-    ? validated.data.competitorUrls
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : undefined
-
-  const updateData: Record<string, unknown> = {}
+  const updateData: DiagnosisUpdateData = {}
   if (targetKeywords?.length) updateData.target_keywords = targetKeywords
   if (competitorUrls?.length) updateData.competitor_urls = competitorUrls
   if (validated.data.industry) updateData.industry = validated.data.industry
@@ -80,5 +78,5 @@ export async function submitInfoAction(
     }
   }
 
-  redirect('/onboarding/analyzing')
+  redirect(`/onboarding/analyzing?id=${diagnosisId}`)
 }
