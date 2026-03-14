@@ -25,6 +25,7 @@ export type { CrawlDataInput } from './schemas'
 export { parseRobotsTxt } from './parsers/robots-txt'
 export { parseSitemap } from './parsers/sitemap'
 export { parseLlmsTxt } from './parsers/llms-txt'
+export { detectCms } from './parsers/cms'
 
 // ─── 상수 ───
 export {
