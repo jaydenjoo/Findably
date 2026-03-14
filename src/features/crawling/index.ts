@@ -43,6 +43,10 @@ export {
   saveCrawlResult,
   markDiagnosisFailed,
 } from './services/save-crawl-result'
+export { buildFallbackCrawlData } from './services/fallback-crawl'
+
+// ─── 컴포넌트 ───
+export { PartialDataBanner } from './components/partial-data-banner'
 
 // ─── 상수 ───
 export {
