@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { validateUrlSecurity } from '@/shared/utils/url-security'
 
 // ─── URL 입력 스키마 (필수) ───
 
@@ -7,11 +8,21 @@ export const urlSchema = z.object({
   url: z
     .string()
     .min(1, 'URL을 입력해주세요')
+    .max(2048, 'URL이 너무 깁니다 (최대 2,048자)')
     .url('올바른 URL 형식이 아닙니다')
     .refine(
       (url) => url.startsWith('http://') || url.startsWith('https://'),
       'http:// 또는 https://로 시작해야 합니다'
-    ),
+    )
+    .superRefine((url, ctx) => {
+      const result = validateUrlSecurity(url)
+      if (!result.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: result.error ?? '허용되지 않는 URL입니다',
+        })
+      }
+    }),
 })
 
 // ─── 선택 정보 스키마 (모두 optional) ───

@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { triggerCrawl } from '@/lib/adapters/crawler'
 import { urlSchema } from '../schemas'
 import type { OnboardingActionState } from '../types'
 
@@ -50,6 +51,18 @@ export async function submitUrlAction(
   if (insertError || !data) {
     console.error('[submitUrlAction]', insertError)
     return { error: '진단 요청에 실패했습니다. 잠시 후 다시 시도해주세요.' }
+  }
+
+  // 크롤링 트리거 (fire-and-forget: 실패해도 onboarding 흐름 계속)
+  try {
+    await triggerCrawl({
+      diagnosisId: data.id,
+      url: validated.data.url,
+      userId: user.id,
+    })
+  } catch (triggerError) {
+    // 트리거 실패해도 pending 상태로 남음 → 재시도 가능
+    console.error('[submitUrlAction] trigger failed:', triggerError)
   }
 
   redirect(`/onboarding/info?id=${data.id}`)

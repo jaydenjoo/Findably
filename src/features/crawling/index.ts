@@ -37,6 +37,13 @@ export { fetchSafeBrowsing } from './fetchers/safe-browsing'
 export { fetchSslLabs } from './fetchers/ssl-labs'
 export { fetchObservatory } from './fetchers/observatory'
 
+// ─── 서비스 (Layer 2+3 실행 + DB 저장) ───
+export { runLayers } from './services/run-layers'
+export {
+  saveCrawlResult,
+  markDiagnosisFailed,
+} from './services/save-crawl-result'
+
 // ─── 상수 ───
 export {
   AI_BOT_LIST,
