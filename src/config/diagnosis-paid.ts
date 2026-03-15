@@ -1,3 +1,5 @@
+import type { AIPlatform } from '@/features/diagnosis-free'
+
 /** 5개 AI 에이전트 ID */
 export type AgentId = 'technical' | 'seo' | 'geo' | 'content' | 'competitors'
 
@@ -10,10 +12,19 @@ interface AgentSpec {
   systemPrompt: string
 }
 
-/** Claude API 비용 (USD per 1M tokens, Sonnet 4 기준) */
+/** API 비용 (USD per 1M tokens) */
 interface TokenCostUsd {
   input: number
   output: number
+}
+
+/** AI 인용 추적 플랫폼 설정 */
+interface CitationPlatformSpec {
+  id: AIPlatform
+  name: string
+  model: string
+  envKey: string
+  costPerMTokenUsd: TokenCostUsd
 }
 
 /** 모델 ID */
@@ -202,6 +213,58 @@ Respond in Korean. Be specific and actionable. Return ONLY valid JSON.`,
   },
 ] as const
 
+/** AI 인용 추적 설정 (Task 5.3) */
+const CITATION_TRACKING = {
+  /** 플랫폼별 모델 + 비용 */
+  PLATFORMS: [
+    {
+      id: 'claude' as const,
+      name: 'Claude',
+      model: 'claude-sonnet-4-6-20250514',
+      envKey: 'ANTHROPIC_API_KEY',
+      costPerMTokenUsd: { input: 3.0, output: 15.0 },
+    },
+    {
+      id: 'chatgpt' as const,
+      name: 'ChatGPT',
+      model: 'gpt-4o',
+      envKey: 'OPENAI_API_KEY',
+      costPerMTokenUsd: { input: 2.5, output: 10.0 },
+    },
+    {
+      id: 'google' as const,
+      name: 'Gemini',
+      model: 'gemini-1.5-pro',
+      envKey: 'GOOGLE_AI_API_KEY',
+      costPerMTokenUsd: { input: 1.25, output: 5.0 },
+    },
+    {
+      id: 'perplexity' as const,
+      name: 'Perplexity',
+      model: 'sonar-pro',
+      envKey: 'PERPLEXITY_API_KEY',
+      costPerMTokenUsd: { input: 3.0, output: 15.0 },
+    },
+  ] satisfies readonly CitationPlatformSpec[],
+
+  /** 키워드 최대 개수 */
+  MAX_KEYWORDS: 3,
+
+  /** 인용 추적 쿼리당 최대 토큰 */
+  MAX_TOKENS_PER_QUERY: 512,
+
+  /** 쿼리당 타임아웃 (ms) — 15초 */
+  QUERY_TIMEOUT_MS: 15_000,
+
+  /** 인용 추적 시스템 프롬프트 */
+  SYSTEM_PROMPT: `You are a helpful assistant. Answer the user's question naturally and comprehensively.
+If you know of specific websites, products, or services relevant to the answer, mention them by name and URL.
+Be specific and provide real recommendations based on your knowledge.`,
+
+  /** 쿼리 템플릿 — {keyword}가 실제 키워드로 대체됨 */
+  QUERY_TEMPLATE: `"{keyword}" 관련 추천할 만한 서비스, 도구, 웹사이트를 알려주세요. 가능하면 구체적인 URL과 함께 설명해주세요.`,
+} as const
+
 export const DIAGNOSIS_PAID_CONFIG = {
   MODEL,
   MIN_SUCCESS_COUNT,
@@ -209,4 +272,5 @@ export const DIAGNOSIS_PAID_CONFIG = {
   TOKEN_COST_USD,
   USD_TO_KRW,
   AGENTS,
+  CITATION_TRACKING,
 } as const

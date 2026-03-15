@@ -1,29 +1,17 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { DIAGNOSIS_PAID_CONFIG } from '@/config/diagnosis-paid'
-
-/** AI 요청 파라미터 */
-interface AIRequestParams {
-  systemPrompt: string
-  userMessage: string
-  maxTokens: number
-  model?: string
-}
-
-/** AI 응답 */
-interface AIResponse {
-  content: string
-  tokenUsage: {
-    input: number
-    output: number
-  }
-}
+import type { AIAdapterRequestParams, AIAdapterResponse } from './types'
 
 /** 싱글턴 — 빌드 시점 env 미설정 대비 lazy init */
 let _client: Anthropic | null = null
 
 function getClient(): Anthropic {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
+  }
   if (!_client) {
-    _client = new Anthropic()
+    _client = new Anthropic({ apiKey })
   }
   return _client
 }
@@ -35,8 +23,8 @@ function getClient(): Anthropic {
  * 어댑터 패턴: 추후 OpenAI/Gemini로 교체 가능.
  */
 export async function executeAIRequest(
-  params: AIRequestParams
-): Promise<AIResponse> {
+  params: AIAdapterRequestParams
+): Promise<AIAdapterResponse> {
   const model = params.model ?? DIAGNOSIS_PAID_CONFIG.MODEL
 
   const response = await getClient().messages.create({

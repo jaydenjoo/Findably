@@ -11,6 +11,7 @@ import type {
 import type { Json } from '@/types/database'
 import type {
   AgentId,
+  AICitationTrackingResult,
   AIAgentResult,
   AIInsight,
   CompetitorAnalysis,
@@ -20,6 +21,7 @@ import type {
   PaidAnalysisData,
   RunDiagnosisPaidResult,
 } from '../types'
+import { trackAICitation } from './track-ai-citation'
 
 const DIAGNOSIS_STATUS: Record<string, DiagnosisStatus> = {
   ANALYZING: 'analyzing',
@@ -103,11 +105,13 @@ export async function runDiagnosisPaid(
       industry: diagnosis.industry ?? '',
     }
 
-    const agentResults = await executeAgentsParallel(
-      crawlData,
-      diagnosis.url,
-      context
-    )
+    const [agentResults, citationResult] = await Promise.all([
+      executeAgentsParallel(crawlData, diagnosis.url, context),
+      trackAICitation({
+        url: diagnosis.url,
+        keywords: context.targetKeywords,
+      }),
+    ])
 
     // 4. 성공/실패 집계
     const successResults = agentResults.filter((r) => r.status === 'completed')
@@ -129,15 +133,17 @@ export async function runDiagnosisPaid(
     }
 
     // 5. Phase 2 + 3 — 결과 합산 + CMO 요약
-    const totalCostKrw = agentResults.reduce(
+    const agentCostKrw = agentResults.reduce(
       (sum, r) => sum + calculateCostKrw(r.tokenUsage),
       0
     )
+    const totalCostKrw = agentCostKrw + citationResult.totalCostKrw
     const totalDurationMs = Date.now() - startTime
 
     const paidAnalysisData = aggregateResults(
       freeAnalysis,
       agentResults,
+      citationResult,
       totalCostKrw,
       totalDurationMs
     )
@@ -547,6 +553,7 @@ export function normalizeInsight(item: Record<string, unknown>): AIInsight {
 function aggregateResults(
   freeAnalysis: FreeAnalysisData,
   agentResults: AIAgentResult[],
+  citationResult: AICitationTrackingResult,
   totalCostKrw: number,
   totalDurationMs: number
 ): PaidAnalysisData {
@@ -569,6 +576,7 @@ function aggregateResults(
     swot,
     roadmap,
     competitors,
+    aiCitationTracking: citationResult,
     cmoSummary,
     agentResults,
     totalCostKrw,

@@ -1,4 +1,5 @@
 import type {
+  AIPlatform,
   CategoryId,
   CategoryScore,
   OverallScore,
@@ -60,6 +61,44 @@ export interface RoadmapItem {
   estimatedImpact: number
 }
 
+// ─── AI 인용 실제 추적 (Task 5.3) ───
+
+/** AI 인용 상태 — Y(mentioned) / △(similar) / N(not_mentioned) */
+export type CitationStatus = 'mentioned' | 'similar' | 'not_mentioned'
+
+/** 키워드 × 플랫폼 단위 추적 결과 */
+export interface CitationKeywordResult {
+  keyword: string
+  platform: AIPlatform
+  platformLabel: string
+  status: CitationStatus
+  /** 인용된 경우 해당 URL */
+  mentionedUrl?: string
+  /** AI 응답 발췌 (최대 300자) */
+  snippet: string
+  tokenUsage: { input: number; output: number }
+  durationMs: number
+}
+
+/** 플랫폼별 인용 요약 */
+export interface CitationPlatformSummary {
+  platform: AIPlatform
+  platformLabel: string
+  mentionedCount: number
+  totalKeywords: number
+}
+
+/** AI 인용 실제 추적 전체 결과 */
+export interface AICitationTrackingResult {
+  keywords: string[]
+  results: CitationKeywordResult[]
+  platformSummary: CitationPlatformSummary[]
+  /** 전체 인용률 (0~1) */
+  overallMentionRate: number
+  totalCostKrw: number
+  totalDurationMs: number
+}
+
 // ─── 에이전트 결과 ───
 
 /** 개별 에이전트 실행 결과 */
@@ -97,6 +136,9 @@ export interface PaidAnalysisData {
 
   /** 유료 전용 — 경쟁사 분석 */
   competitors: CompetitorAnalysis[]
+
+  /** 유료 전용 — AI 인용 실제 추적 (Task 5.3) */
+  aiCitationTracking: AICitationTrackingResult
 
   /** 유료 전용 — CMO 검증 요약 */
   cmoSummary: string
