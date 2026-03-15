@@ -32,6 +32,26 @@ function parseAnalysisData(raw: unknown): AnalysisData | null {
   return raw as AnalysisData
 }
 
+/** crawl_data JSON → is_partial / blocked_reason 추출 */
+interface CrawlDataPartialInfo {
+  isPartial: boolean
+  blockedReason?: string
+}
+
+function parseCrawlDataPartialInfo(raw: unknown): CrawlDataPartialInfo {
+  if (typeof raw === 'object' && raw !== null && 'is_partial' in raw) {
+    const data = raw as Record<string, unknown>
+    return {
+      isPartial: data.is_partial === true,
+      blockedReason:
+        typeof data.blocked_reason === 'string'
+          ? data.blocked_reason
+          : undefined,
+    }
+  }
+  return { isPartial: false }
+}
+
 export default async function DashboardPage(): Promise<React.JSX.Element> {
   const supabase = await createClient()
 
@@ -46,7 +66,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
   // 가장 최근 진단 조회 (완료 우선, 없으면 진행 중)
   const { data: diagnosis, error } = await supabase
     .from('diagnoses')
-    .select('analysis_data, total_score, grade, status')
+    .select('analysis_data, total_score, grade, status, crawl_data')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -114,10 +134,14 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
     )
   }
 
+  const partialInfo = parseCrawlDataPartialInfo(diagnosis.crawl_data)
+
   return (
     <DashboardContent
       overallScore={analysisData.overallScore}
       citation={analysisData.aiCitation}
+      isPartial={partialInfo.isPartial}
+      blockedReason={partialInfo.blockedReason}
     />
   )
 }

@@ -9,20 +9,28 @@ import { ScoreGauge } from '@/components/shared/ScoreGauge'
 import { AICitationCard } from '@/components/dashboard/AICitationCard'
 import { QuickWinCard } from '@/components/dashboard/QuickWinCard'
 import { CategoryScoreCard } from './CategoryScoreCard'
+import { PartialDataBanner } from '@/features/crawling'
 
 interface DashboardContentProps {
   overallScore: OverallScore
   citation: AICitationPossibilityScore
+  isPartial?: boolean
+  blockedReason?: string
 }
 
 export function DashboardContent({
   overallScore,
   citation,
+  isPartial,
+  blockedReason,
 }: DashboardContentProps): React.JSX.Element {
   const scoreColor = SCORING.getScoreColor(overallScore.score)
 
   return (
     <div className="flex flex-col gap-6">
+      {/* robots.txt 차단 경고 배너 */}
+      {isPartial && <PartialDataBanner blockedReason={blockedReason} />}
+
       {/* 1행: 종합 점수 + AI 인용 가능성 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* 종합 점수 카드 */}
