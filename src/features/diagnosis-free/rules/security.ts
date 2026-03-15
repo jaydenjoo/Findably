@@ -1,11 +1,6 @@
 import type { RuleDefinition } from '../types'
 import { SEO_THRESHOLDS } from '../constants'
-
-const hasLayer2SafeBrowsing = (data: {
-  layer2: { safe_browsing: unknown } | null
-}): boolean => data.layer2 !== null && data.layer2.safe_browsing !== null
-const hasLayer3Ssl = (data: { layer3: { ssl: unknown } | null }): boolean =>
-  data.layer3 !== null && data.layer3.ssl !== null
+import { hasLayer2SafeBrowsing, hasLayer3Ssl } from './guards'
 
 /** 보안 룰 (6개, 60점) */
 export const securityRules: RuleDefinition[] = [

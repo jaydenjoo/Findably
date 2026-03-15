@@ -10,6 +10,7 @@ export type CategoryId =
   | 'performance'
   | 'security'
   | 'mobile'
+  | 'geo'
 
 // ─── 룰 정의 ───
 

@@ -5,12 +5,13 @@ export const CATEGORY_CONFIG: Record<
   CategoryId,
   { name: string; weight: number }
 > = {
-  technical: { name: '기술 SEO', weight: 20 },
+  technical: { name: '기술 SEO', weight: 15 },
   content: { name: '콘텐츠', weight: 25 },
-  'social-ai': { name: '소셜 & AI 접근성', weight: 15 },
-  performance: { name: '성능', weight: 15 },
-  security: { name: '보안', weight: 15 },
+  'social-ai': { name: '소셜 & AI 접근성', weight: 12 },
+  performance: { name: '성능', weight: 13 },
+  security: { name: '보안', weight: 10 },
   mobile: { name: '모바일', weight: 10 },
+  geo: { name: 'GEO (AI 검색)', weight: 15 },
 } as const
 
 /** SEO 평가 임계값 */
@@ -38,6 +39,16 @@ export const SEO_THRESHOLDS = {
 
   // Technical
   SITEMAP_STALE_DAYS: 90,
+} as const
+
+/** GEO 평가 임계값 */
+export const GEO_THRESHOLDS = {
+  /** llms.txt 최소 콘텐츠 길이 (글자) */
+  MIN_LLMS_TXT_LENGTH: 100,
+  /** llms.txt 최소 섹션(#) 수 */
+  MIN_LLMS_TXT_SECTIONS: 2,
+  /** Schema Markup 최소 종류 수 */
+  MIN_SCHEMA_TYPES: 2,
 } as const
 
 /** 부분 크롤 시 데이터 없음 메시지 */
