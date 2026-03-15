@@ -2,16 +2,7 @@ import type {
   AICitationPossibilityScore,
   PlatformCitationScore,
 } from '@/features/diagnosis-free/types'
-import type { ScoreGrade } from '@/types/ui'
 import { SCORING } from '@/config/scoring'
-
-/** 등급 → 프로그레스 바 색상 */
-const GRADE_BAR_COLORS: Record<ScoreGrade, string> = {
-  excellent: 'bg-success-500',
-  good: 'bg-primary-500',
-  warning: 'bg-warning-500',
-  critical: 'bg-danger-500',
-} as const
 
 interface AICitationCardProps {
   citation: AICitationPossibilityScore
@@ -23,9 +14,7 @@ function PlatformRow({
 }: {
   platform: PlatformCitationScore
 }): React.JSX.Element {
-  const grade = SCORING.getScoreGrade(platform.score)
   const color = SCORING.getScoreColor(platform.score)
-  const barColor = GRADE_BAR_COLORS[grade]
 
   return (
     <div className="flex items-center gap-3">
@@ -55,7 +44,7 @@ function PlatformRow({
             aria-label={`${platform.platformLabel} 인용 가능성 ${platform.score}점`}
           >
             <div
-              className={`h-full rounded-full ${barColor} transition-all`}
+              className={`h-full rounded-full ${color.bar} transition-all`}
               style={{ width: `${Math.min(platform.score, 100)}%` }}
             />
           </div>
