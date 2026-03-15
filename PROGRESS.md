@@ -1,7 +1,7 @@
 # Findably — 진행상황 문서
 
 > **이 파일을 세션 시작 시 첫 번째로 읽으면 100% 이어서 작업 가능**
-> 최종 업데이트: 2026-03-14
+> 최종 업데이트: 2026-03-15
 
 ---
 
@@ -46,7 +46,7 @@
 | 1.8  | SEO 기반 (metadata, JSON-LD, sitemap, robots.txt, llms.txt)      | ✅ 완료 |
 | 1.9  | Sentry + CI/CD                                                   | ✅ 완료 |
 
-### Epic 2: 온보딩 (진행 중 — 2.1 완료)
+### Epic 2: 온보딩 ✅
 
 | Task | 설명                        | 상태    |
 | ---- | --------------------------- | ------- |
@@ -55,7 +55,7 @@
 | 2.3  | URL 입력 + 선택 정보 폼     | ✅ 완료 |
 | 2.4  | 분석 대기 화면              | ✅ 완료 |
 
-### Epic 3: 4-Layer 크롤링 엔진 (진행 중 — 3.1~3.9 완료)
+### Epic 3: 4-Layer 크롤링 엔진 ✅
 
 | Task | 설명                                     | 상태    | 커밋      |
 | ---- | ---------------------------------------- | ------- | --------- |
@@ -144,21 +144,63 @@
 - `src/features/onboarding/actions/submit-url.ts` — 신규 (Task 2.3 관련 WIP)
 - `src/features/onboarding/schemas.ts` — 수정됨 (Task 2.3 관련 WIP)
 
+### Epic 4: 진단 엔진 ✅
+
+| Task | 설명                  | 상태    |
+| ---- | --------------------- | ------- |
+| 4.1  | 룰 기반 SEO 점수      | ✅ 완료 |
+| 4.2  | 룰 기반 GEO 점수      | ✅ 완료 |
+| 4.3  | AI 인용 가능성 점수   | ✅ 완료 |
+| 4.4  | Quick Win 자동 식별   | ✅ 완료 |
+| 4.5  | 종합 점수 + 등급 산출 | ✅ 완료 |
+
+### Epic 5: AI 상세 분석 (진행 중)
+
+| Task | 설명                           | 상태      |
+| ---- | ------------------------------ | --------- |
+| 5.1  | 5-Agent 병렬 실행 구조         | ✅ 완료   |
+| 5.2  | Content Agent 데이터 품질 강화 | ✅ 완료   |
+| 5.3  | AI 인용 실제 추적 (Claude API) | 🔜 다음   |
+| 5.4  | CMO 검증 에이전트              | ⬜ 미시작 |
+| 5.5  | SWOT 자동 생성                 | ⬜ 미시작 |
+| 5.6  | 90일 로드맵 자동 생성          | ⬜ 미시작 |
+
 ---
 
 ## ⏳ 진행 중
 
-없음 — Epic 3 전체 완료 (Phase A 완성).
+없음 — Task 5.2 코드 완성 + 리뷰 통과 + Nit 수정 완료. **커밋 대기 중.**
 
 ## 🔜 다음 할 일
 
-**Epic 4 — 진단 엔진**
+1. **Task 5.2 커밋** — diagnosis-paid 모듈 untracked 파일 전체 (config + services + types + tests)
+2. **Task 5.3** — AI 인용 실제 추적 (Claude API로 타겟 키워드 질문 → 인용 여부 확인)
+3. **Task 5.4~5.6** — CMO 검증, SWOT, 90일 로드맵
 
-- 4.1: 룰 기반 SEO 점수 (50개+ 룰)
-- 4.2: 룰 기반 GEO 점수 (15개+ 룰)
-- 4.3: AI 인용 가능성 점수
-- 4.4: Quick Win 자동 식별
-- 4.5: 종합 점수 + 등급 산출
+---
+
+## 📦 Epic 5 주요 파일 (Task 5.1~5.2)
+
+### diagnosis-paid 모듈 (untracked — 커밋 대기)
+
+- `src/config/diagnosis-paid.ts` — 5개 에이전트 설정 (ID, systemPrompt, maxTokens, 비용)
+- `src/features/diagnosis-paid/types.ts` — AIInsight, AIAgentResult, PaidAnalysisData, DiagnosisStatus 등
+- `src/features/diagnosis-paid/index.ts` — 공개 인터페이스
+- `src/features/diagnosis-paid/services/run-diagnosis-paid.ts` — 핵심 실행 로직
+  - `runDiagnosisPaid()` — 5-Agent 병렬 실행 + DB 저장
+  - `buildCrawlSummary()` — CrawlData → AI 프롬프트용 텍스트 (Task 5.2에서 강화)
+  - `parseAgentResponse()` — AI 응답 JSON 파싱 + 유효성 검증
+  - `parseCompetitorsResult()` — SWOT/로드맵/경쟁사 파싱
+  - `generateCmoSummary()` — CMO 검증 요약 생성
+- `src/features/diagnosis-paid/services/__tests__/run-diagnosis-paid.test.ts` — 31개 테스트
+
+### Task 5.2 변경 요약 (Content Agent 데이터 품질 강화)
+
+- `buildCrawlSummary()`: counts/booleans → full heading text, Schema types, OG tags, image/link 상세
+- Content Agent systemPrompt: 수신 데이터 형식 명시 + 5개 분석 초점 구체화
+- `DiagnosisStatus` 타입 추가 (OST 준수)
+- Schema markup 타입 가드 강화 (`typeof + 'in' narrowing`)
+- 6개 새 테스트 추가 (headings, schema, OG, images, links, graceful fallback)
 
 ---
 
@@ -168,7 +210,7 @@
 pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm test
 ```
 
-최종 검증: ✅ 전체 통과 (250 tests, 2026-03-14)
+최종 검증: ✅ 전체 통과 (367 tests, 2026-03-15)
 
 ## 📝 빌드 참고
 
