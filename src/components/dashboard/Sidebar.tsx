@@ -36,21 +36,21 @@ export function Sidebar(): React.JSX.Element {
           const Icon = item.icon
           const active = isNavActive(pathname, item.href)
 
-          if (item.locked) {
-            return (
-              <Tooltip key={item.href}>
-                <TooltipTrigger
-                  render={
-                    <div
-                      role="link"
-                      aria-disabled="true"
-                      className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-slate-400 opacity-60"
-                      aria-label={`${item.label} — PRO 전용`}
-                    />
-                  }
-                >
-                  <Icon className="size-4" />
-                  <span>{item.label}</span>
+          const navLink = (
+            <Link
+              href={item.href}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                active
+                  ? 'bg-primary-50 font-semibold text-primary-700'
+                  : 'font-normal text-slate-600 hover:bg-slate-50'
+              } ${item.locked ? 'opacity-70' : ''}`}
+              {...(active ? { 'aria-current': 'page' as const } : {})}
+              aria-label={item.locked ? `${item.label} — PRO 전용` : item.label}
+            >
+              <Icon className="size-4" />
+              <span>{item.label}</span>
+              {item.locked && (
+                <>
                   <Badge
                     variant="secondary"
                     className="ml-auto h-4 px-1.5 text-[10px] font-semibold"
@@ -58,7 +58,15 @@ export function Sidebar(): React.JSX.Element {
                     PRO
                   </Badge>
                   <Lock className="size-3" />
-                </TooltipTrigger>
+                </>
+              )}
+            </Link>
+          )
+
+          if (item.locked) {
+            return (
+              <Tooltip key={item.href}>
+                <TooltipTrigger render={navLink} />
                 <TooltipContent side="right">
                   유료 결제 후 이용 가능합니다
                 </TooltipContent>
@@ -66,21 +74,7 @@ export function Sidebar(): React.JSX.Element {
             )
           }
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                active
-                  ? 'bg-primary-50 font-semibold text-primary-700'
-                  : 'font-normal text-slate-600 hover:bg-slate-50'
-              }`}
-              {...(active ? { 'aria-current': 'page' as const } : {})}
-            >
-              <Icon className="size-4" />
-              <span>{item.label}</span>
-            </Link>
-          )
+          return navLink
         })}
       </nav>
 

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import type {
   AICitationPossibilityScore,
   OverallScore,
@@ -16,6 +17,7 @@ interface DashboardContentProps {
   citation: AICitationPossibilityScore
   isPartial?: boolean
   blockedReason?: string
+  diagnosisId: string
 }
 
 export function DashboardContent({
@@ -23,11 +25,23 @@ export function DashboardContent({
   citation,
   isPartial,
   blockedReason,
+  diagnosisId,
 }: DashboardContentProps): React.JSX.Element {
   const scoreColor = SCORING.getScoreColor(overallScore.score)
 
   return (
     <div className="flex flex-col gap-6">
+      {/* 헤더: 제목 + 샘플 보기 링크 */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-900">진단 결과</h1>
+        <Link
+          href="/reports/sample"
+          className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+        >
+          샘플 보기 →
+        </Link>
+      </div>
+
       {/* robots.txt 차단 경고 배너 */}
       {isPartial && <PartialDataBanner blockedReason={blockedReason} />}
 
@@ -81,7 +95,11 @@ export function DashboardContent({
           </h2>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {overallScore.quickWins.map((qw) => (
-              <QuickWinCard key={qw.ruleId} quickWin={qw} />
+              <QuickWinCard
+                key={qw.ruleId}
+                quickWin={qw}
+                diagnosisId={diagnosisId}
+              />
             ))}
           </div>
         </section>
@@ -94,7 +112,11 @@ export function DashboardContent({
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {overallScore.categories.map((cat) => (
-            <CategoryScoreCard key={cat.id} category={cat} />
+            <CategoryScoreCard
+              key={cat.id}
+              category={cat}
+              diagnosisId={diagnosisId}
+            />
           ))}
         </div>
       </section>

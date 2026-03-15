@@ -1,4 +1,5 @@
 import type { ScoreGrade } from '@/types/ui'
+import type { RuleSeverity } from '@/features/diagnosis-free/types'
 
 /**
  * 점수 등급 기준
@@ -77,10 +78,29 @@ function getScoreLabel(score: number): string {
   return GRADE_LABELS[getScoreGrade(score)]
 }
 
+/** 심각도 → 뱃지 스타일 */
+const SEVERITY_STYLES: Record<
+  RuleSeverity,
+  { bg: string; text: string; label: string }
+> = {
+  critical: { bg: 'bg-danger-50', text: 'text-danger-600', label: '심각' },
+  warning: { bg: 'bg-warning-50', text: 'text-warning-600', label: '주의' },
+  info: { bg: 'bg-primary-50', text: 'text-primary-600', label: '참고' },
+} as const
+
+/** 심각도 → impact 바 색상 */
+const SEVERITY_BAR_COLORS: Record<RuleSeverity, string> = {
+  critical: 'bg-danger-500',
+  warning: 'bg-warning-500',
+  info: 'bg-primary-500',
+} as const
+
 export const SCORING = {
   GRADE_THRESHOLDS,
   GRADE_LABELS,
   GRADE_COLORS,
+  SEVERITY_STYLES,
+  SEVERITY_BAR_COLORS,
   getScoreGrade,
   getScoreColor,
   getScoreLabel,

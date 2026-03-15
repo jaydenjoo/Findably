@@ -1,18 +1,18 @@
 import type { Metadata } from 'next'
+import { SampleReport } from './_components/SampleReport'
 
 export const metadata: Metadata = {
-  title: '샘플 리포트 — 그린테크',
+  title: '샘플 리포트 — 그린테크 | Findably',
+  description:
+    '가상 회사 그린테크의 SEO + GEO 통합 진단 리포트 샘플입니다. 종합 점수, 카테고리 분석, AI 인용 가능성, Quick Win 처방전을 확인하세요.',
+  openGraph: {
+    title: '샘플 리포트 — 그린테크 | Findably',
+    description:
+      'URL 하나로 SEO + GEO 통합 진단. 그린테크 샘플 리포트로 실제 결과를 미리 확인하세요.',
+    type: 'website',
+  },
 }
 
 export default function ReportsSamplePage(): React.JSX.Element {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-900">
-        샘플 리포트 — 그린테크
-      </h1>
-      <p className="mt-2 text-slate-500">
-        가상 회사 &quot;그린테크&quot;의 풀 리포트가 여기에 표시됩니다.
-      </p>
-    </div>
-  )
+  return <SampleReport />
 }

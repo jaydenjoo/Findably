@@ -10,9 +10,12 @@ export { CATEGORY_CONFIG, SEO_THRESHOLDS, SKIPPED_MESSAGE } from './constants'
 
 export type {
   AICitationPossibilityScore,
+  AICitationSignals,
+  AIPlatform,
   CategoryId,
   CategoryScore,
   OverallScore,
+  PlatformCitationScore,
   QuickWin,
   RuleDefinition,
   RuleEvaluation,
