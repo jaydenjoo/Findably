@@ -1,84 +1,127 @@
 # PROGRESS.md — Findably
 
 > 이 파일을 새 세션 시작 시 로드하면 100% 이어서 작업 가능
-> 최종 업데이트: 2026-03-13
+> 최종 업데이트: 2026-03-15
 
 ## 현재 상태
 
-- 현재 Epic: Epic 1 — 프로젝트 셋업
-- 현재 Task: 1.3 Supabase Auth (TASK-6부터 재개)
-- 스펙 상태: approved-tasks (docs/specs/supabase-auth.md)
-- 빌드 상태: tsc + eslint 통과 (2026-03-13)
+- 현재 Phase: Phase A — 무료 진단 흐름 완성 (F-001 End-to-End)
+- 현재 Task: 3.10 크롤링 결과 → 진단 엔진 연결 → 대시보드 실데이터
+- 빌드 상태: tsc + eslint + build 통과 (2026-03-15)
 
-## ✅ 완료된 작업
+## Epic 진행 현황
 
-- [x] 2026-03-12: 프로젝트 초기화 (Next.js 15 + Tailwind v4 + shadcn/ui)
-- [x] 2026-03-12: 기본 폴더 구조 (features/, shared/, lib/adapters/, config/)
-- [x] 2026-03-12: shadcn/ui 컴포넌트 7개 (button, card, input, label, badge, skeleton, progress)
-- [x] 2026-03-12: config/ 파일 (access-control, seo, features, scoring)
-- [x] 2026-03-12: shared 컴포넌트 (ErrorBoundary, JsonLd, schema)
-- [x] 2026-03-12~13: Supabase Auth 스펙 완료 (spec-init → spec-design → validate-design → spec-tasks)
+| Epic             | 상태            | 비고                                          |
+| ---------------- | --------------- | --------------------------------------------- |
+| 1. 프로젝트 셋업 | ✅ 완료         | Auth, DB, GNB, config, 공통 컴포넌트, SEO     |
+| 2. 온보딩        | ✅ 완료         | 랜딩, 회원가입, URL입력, 분석대기 화면        |
+| 3. 크롤링 엔진   | 🔄 3.1~3.9 완료 | 3.10~3.11 미착수                              |
+| 4. 진단 엔진     | ✅ 완료         | 67개 룰 (SEO+GEO), AI인용, QuickWin, 종합점수 |
+| 5. AI 상세 분석  | ⏳ 미착수       | 유료 기능 (Phase C)                           |
+| 6. 경쟁사 비교   | ⏳ 미착수       | 유료 기능 (Phase C)                           |
+| 7. 리포트+실행   | 🔄 7.1 완료     | 대시보드 F-패턴 (mock 데이터)                 |
+| 8. 샘플 리포트   | ⏳ 미착수       | Phase B                                       |
+| 9. 결제          | ⏳ 미착수       | 🔴 보안                                       |
+| 10. 인프라+품질  | ⏳ 미착수       |                                               |
+
+## ✅ 완료된 작업 (요약)
+
+### Epic 1: 프로젝트 셋업
+
+- [x] 1.1: Next.js 15 + Supabase + shadcn/ui 초기화
+- [x] 1.2: features/ 모듈 구조 + registry + adapters/
+- [x] 1.3: Supabase Auth (이메일 + Google) — 10개 서브태스크 완료
+- [x] 1.4: DB 스키마 (diagnoses, diagnosis_items + RLS)
+- [x] 1.5: GNB + 라우팅 + 레이아웃 (사이드바 포함)
+- [x] 1.6: config/ (scoring, access-control, features, seo)
+- [x] 1.7: 공통 컴포넌트 (ErrorBoundary, Skeleton, EmptyState, BlurOverlay)
+- [x] 1.8: SEO (metadata, JSON-LD, sitemap, robots.txt, llms.txt)
+
+### Epic 2: 온보딩
+
+- [x] 2.1: 랜딩 페이지
+- [x] 2.2: 회원가입/로그인
+- [x] 2.3: URL 입력 + 선택 정보 폼 (Zod + Server Action)
+- [x] 2.4: 분석 대기 화면 (AnalyzingScreen + 폴링)
+
+### Epic 3: 크롤링 엔진 (부분 완료)
+
+- [x] 3.1: Playwright 크롤링 (Layer 1)
+- [x] 3.2: robots.txt 파싱 (AI 봇 14개)
+- [x] 3.3: sitemap.xml + llms.txt 파싱
+- [x] 3.4: CMS 감지
+- [x] 3.5: 모바일 크롤링
+- [x] 3.6: PageSpeed Insights API
+- [x] 3.7: CrUX API
+- [x] 3.8: Safe Browsing API
+- [x] 3.9: SSL Labs + Mozilla Observatory
+- [ ] **3.10: 크롤링 결과 → 진단 엔진 연결** ← 현재
+- [ ] 3.11: robots.txt 차단 시 대체 데이터 + 안내 UI
+
+### Epic 4: 진단 엔진
+
+- [x] 4.1: 룰 기반 SEO 점수 (50개+ 룰)
+- [x] 4.2: 룰 기반 GEO 점수 (15개+ 룰)
+- [x] 4.3: AI 인용 가능성 점수 (구조 기반 예측)
+- [x] 4.4: Quick Win 자동 식별
+- [x] 4.5: 종합 점수 + 등급 산출
+
+### Epic 7: 리포트 (부분 완료)
+
+- [x] 7.1.1: ScoreGauge 원형 게이지 (SVG + 카운트업)
+- [x] 7.1.2: QuickWinCard + AICitationCard 대시보드 컴포넌트
+- [x] 7.1.3: 대시보드 F-패턴 레이아웃 통합
 
 ## 🔄 진행 중
 
-- [ ] Epic 1, Task 1.3: Supabase Auth 구현 (10개 태스크, ~10시간)
-  - [x] TASK-1: Supabase 클라이언트 + 환경 변수 ✅ 2026-03-13
-  - [x] TASK-2: Zod 검증 스키마 ✅ 2026-03-13
-  - [x] TASK-3: DB 마이그레이션 — profiles + RLS + 보안 고도화 ✅ 2026-03-13
-  - [x] TASK-4: Server Actions 5개 (login, signup, logout, reset-password, update-password) ✅ 2026-03-13
-  - [x] TASK-5: Auth Callback Route Handler ✅ 2026-03-13
-  - [ ] TASK-6: Middleware (세션 갱신 + 라우트 보호) ← **다음 작업**
-  - [ ] TASK-7: Auth 폼 컴포넌트 5개
-  - [ ] TASK-8: SessionExpiryWarning
-  - [ ] TASK-9: Auth 페이지 + 레이아웃
-  - [ ] TASK-10: 테스트 + 통합 검증
+- [ ] Task 3.10: 파이프라인 갭 해결 (webhook → 진단 엔진 → 대시보드 실데이터)
 
 ## ⏭️ 다음 할 일
 
-- Epic 1, Task 1.4: DB 스키마 (diagnoses 등)
-- Epic 1, Task 1.5: GNB + 라우팅 + 레이아웃
+Phase A (무료 진단 흐름 완성):
+
+1. Task 3.10: 크롤링 → 진단 엔진 → DB 저장 → 대시보드 연결
+2. Task 3.11: robots.txt 차단 시 대체 데이터 + 안내 UI
+
+Phase B (무료 리포트 + 전환 장치): 3. Task 7.2: 간단 리포트 (무료, /diagnosis/overview) 4. Task 8.1~8.2: 샘플 리포트 (그린테크)
+
+Phase C (유료 기능): 5. Epic 9: 결제 (🔴 Toss Payments) 6. Epic 5: AI 상세 분석 (5-Agent) 7. Epic 6: 경쟁사 비교
 
 ## 🔑 결정사항 기록
 
-| 날짜       | 결정                                       | 이유                                                                   |
-| ---------- | ------------------------------------------ | ---------------------------------------------------------------------- |
-| 2026-03-12 | @supabase/ssr 사용 (auth-helpers 아닌)     | 공식 권장, cookie getAll/setAll 패턴                                   |
-| 2026-03-12 | Server Actions 기반 auth (API Routes 아닌) | Next.js 15 권장 패턴, CSRF 자동 방어                                   |
-| 2026-03-12 | PKCE flow 사용                             | 보안 강화, Supabase 기본 설정                                          |
-| 2026-03-13 | chatsio-v1 Supabase 프로젝트 공유 사용     | 무료 티어 제한. 함수/트리거 `findably_` 접두사, 테이블 충돌 방지       |
-| 2026-03-13 | RLS 보안 고도화 (migration 002)            | authenticated 제한, search_path 보안, 컬럼 변조 방지                   |
-| 2026-03-13 | Apify는 Epic 3/6에서 검토                  | 현재 Epic 1이므로 PRD에 메모만. lib/adapters/apify.ts 어댑터 패턴 예정 |
+| 날짜       | 결정                     | 이유                                 |
+| ---------- | ------------------------ | ------------------------------------ |
+| 2026-03-12 | @supabase/ssr 사용       | 공식 권장, cookie getAll/setAll 패턴 |
+| 2026-03-12 | Server Actions 기반 auth | Next.js 15 권장 패턴, CSRF 자동 방어 |
+| 2026-03-13 | chatsio-v1 Supabase 공유 | 무료 티어 제한. findably\_ 접두사    |
+| 2026-03-13 | RLS 보안 고도화          | authenticated 제한, search_path 보안 |
+| 2026-03-15 | Phase A→B→C 순서         | F-001 End-to-End 완성이 MVP 최우선   |
 
-## 📂 이번 세션에서 생성/수정된 파일
+## 🔑 파이프라인 갭 분석 (Task 3.10)
 
-| 파일                                                        | 상태          | 설명                                  |
-| ----------------------------------------------------------- | ------------- | ------------------------------------- |
-| src/lib/supabase/server.ts                                  | 생성(TASK-1)  | 서버 Supabase 클라이언트 팩토리       |
-| src/lib/supabase/client.ts                                  | 생성(TASK-1)  | 브라우저 Supabase 클라이언트          |
-| src/features/auth/schemas.ts                                | 생성(TASK-2)  | Zod 검증 스키마 4개                   |
-| src/features/auth/types.ts                                  | 생성(TASK-4)  | AuthActionState + AUTH_ERROR_GENERIC  |
-| src/features/auth/actions/login.ts                          | 생성(TASK-4)  | 로그인 Server Action                  |
-| src/features/auth/actions/signup.ts                         | 생성(TASK-4)  | 회원가입 Server Action                |
-| src/features/auth/actions/logout.ts                         | 생성(TASK-4)  | 로그아웃 Server Action                |
-| src/features/auth/actions/reset-password.ts                 | 생성(TASK-4)  | 비밀번호 재설정 요청                  |
-| src/features/auth/actions/update-password.ts                | 생성(TASK-4)  | 새 비밀번호 설정                      |
-| src/app/auth/callback/route.ts                              | 생성(TASK-5)  | OAuth/이메일인증/recovery 콜백 핸들러 |
-| supabase/migrations/001_findably_profiles.sql               | 생성(TASK-3)  | profiles 테이블 + 트리거 + RLS        |
-| supabase/migrations/002_findably_profiles_rls_hardening.sql | 생성(TASK-3+) | RLS 보안 고도화 3건                   |
-| docs/PRD.md                                                 | 수정          | Apify 활용 메모 추가 (어댑터 목록)    |
+```
+현재 흐름:
+  URL입력 → submit-url.ts(INSERT pending) → triggerCrawl(n8n)
+  → n8n Layer 1 완료 → POST /api/crawl/webhook
+  → runLayers(Layer 2+3) → saveCrawlResult(status=analyzing)
+  → ❌ 여기서 끝 (진단 엔진 미실행, 대시보드 mock 데이터)
+
+필요한 연결:
+  → saveCrawlResult 후
+  → evaluate(crawlData) + calculateAICitationPossibility(crawlData)
+  → analysis_data 저장 + total_score/grade 업데이트 + status=completed
+  → 대시보드에서 Supabase 실데이터 읽기
+```
 
 ## 🐛 알려진 이슈
 
-| 이슈   | 심각도 | 상태 |
-| ------ | ------ | ---- |
-| (없음) | —      | —    |
+| 이슈                         | 심각도 | 상태                    |
+| ---------------------------- | ------ | ----------------------- |
+| 대시보드 mock 데이터 사용 중 | 중간   | Task 3.10에서 해결 예정 |
 
 ## 💡 교훈
 
 - Tailwind v4: bg-gradient-to-_ → bg-linear-to-_ 변경됨
-- Zod v4: `.errors` 제거됨, `.issues`만 사용 (아래 learnings.md 참조)
-
-## ⚠️ Jayden 행동 규칙 (세션 간 유지)
-
-1. 다음 명령어 실행 전 "이게 뭐고 왜 필요한지" 먼저 설명할 것
-2. learnings.md 기록: 제안 → Jayden 승인 → 기록 (승인 없이 기록 금지)
+- Vitest fake timers + waitFor: 교착 → advanceTimersByTimeAsync 사용
+- useRouter mock: 안정 참조 필수 (매번 새 객체 → useEffect 무한 재실행)
+- shadcn/ui jsdom: @base-ui/react 브라우저 API → 단순 HTML mock 필요

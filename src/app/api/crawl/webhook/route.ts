@@ -8,7 +8,8 @@ import {
   saveCrawlResult,
   markDiagnosisFailed,
 } from '@/features/crawling/services/save-crawl-result'
-import type { CrawlData } from '@/features/crawling/types'
+import { runDiagnosis } from '@/features/diagnosis-free/services/run-diagnosis'
+import type { CrawlData } from '@/features/crawling'
 
 /**
  * 웹훅 페이로드 Zod 스키마
@@ -101,7 +102,23 @@ export async function POST(request: NextRequest): Promise<Response> {
       return errorResponse('크롤링 결과 저장에 실패했습니다', 500)
     }
 
-    return successResponse({ saved: true, duration_ms: crawlData.duration_ms })
+    // 6. 진단 엔진 실행 (evaluate + AI 인용 점수 + DB 저장)
+    const diagnosisResult = await runDiagnosis(payload.diagnosisId, crawlData)
+
+    if (!diagnosisResult.success) {
+      console.error('[webhook] 진단 실패:', diagnosisResult.error)
+      await markDiagnosisFailed(
+        payload.diagnosisId,
+        diagnosisResult.error ?? '진단 엔진 실행 실패'
+      )
+      return errorResponse('진단 처리에 실패했습니다', 500)
+    }
+
+    return successResponse({
+      saved: true,
+      diagnosed: true,
+      duration_ms: crawlData.duration_ms,
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : '알 수 없는 오류'
     console.error('[webhook] 처리 중 예외:', message)
