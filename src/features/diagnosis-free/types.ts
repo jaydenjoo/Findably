@@ -87,3 +87,35 @@ export interface QuickWin {
   message: string
   impact: number
 }
+
+// ─── AI 인용 가능성 (Task 4.3) ───
+
+/** AI 플랫폼 식별자 */
+export type AIPlatform = 'chatgpt' | 'claude' | 'perplexity' | 'google'
+
+/** 3가지 신호 카테고리 점수 (0-100) */
+export interface AICitationSignals {
+  /** 봇 접근 허용 여부 (40%) */
+  botAccess: number
+  /** 콘텐츠 발견 용이성 (40%) */
+  contentDiscoverability: number
+  /** 신뢰 신호 (20%) */
+  trustSignals: number
+}
+
+/** 플랫폼별 인용 가능성 점수 */
+export interface PlatformCitationScore {
+  platform: AIPlatform
+  platformLabel: string
+  score: number
+  blocked: boolean
+  signals: AICitationSignals
+}
+
+/** AI 인용 가능성 종합 결과 */
+export interface AICitationPossibilityScore {
+  overallScore: number
+  passed: boolean
+  platforms: PlatformCitationScore[]
+  recommendation: string
+}

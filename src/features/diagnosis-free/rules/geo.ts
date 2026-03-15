@@ -1,5 +1,6 @@
 import type { RuleDefinition } from '../types'
-import { GEO_THRESHOLDS } from '../constants'
+import { AI_CITATION_THRESHOLDS, GEO_THRESHOLDS } from '../constants'
+import { calculateAICitationPossibility } from './ai-citation-helpers'
 import {
   hasLayer1,
   hasLayer2SafeBrowsing,
@@ -8,7 +9,7 @@ import {
   hasRobotsTxt,
 } from './guards'
 
-/** GEO 룰 (15개, 135점) — AI 검색 최적화 */
+/** GEO 룰 (17개, 165점) — AI 검색 최적화 */
 export const geoRules: RuleDefinition[] = [
   // ─── AI 인용 가능성 (25점) ───
   {
@@ -423,6 +424,53 @@ export const geoRules: RuleDefinition[] = [
         passed: false,
         message:
           '위험 사이트로 감지되었습니다. AI가 이 사이트를 인용하지 않을 가능성이 높습니다.',
+      }
+    },
+  },
+
+  // ─── AI 인용 가능성 종합 (30점) ───
+  {
+    id: 'geo-16',
+    category: 'geo',
+    name: 'AI 인용 가능성 종합',
+    maxPoints: 30,
+    severity: 'warning',
+    quickWinEligible: false,
+    isEvaluable: hasLayer1,
+    evaluate: (data) => {
+      const result = calculateAICitationPossibility(data)
+
+      if (result.passed) {
+        return {
+          passed: true,
+          message: `AI 인용 가능성 ${result.overallScore}점 — ${result.recommendation}`,
+        }
+      }
+      return {
+        passed: false,
+        message: `AI 인용 가능성 ${result.overallScore}점 (${AI_CITATION_THRESHOLDS.PASS_SCORE}점 이상 권장). ${result.recommendation}`,
+      }
+    },
+  },
+  {
+    id: 'geo-17',
+    category: 'geo',
+    name: 'AI 플랫폼별 인용 분석',
+    maxPoints: 0,
+    severity: 'info',
+    quickWinEligible: false,
+    isEvaluable: hasLayer1,
+    evaluate: (data) => {
+      const result = calculateAICitationPossibility(data)
+      const breakdown = result.platforms
+        .map(
+          (p) => `${p.platformLabel}: ${p.score}점${p.blocked ? ' (차단)' : ''}`
+        )
+        .join(' / ')
+
+      return {
+        passed: result.passed,
+        message: `플랫폼별 AI 인용 가능성 — ${breakdown}. 예상값입니다. 정확한 인용 현황은 유료 진단에서 확인하세요.`,
       }
     },
   },

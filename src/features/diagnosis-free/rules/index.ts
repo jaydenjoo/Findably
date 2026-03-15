@@ -7,7 +7,7 @@ import { securityRules } from './security'
 import { socialAiRules } from './social-ai'
 import { technicalRules } from './technical'
 
-/** 전체 룰 레지스트리 (65개) */
+/** 전체 룰 레지스트리 (67개) */
 export const ALL_RULES: RuleDefinition[] = [
   ...technicalRules,
   ...contentRules,
