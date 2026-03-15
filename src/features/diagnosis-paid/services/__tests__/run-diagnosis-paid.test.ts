@@ -4,7 +4,8 @@ import {
   isValidInsight,
   normalizeInsight,
   parseCompetitorsResult,
-  generateCmoSummary,
+  generateCmoSummaryFallback,
+  parseCmoResponse,
   buildCrawlSummary,
 } from '../run-diagnosis-paid'
 import type { AIAgentResult, AIInsight } from '../../types'
@@ -265,9 +266,9 @@ describe('parseCompetitorsResult', () => {
   })
 })
 
-// ─── generateCmoSummary ───
+// ─── generateCmoSummaryFallback ───
 
-describe('generateCmoSummary', () => {
+describe('generateCmoSummaryFallback', () => {
   const makeInsight = (severity: AIInsight['severity']): AIInsight => ({
     title: 'T',
     description: 'D',
@@ -286,12 +287,12 @@ describe('generateCmoSummary', () => {
       makeInsight('info'),
     ]
 
-    const summary = generateCmoSummary(insights)
+    const summary = generateCmoSummaryFallback(insights)
     expect(summary).toBe('총 6개 인사이트 발견: 심각 2개, 주의 1개, 참고 3개')
   })
 
   it('should handle empty insights', () => {
-    const summary = generateCmoSummary([])
+    const summary = generateCmoSummaryFallback([])
     expect(summary).toBe('총 0개 인사이트 발견: 심각 0개, 주의 0개, 참고 0개')
   })
 
@@ -301,7 +302,7 @@ describe('generateCmoSummary', () => {
       makeInsight('warning'),
     ]
 
-    const summary = generateCmoSummary(insights)
+    const summary = generateCmoSummaryFallback(insights)
     expect(summary).toContain('주의 2개')
     expect(summary).toContain('심각 0개')
   })
@@ -467,5 +468,90 @@ describe('buildCrawlSummary', () => {
     expect(result).toContain('없음')
     expect(result).not.toContain('OG 태그')
     expect(result).toContain('언어: 미설정')
+  })
+})
+
+// ─── parseCmoResponse ───
+
+describe('parseCmoResponse', () => {
+  it('should parse valid CMO JSON response', () => {
+    const content = JSON.stringify({
+      executive_summary: '전반적으로 양호한 마케팅 상태입니다.',
+      quality_score: 85,
+      issues_found: [
+        {
+          type: 'duplicate',
+          description: '중복 인사이트',
+          related_insights: ['인사이트 A', '인사이트 B'],
+        },
+      ],
+    })
+
+    const result = parseCmoResponse(content)
+    expect(result).not.toBeNull()
+    expect(result?.executive_summary).toBe(
+      '전반적으로 양호한 마케팅 상태입니다.'
+    )
+    expect(result?.quality_score).toBe(85)
+    expect(result?.issues_found).toHaveLength(1)
+    expect(result?.issues_found[0]?.type).toBe('duplicate')
+  })
+
+  it('should parse JSON wrapped in code block', () => {
+    const content =
+      '```json\n{"executive_summary":"요약","quality_score":70,"issues_found":[]}\n```'
+
+    const result = parseCmoResponse(content)
+    expect(result).not.toBeNull()
+    expect(result?.executive_summary).toBe('요약')
+    expect(result?.quality_score).toBe(70)
+    expect(result?.issues_found).toEqual([])
+  })
+
+  it('should return null for missing executive_summary', () => {
+    const content = JSON.stringify({
+      quality_score: 50,
+      issues_found: [],
+    })
+
+    expect(parseCmoResponse(content)).toBeNull()
+  })
+
+  it('should return null for missing quality_score', () => {
+    const content = JSON.stringify({
+      executive_summary: '요약',
+      issues_found: [],
+    })
+
+    expect(parseCmoResponse(content)).toBeNull()
+  })
+
+  it('should return null for non-JSON content', () => {
+    expect(parseCmoResponse('이것은 JSON이 아닙니다')).toBeNull()
+  })
+
+  it('should return null for malformed JSON', () => {
+    expect(parseCmoResponse('{invalid json}}}')).toBeNull()
+  })
+
+  it('should default issues_found to empty array when not provided', () => {
+    const content = JSON.stringify({
+      executive_summary: '요약 텍스트',
+      quality_score: 60,
+    })
+
+    const result = parseCmoResponse(content)
+    expect(result?.issues_found).toEqual([])
+  })
+
+  it('should default issues_found to empty array when not an array', () => {
+    const content = JSON.stringify({
+      executive_summary: '요약',
+      quality_score: 60,
+      issues_found: 'not an array',
+    })
+
+    const result = parseCmoResponse(content)
+    expect(result?.issues_found).toEqual([])
   })
 })

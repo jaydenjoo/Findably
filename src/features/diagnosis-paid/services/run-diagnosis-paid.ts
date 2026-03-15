@@ -14,6 +14,7 @@ import type {
   AICitationTrackingResult,
   AIAgentResult,
   AIInsight,
+  CmoVerificationResponse,
   CompetitorAnalysis,
   DiagnosisStatus,
   SwotAnalysis,
@@ -45,8 +46,11 @@ interface SiteContext {
 }
 
 /** executeAgent 파라미터 (6개 → 1 객체) */
+/** 5개 분석 에이전트 ID (CMO 제외) */
+type AnalysisAgentId = Exclude<AgentId, 'cmo'>
+
 interface ExecuteAgentParams {
-  agentId: AgentId
+  agentId: AnalysisAgentId
   systemPrompt: string
   maxTokens: number
   crawlData: CrawlData
@@ -140,7 +144,7 @@ export async function runDiagnosisPaid(
     const totalCostKrw = agentCostKrw + citationResult.totalCostKrw
     const totalDurationMs = Date.now() - startTime
 
-    const paidAnalysisData = aggregateResults(
+    const paidAnalysisData = await aggregateResults(
       freeAnalysis,
       agentResults,
       citationResult,
@@ -197,9 +201,10 @@ async function executeAgentsParallel(
 ): Promise<AIAgentResult[]> {
   const agents = DIAGNOSIS_PAID_CONFIG.AGENTS
 
+  // AGENTS 배열은 분석 에이전트 5개만 포함 (CMO는 CMO_AGENT 별도 상수)
   const promises = agents.map((agent) =>
     executeAgent({
-      agentId: agent.id as AgentId,
+      agentId: agent.id as AnalysisAgentId,
       systemPrompt: agent.systemPrompt,
       maxTokens: agent.maxTokens,
       crawlData,
@@ -267,7 +272,7 @@ async function executeAgent(
  * 에이전트별 사용자 메시지 생성
  */
 function buildUserMessage(
-  agentId: AgentId,
+  agentId: Exclude<AgentId, 'cmo'>,
   crawlData: CrawlData,
   url: string,
   context: SiteContext
@@ -281,13 +286,13 @@ function buildUserMessage(
 
   const crawlSummary = buildCrawlSummary(crawlData)
 
-  const focusMap: Record<AgentId, string> = {
+  const focusMap = {
     technical: '기술적 SEO 관점에서 분석해주세요.',
     seo: '검색 엔진 최적화 관점에서 분석해주세요.',
     geo: 'AI 검색 엔진(ChatGPT, Claude, Perplexity, Google AI) 노출 최적화 관점에서 분석해주세요.',
     content: '콘텐츠 품질, 구조, 전문성 관점에서 분석해주세요.',
     competitors: '경쟁사 비교 분석 + SWOT + 90일 로드맵을 생성해주세요.',
-  }
+  } satisfies Record<AnalysisAgentId, string>
 
   const competitorLine =
     agentId === 'competitors'
@@ -548,15 +553,15 @@ export function normalizeInsight(item: Record<string, unknown>): AIInsight {
 // ─── Phase 2 + 3: 결과 합산 ───
 
 /**
- * 에이전트 결과 합산 → PaidAnalysisData
+ * 에이전트 결과 합산 → PaidAnalysisData (Phase 2 + 3)
  */
-function aggregateResults(
+async function aggregateResults(
   freeAnalysis: FreeAnalysisData,
   agentResults: AIAgentResult[],
   citationResult: AICitationTrackingResult,
   totalCostKrw: number,
   totalDurationMs: number
-): PaidAnalysisData {
+): Promise<PaidAnalysisData> {
   const allInsights = agentResults.flatMap((r) => r.insights)
 
   const competitorsResult = agentResults.find(
@@ -565,7 +570,12 @@ function aggregateResults(
   const { swot, roadmap, competitors } =
     parseCompetitorsResult(competitorsResult)
 
-  const cmoSummary = generateCmoSummary(allInsights)
+  // Phase 3 — CMO 검증 에이전트
+  const { cmoSummary, cmoCostKrw } = await executeCmoAgent(
+    agentResults,
+    freeAnalysis,
+    citationResult
+  )
 
   return {
     overallScore: freeAnalysis.overallScore,
@@ -579,7 +589,7 @@ function aggregateResults(
     aiCitationTracking: citationResult,
     cmoSummary,
     agentResults,
-    totalCostKrw,
+    totalCostKrw: totalCostKrw + cmoCostKrw,
     totalDurationMs,
   }
 }
@@ -619,10 +629,10 @@ export function parseCompetitorsResult(result: AIAgentResult | undefined): {
         ? (parsed.swot as SwotAnalysis)
         : empty.swot,
       roadmap: Array.isArray(parsed.roadmap)
-        ? (parsed.roadmap as RoadmapItem[])
+        ? parsed.roadmap.filter(isValidRoadmapItem)
         : [],
       competitors: Array.isArray(parsed.competitors)
-        ? (parsed.competitors as CompetitorAnalysis[])
+        ? parsed.competitors.filter(isValidCompetitorAnalysis)
         : [],
     }
   } catch {
@@ -642,11 +652,187 @@ function isValidSwot(swot: unknown): boolean {
   )
 }
 
+/** 로드맵 항목 유효성 검사 */
+function isValidRoadmapItem(item: unknown): item is RoadmapItem {
+  if (!item || typeof item !== 'object') return false
+  const r = item as Record<string, unknown>
+  return (
+    typeof r.week === 'number' &&
+    typeof r.title === 'string' &&
+    typeof r.description === 'string' &&
+    typeof r.category === 'string' &&
+    typeof r.priority === 'string' &&
+    ['high', 'medium', 'low'].includes(r.priority as string) &&
+    typeof r.estimatedImpact === 'number'
+  )
+}
+
+/** 경쟁사 분석 항목 유효성 검사 */
+function isValidCompetitorAnalysis(item: unknown): item is CompetitorAnalysis {
+  if (!item || typeof item !== 'object') return false
+  const c = item as Record<string, unknown>
+  return (
+    typeof c.url === 'string' &&
+    typeof c.overallScore === 'number' &&
+    Array.isArray(c.strengths) &&
+    Array.isArray(c.weaknesses) &&
+    Array.isArray(c.gaps)
+  )
+}
+
+// ─── Phase 3: CMO 검증 에이전트 ───
+
 /**
- * Phase 3 — CMO 요약 생성
- * 현재: 단순 집계. 추후 AI 검증 에이전트(Task 5.4)로 업그레이드.
+ * CMO 검증 에이전트 실행
+ * 5개 에이전트 인사이트 + 점수 + 인용 결과를 요약하여 Executive Summary 생성
+ * 실패 시 폴백 summary 반환 (진단 전체 실패 방지)
  */
-export function generateCmoSummary(insights: AIInsight[]): string {
+export async function executeCmoAgent(
+  agentResults: AIAgentResult[],
+  freeAnalysis: FreeAnalysisData,
+  citationResult: AICitationTrackingResult
+): Promise<{ cmoSummary: string; cmoCostKrw: number }> {
+  const { CMO_AGENT } = DIAGNOSIS_PAID_CONFIG
+  const allInsights = agentResults.flatMap((r) => r.insights)
+
+  try {
+    const userMessage = buildCmoUserMessage(
+      agentResults,
+      freeAnalysis,
+      citationResult
+    )
+
+    const aiPromise = executeAIRequest({
+      systemPrompt: CMO_AGENT.systemPrompt,
+      userMessage,
+      maxTokens: CMO_AGENT.maxTokens,
+    })
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error('CMO 에이전트 타임아웃')),
+        CMO_AGENT.timeoutMs
+      )
+    })
+
+    let response: Awaited<ReturnType<typeof executeAIRequest>>
+    try {
+      response = await Promise.race([aiPromise, timeoutPromise])
+    } finally {
+      clearTimeout(timeoutId)
+    }
+    const parsed = parseCmoResponse(response.content)
+    const cmoCostKrw = calculateCostKrw(response.tokenUsage)
+
+    if (parsed) {
+      return { cmoSummary: parsed.executive_summary, cmoCostKrw }
+    }
+
+    return { cmoSummary: generateCmoSummaryFallback(allInsights), cmoCostKrw }
+  } catch (err) {
+    console.error('[executeCmoAgent] CMO 검증 실패, 폴백 사용', err)
+    return {
+      cmoSummary: generateCmoSummaryFallback(allInsights),
+      cmoCostKrw: 0,
+    }
+  }
+}
+
+/**
+ * CMO 에이전트용 사용자 메시지 생성
+ * crawlData 제외 — 토큰 효율 (에이전트들이 이미 분석 완료)
+ */
+function buildCmoUserMessage(
+  agentResults: AIAgentResult[],
+  freeAnalysis: FreeAnalysisData,
+  citationResult: AICitationTrackingResult
+): string {
+  const insightsSummary = agentResults
+    .filter((r) => r.status === 'completed')
+    .map((r) => {
+      const counts = {
+        critical: r.insights.filter((i) => i.severity === 'critical').length,
+        warning: r.insights.filter((i) => i.severity === 'warning').length,
+        info: r.insights.filter((i) => i.severity === 'info').length,
+      }
+      const topInsights = r.insights
+        .slice(0, 3)
+        .map((i) => `  - [${i.severity}] ${i.title}`)
+        .join('\n')
+      return `### ${r.agentId} (심각 ${counts.critical}, 주의 ${counts.warning}, 참고 ${counts.info})\n${topInsights}`
+    })
+    .join('\n\n')
+
+  const score = freeAnalysis.overallScore
+  const citation = citationResult.overallMentionRate
+
+  return [
+    '## 종합 점수',
+    `- 전체: ${score.score}점 (${score.grade})`,
+    `- AI 인용률: ${Math.round(citation * 100)}%`,
+    '',
+    '## 에이전트별 인사이트 요약',
+    insightsSummary,
+    '',
+    '위 결과를 검증하고 Executive Summary를 생성해주세요.',
+  ].join('\n')
+}
+
+const CMO_ISSUE_TYPES = ['contradiction', 'unsupported', 'duplicate'] as const
+
+/** CMO issues_found 항목 유효성 검사 */
+function isValidCmoIssue(
+  item: unknown
+): item is CmoVerificationResponse['issues_found'][number] {
+  if (!item || typeof item !== 'object') return false
+  const i = item as Record<string, unknown>
+  return (
+    typeof i.type === 'string' &&
+    (CMO_ISSUE_TYPES as readonly string[]).includes(i.type) &&
+    typeof i.description === 'string' &&
+    Array.isArray(i.related_insights)
+  )
+}
+
+/**
+ * CMO AI 응답 JSON 파싱
+ */
+export function parseCmoResponse(
+  content: string
+): CmoVerificationResponse | null {
+  try {
+    const jsonMatch =
+      content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/) ??
+      content.match(/(\{[\s\S]*\})/)
+
+    if (!jsonMatch?.[1]) return null
+
+    const parsed = JSON.parse(jsonMatch[1]) as Record<string, unknown>
+
+    if (
+      typeof parsed.executive_summary !== 'string' ||
+      typeof parsed.quality_score !== 'number'
+    ) {
+      return null
+    }
+
+    return {
+      executive_summary: parsed.executive_summary,
+      quality_score: parsed.quality_score,
+      issues_found: Array.isArray(parsed.issues_found)
+        ? parsed.issues_found.filter(isValidCmoIssue)
+        : [],
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * CMO 폴백 요약 — AI 실패 시 단순 집계
+ */
+export function generateCmoSummaryFallback(insights: AIInsight[]): string {
   const critical = insights.filter((i) => i.severity === 'critical').length
   const warning = insights.filter((i) => i.severity === 'warning').length
   const info = insights.filter((i) => i.severity === 'info').length

@@ -1,7 +1,13 @@
 import type { AIPlatform } from '@/features/diagnosis-free'
 
-/** 5개 AI 에이전트 ID */
-export type AgentId = 'technical' | 'seo' | 'geo' | 'content' | 'competitors'
+/** AI 에이전트 ID (5개 분석 + CMO 검증) */
+export type AgentId =
+  | 'technical'
+  | 'seo'
+  | 'geo'
+  | 'content'
+  | 'competitors'
+  | 'cmo'
 
 /** 에이전트별 설정 */
 interface AgentSpec {
@@ -213,6 +219,38 @@ Respond in Korean. Be specific and actionable. Return ONLY valid JSON.`,
   },
 ] as const
 
+/** CMO 검증 에이전트 설정 — AGENTS 배열과 분리하여 병렬 실행에 포함 방지 */
+const CMO_AGENT = {
+  id: 'cmo' as const,
+  name: 'CMO 검증가',
+  description: '5개 에이전트 분석 결과 품질 검증 + Executive Summary 생성',
+  maxTokens: 1024,
+  timeoutMs: 15_000,
+  systemPrompt: `You are a Chief Marketing Officer reviewing the combined analysis from 5 specialist agents (Technical, SEO, GEO, Content, Competitors).
+
+Your task:
+1. Generate a concise executive summary (2-3 sentences) of the overall marketing health
+2. Assess the quality of the combined analysis (0-100)
+3. Flag any issues: contradictions between agents, unsupported claims, or duplicate findings
+
+Input: Agent insights summary, scores, and AI citation results.
+
+Return JSON:
+{
+  "executive_summary": "string (2-3 sentences, Korean)",
+  "quality_score": 0-100,
+  "issues_found": [
+    {
+      "type": "contradiction | unsupported | duplicate",
+      "description": "string",
+      "related_insights": ["insight title 1", "insight title 2"]
+    }
+  ]
+}
+
+Respond in Korean. Return ONLY valid JSON.`,
+} as const
+
 /** AI 인용 추적 설정 (Task 5.3) */
 const CITATION_TRACKING = {
   /** 플랫폼별 모델 + 비용 */
@@ -272,5 +310,6 @@ export const DIAGNOSIS_PAID_CONFIG = {
   TOKEN_COST_USD,
   USD_TO_KRW,
   AGENTS,
+  CMO_AGENT,
   CITATION_TRACKING,
 } as const

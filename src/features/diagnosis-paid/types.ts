@@ -99,6 +99,19 @@ export interface AICitationTrackingResult {
   totalDurationMs: number
 }
 
+// ─── CMO 검증 ───
+
+/** CMO 검증 에이전트 응답 (Phase 3) */
+export interface CmoVerificationResponse {
+  executive_summary: string
+  quality_score: number
+  issues_found: Array<{
+    type: 'contradiction' | 'unsupported' | 'duplicate'
+    description: string
+    related_insights: string[]
+  }>
+}
+
 // ─── 에이전트 결과 ───
 
 /** 개별 에이전트 실행 결과 */
