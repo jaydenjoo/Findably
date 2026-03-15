@@ -91,5 +91,12 @@ export const AI_BOT_TO_PLATFORM = {
   PerplexityBot: 'perplexity',
 } as const
 
+/** Quick Win 정렬: severity 가중치 (critical 우선) */
+export const SEVERITY_PRIORITY_WEIGHTS = {
+  critical: 30,
+  warning: 20,
+  info: 10,
+} as const
+
 /** 부분 크롤 시 데이터 없음 메시지 */
 export const SKIPPED_MESSAGE = '데이터 없음 (부분 크롤링)' as const

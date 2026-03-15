@@ -1,6 +1,10 @@
 import type { CrawlData } from '@/features/crawling'
 import { SCORING } from '@/config/scoring'
-import { CATEGORY_CONFIG, SKIPPED_MESSAGE } from './constants'
+import {
+  CATEGORY_CONFIG,
+  SEVERITY_PRIORITY_WEIGHTS,
+  SKIPPED_MESSAGE,
+} from './constants'
 import { ALL_RULES } from './rules'
 import type {
   CategoryId,
@@ -100,7 +104,12 @@ export function evaluate(data: CrawlData): OverallScore {
   // 5. Quick Win 식별
   const quickWins = results
     .filter((r) => !r.skipped && !r.passed && r.quickWinEligible)
-    .sort((a, b) => b.maxPoints - a.maxPoints)
+    .sort((a, b) => {
+      // severity 가중치 + impact 복합 정렬
+      const priorityA = SEVERITY_PRIORITY_WEIGHTS[a.severity] + a.maxPoints
+      const priorityB = SEVERITY_PRIORITY_WEIGHTS[b.severity] + b.maxPoints
+      return priorityB - priorityA
+    })
     .map((r) => ({
       ruleId: r.id,
       ruleName: r.name,
