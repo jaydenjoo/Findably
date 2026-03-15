@@ -21,9 +21,11 @@ export const metadata: Metadata = {
 
 export default function OnboardingUrlPage(): React.JSX.Element {
   return (
-    <Card>
+    <Card className="relative shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-primary-500">
       <CardHeader className="text-center">
-        <CardTitle className="text-xl">진단할 URL을 입력하세요</CardTitle>
+        <CardTitle className="font-display text-xl tracking-[-0.02em]">
+          진단할 URL을 입력하세요
+        </CardTitle>
         <CardDescription>
           분석할 웹사이트 주소를 입력하면 SEO + AI 검색 통합 진단을 시작합니다.
         </CardDescription>

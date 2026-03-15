@@ -109,9 +109,11 @@ export function AnalyzingScreen({
   // 에러 상태
   if (error) {
     return (
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">분석에 문제가 발생했습니다</CardTitle>
+          <CardTitle className="font-display text-xl tracking-[-0.02em]">
+            분석에 문제가 발생했습니다
+          </CardTitle>
           <CardDescription>{error}</CardDescription>
         </CardHeader>
         <CardContent className="text-center">
@@ -130,9 +132,11 @@ export function AnalyzingScreen({
   }
 
   return (
-    <Card>
+    <Card className="relative shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-primary-500">
       <CardHeader className="text-center">
-        <CardTitle className="text-xl">사이트를 분석하고 있습니다</CardTitle>
+        <CardTitle className="font-display text-xl tracking-[-0.02em]">
+          사이트를 분석하고 있습니다
+        </CardTitle>
         <CardDescription>
           <span className="break-all font-medium text-slate-700">{url}</span>을
           진단하고 있습니다. 잠시만 기다려주세요.

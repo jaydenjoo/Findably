@@ -24,9 +24,11 @@ export const metadata: Metadata = {
 
 export default function SignupPage(): React.JSX.Element {
   return (
-    <Card>
+    <Card className="relative shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-primary-500">
       <CardHeader className="text-center">
-        <CardTitle className="text-xl">회원가입</CardTitle>
+        <CardTitle className="font-display text-xl tracking-[-0.02em]">
+          회원가입
+        </CardTitle>
         <CardDescription>
           URL 하나로 AI 마케팅 진단을 시작하세요
         </CardDescription>

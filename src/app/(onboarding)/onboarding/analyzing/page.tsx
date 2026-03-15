@@ -74,9 +74,11 @@ export default async function OnboardingAnalyzingPage({
   // 진단을 찾을 수 없는 경우 (잘못된 id, 진행 중인 분석 없음)
   if (!diagnosis) {
     return (
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">진행 중인 분석이 없습니다</CardTitle>
+          <CardTitle className="font-display text-xl tracking-[-0.02em]">
+            진행 중인 분석이 없습니다
+          </CardTitle>
           <CardDescription>
             URL을 입력하여 새로운 분석을 시작해주세요.
           </CardDescription>

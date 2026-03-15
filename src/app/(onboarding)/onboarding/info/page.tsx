@@ -30,9 +30,11 @@ export default async function OnboardingInfoPage({
 
   if (!id) {
     return (
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">잘못된 접근입니다</CardTitle>
+          <CardTitle className="font-display text-xl tracking-[-0.02em]">
+            잘못된 접근입니다
+          </CardTitle>
           <CardDescription>
             URL 입력 단계부터 다시 시작해주세요.
           </CardDescription>
@@ -42,9 +44,11 @@ export default async function OnboardingInfoPage({
   }
 
   return (
-    <Card>
+    <Card className="relative shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-primary-500">
       <CardHeader className="text-center">
-        <CardTitle className="text-xl">추가 정보 (선택)</CardTitle>
+        <CardTitle className="font-display text-xl tracking-[-0.02em]">
+          추가 정보 (선택)
+        </CardTitle>
         <CardDescription>
           아래 정보를 입력하면 더 정확한 진단 결과를 받을 수 있습니다.
           건너뛰어도 분석은 정상적으로 진행됩니다.

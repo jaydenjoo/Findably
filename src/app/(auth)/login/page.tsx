@@ -30,9 +30,11 @@ export default async function LoginPage({
   const { redirectTo } = await searchParams
 
   return (
-    <Card>
+    <Card className="relative shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-primary-500">
       <CardHeader className="text-center">
-        <CardTitle className="text-xl">로그인</CardTitle>
+        <CardTitle className="font-display text-xl tracking-[-0.02em]">
+          로그인
+        </CardTitle>
         <CardDescription>Findably에 오신 것을 환영합니다</CardDescription>
       </CardHeader>
 

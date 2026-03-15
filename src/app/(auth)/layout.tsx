@@ -20,7 +20,7 @@ export default function AuthLayout({
       {/* 로고 / 브랜딩 */}
       <Link
         href="/"
-        className="mb-8 font-display text-2xl font-bold tracking-tight text-slate-900"
+        className="mb-8 font-display text-2xl font-bold tracking-tight text-slate-900 transition-opacity duration-200 hover:opacity-70"
         aria-label={`${SITE_NAME} 홈으로 이동`}
       >
         {SITE_NAME}

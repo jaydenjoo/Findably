@@ -45,7 +45,7 @@ export function GoogleAuthButton(): React.JSX.Element {
       <Button
         type="button"
         variant="outline"
-        className="w-full"
+        className="w-full border-slate-200 bg-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-sm"
         onClick={handleGoogleLogin}
         disabled={isPending}
         aria-label="Google 계정으로 로그인"
