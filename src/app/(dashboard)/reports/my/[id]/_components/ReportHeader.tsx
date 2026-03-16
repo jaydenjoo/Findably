@@ -1,14 +1,18 @@
-import { Calendar, FileText } from 'lucide-react'
+import { Calendar, Download, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface ReportHeaderProps {
   url: string
   createdAt: string
+  diagnosisId: string
+  isPaid: boolean
 }
 
 export function ReportHeader({
   url,
   createdAt,
+  diagnosisId,
+  isPaid,
 }: ReportHeaderProps): React.JSX.Element {
   const formattedDate = new Date(createdAt).toLocaleDateString('ko-KR', {
     year: 'numeric',
@@ -26,15 +30,27 @@ export function ReportHeader({
           <Calendar className="size-4" aria-hidden="true" />
           {formattedDate}
         </span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled
-          aria-label="PDF 다운로드 (준비 중)"
-        >
-          <FileText className="size-4" aria-hidden="true" />
-          PDF 다운로드
-        </Button>
+        {isPaid ? (
+          <a
+            href={`/api/reports/${diagnosisId}/pdf`}
+            download
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-primary-200 hover:text-primary-600 hover:shadow-md"
+            aria-label="PDF 리포트 다운로드"
+          >
+            <Download className="size-4" aria-hidden="true" />
+            PDF 다운로드
+          </a>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled
+            aria-label="PDF 다운로드 (유료 전용)"
+          >
+            <FileText className="size-4" aria-hidden="true" />
+            PDF 다운로드
+          </Button>
+        )}
       </div>
     </header>
   )

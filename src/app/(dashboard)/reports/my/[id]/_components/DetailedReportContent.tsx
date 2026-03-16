@@ -9,6 +9,7 @@ import { RoadmapSection } from './RoadmapSection'
 import { SwotSection } from './SwotSection'
 
 interface DetailedReportContentProps {
+  diagnosisId: string
   url: string
   createdAt: string
   analysisData: PaidAnalysisData
@@ -16,6 +17,7 @@ interface DetailedReportContentProps {
 }
 
 export function DetailedReportContent({
+  diagnosisId,
   url,
   createdAt,
   analysisData,
@@ -23,7 +25,12 @@ export function DetailedReportContent({
 }: DetailedReportContentProps): React.JSX.Element {
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 py-10">
-      <ReportHeader url={url} createdAt={createdAt} />
+      <ReportHeader
+        url={url}
+        createdAt={createdAt}
+        diagnosisId={diagnosisId}
+        isPaid={isPaid}
+      />
 
       <CmoSummarySection summary={analysisData.cmoSummary} isPaid={isPaid} />
 

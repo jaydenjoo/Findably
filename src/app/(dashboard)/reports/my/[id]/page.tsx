@@ -77,6 +77,7 @@ export default async function ReportDetailPage({
 
   return (
     <DetailedReportContent
+      diagnosisId={diagnosis.id}
       url={diagnosis.url}
       createdAt={diagnosis.created_at}
       analysisData={analysisData}
