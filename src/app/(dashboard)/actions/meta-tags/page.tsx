@@ -26,13 +26,26 @@ export default async function ActionsMetaTagsPage(): Promise<React.JSX.Element> 
     .single()
 
   if (!diagnosis) {
-    return <MetaTagContent crawlData={null} url="" isPaid={false} />
+    return (
+      <MetaTagContent
+        crawlData={null}
+        url=""
+        isPaid={false}
+        cmsDetected={null}
+      />
+    )
   }
 
   const crawlData = diagnosis.crawl_data as CrawlData | null
   const isPaid = diagnosis.tier === 'paid'
+  const cmsDetected = crawlData?.cms?.detected ?? null
 
   return (
-    <MetaTagContent crawlData={crawlData} url={diagnosis.url} isPaid={isPaid} />
+    <MetaTagContent
+      crawlData={crawlData}
+      url={diagnosis.url}
+      isPaid={isPaid}
+      cmsDetected={cmsDetected}
+    />
   )
 }

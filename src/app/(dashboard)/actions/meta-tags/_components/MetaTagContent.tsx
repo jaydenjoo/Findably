@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { CrawlData } from '@/features/crawling'
+import { CMS_META_GUIDES, DEFAULT_CMS_META_GUIDE } from '@/features/actions'
+import { CmsGuideSection } from '@/components/shared/CmsGuideSection'
 import {
   analyzeCurrentMetaTags,
   generateRecommendations,
@@ -19,12 +21,14 @@ interface MetaTagContentProps {
   crawlData: CrawlData | null
   url: string
   isPaid: boolean
+  cmsDetected: string | null
 }
 
 export function MetaTagContent({
   crawlData,
   url,
   isPaid,
+  cmsDetected,
 }: MetaTagContentProps): React.JSX.Element {
   const [copyState, setCopyState] = useState<CopyState | null>(null)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -112,6 +116,11 @@ export function MetaTagContent({
   const recommendations = generateRecommendations(meta, url)
   const score = calculateMetaScore(items)
 
+  const metaGuide =
+    cmsDetected && cmsDetected in CMS_META_GUIDES
+      ? (CMS_META_GUIDES[cmsDetected] ?? DEFAULT_CMS_META_GUIDE)
+      : DEFAULT_CMS_META_GUIDE
+
   return (
     <div className="flex flex-col gap-8">
       {/* Header */}
@@ -162,6 +171,9 @@ export function MetaTagContent({
         copyState={copyState}
         onCopy={handleCopy}
       />
+
+      {/* CMS별 메타태그 적용 가이드 */}
+      <CmsGuideSection guide={metaGuide} />
     </div>
   )
 }
