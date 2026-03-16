@@ -5,8 +5,11 @@ import type {
   AICitationPossibilityScore,
   OverallScore,
 } from '@/features/diagnosis-free/types'
+import type { UserTier } from '@/lib/access-control/get-user-tier'
 import { SCORING } from '@/config/scoring'
+import { ACCESS } from '@/config/access-control'
 import { ScoreGauge } from '@/components/shared/ScoreGauge'
+import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import { AICitationCard } from '@/components/dashboard/AICitationCard'
 import { QuickWinCard } from '@/components/dashboard/QuickWinCard'
 import { CategoryScoreCard } from './CategoryScoreCard'
@@ -18,6 +21,7 @@ interface DashboardContentProps {
   isPartial?: boolean
   blockedReason?: string
   diagnosisId: string
+  tier: UserTier
 }
 
 export function DashboardContent({
@@ -26,8 +30,18 @@ export function DashboardContent({
   isPartial,
   blockedReason,
   diagnosisId,
+  tier,
 }: DashboardContentProps): React.JSX.Element {
   const scoreColor = SCORING.getScoreColor(overallScore.score)
+  const isFree = tier === 'free'
+
+  // Free 사용자: Quick Win 제한
+  const visibleQuickWins = isFree
+    ? overallScore.quickWins.slice(0, ACCESS.FREE_QUICK_WIN_LIMIT)
+    : overallScore.quickWins
+  const hiddenQuickWins = isFree
+    ? overallScore.quickWins.slice(ACCESS.FREE_QUICK_WIN_LIMIT)
+    : []
 
   return (
     <div className="flex flex-col gap-6">
@@ -87,14 +101,16 @@ export function DashboardContent({
         <AICitationCard citation={citation} />
       </div>
 
-      {/* 2행: Quick Win */}
+      {/* 2행: Quick Win — Free는 1개만, 나머지 BlurOverlay */}
       {overallScore.quickWins.length > 0 && (
         <section className="flex flex-col gap-3" aria-label="Quick Win 항목">
           <h2 className="text-lg font-semibold text-slate-900">
             지금 바로 개선할 수 있는 항목
           </h2>
+
+          {/* 무료로 볼 수 있는 Quick Win */}
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {overallScore.quickWins.map((qw) => (
+            {visibleQuickWins.map((qw) => (
               <QuickWinCard
                 key={qw.ruleId}
                 quickWin={qw}
@@ -102,6 +118,21 @@ export function DashboardContent({
               />
             ))}
           </div>
+
+          {/* Free 사용자: 나머지 Quick Win은 BlurOverlay */}
+          {isFree && hiddenQuickWins.length > 0 && (
+            <BlurOverlay visiblePercent={15}>
+              <div className="flex gap-4 overflow-hidden pb-2">
+                {hiddenQuickWins.map((qw) => (
+                  <QuickWinCard
+                    key={qw.ruleId}
+                    quickWin={qw}
+                    diagnosisId={diagnosisId}
+                  />
+                ))}
+              </div>
+            </BlurOverlay>
+          )}
         </section>
       )}
 

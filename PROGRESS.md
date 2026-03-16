@@ -154,53 +154,67 @@
 | 4.4  | Quick Win 자동 식별   | ✅ 완료 |
 | 4.5  | 종합 점수 + 등급 산출 | ✅ 완료 |
 
-### Epic 5: AI 상세 분석 (진행 중)
+### Epic 5: AI 상세 분석 (진행 중 — 4/6 완료)
 
-| Task | 설명                           | 상태      |
-| ---- | ------------------------------ | --------- |
-| 5.1  | 5-Agent 병렬 실행 구조         | ✅ 완료   |
-| 5.2  | Content Agent 데이터 품질 강화 | ✅ 완료   |
-| 5.3  | AI 인용 실제 추적 (Claude API) | 🔜 다음   |
-| 5.4  | CMO 검증 에이전트              | ⬜ 미시작 |
-| 5.5  | SWOT 자동 생성                 | ⬜ 미시작 |
-| 5.6  | 90일 로드맵 자동 생성          | ⬜ 미시작 |
+| Task | 설명                           | 상태      | 커밋      |
+| ---- | ------------------------------ | --------- | --------- |
+| 5.1  | 5-Agent 병렬 실행 구조         | ✅ 완료   | `6a8ef7b` |
+| 5.2  | Content Agent 데이터 품질 강화 | ✅ 완료   | `6a8ef7b` |
+| 5.3  | AI 인용 실제 추적 (4플랫폼)    | ✅ 완료   | `c3154fd` |
+| 5.4  | CMO 검증 에이전트              | ✅ 완료   | `909995a` |
+| 5.5  | SWOT 자동 생성                 | ⬜ 미시작 |           |
+| 5.6  | 90일 로드맵 자동 생성          | ⬜ 미시작 |           |
 
 ---
 
 ## ⏳ 진행 중
 
-없음 — Task 5.2 코드 완성 + 리뷰 통과 + Nit 수정 완료. **커밋 대기 중.**
+없음 — Task 5.4 CMO 검증 에이전트 완료 + 커밋 완료 (`909995a`).
 
 ## 🔜 다음 할 일
 
-1. **Task 5.2 커밋** — diagnosis-paid 모듈 untracked 파일 전체 (config + services + types + tests)
-2. **Task 5.3** — AI 인용 실제 추적 (Claude API로 타겟 키워드 질문 → 인용 여부 확인)
-3. **Task 5.4~5.6** — CMO 검증, SWOT, 90일 로드맵
+1. **Task 5.5** — SWOT 자동 생성 (competitors 에이전트의 `parseCompetitorsResult()`에서 기본 파싱 구현 완료 → UI/전용 로직 보강)
+2. **Task 5.6** — 90일 로드맵 자동 생성 (competitors 에이전트의 roadmap 파싱 구현 완료 → UI/전용 로직 보강)
+3. **Epic 6** — 경쟁사 비교 (자동 탐색 + 병렬 크롤링 + 비교 매트릭스 + 갭 분석)
 
 ---
 
-## 📦 Epic 5 주요 파일 (Task 5.1~5.2)
+## 📦 Epic 5 주요 파일 (Task 5.1~5.4)
 
-### diagnosis-paid 모듈 (untracked — 커밋 대기)
+### diagnosis-paid 모듈
 
-- `src/config/diagnosis-paid.ts` — 5개 에이전트 설정 (ID, systemPrompt, maxTokens, 비용)
-- `src/features/diagnosis-paid/types.ts` — AIInsight, AIAgentResult, PaidAnalysisData, DiagnosisStatus 등
+- `src/config/diagnosis-paid.ts` — 5개 에이전트 + CMO 에이전트 설정 + 인용 추적 4플랫폼 설정
+- `src/features/diagnosis-paid/types.ts` — AIInsight, AIAgentResult, PaidAnalysisData, CmoVerificationResponse, CitationKeywordResult 등
 - `src/features/diagnosis-paid/index.ts` — 공개 인터페이스
 - `src/features/diagnosis-paid/services/run-diagnosis-paid.ts` — 핵심 실행 로직
-  - `runDiagnosisPaid()` — 5-Agent 병렬 실행 + DB 저장
-  - `buildCrawlSummary()` — CrawlData → AI 프롬프트용 텍스트 (Task 5.2에서 강화)
+  - `runDiagnosisPaid()` — 5-Agent 병렬 실행 + CMO 검증 + DB 저장
+  - `buildCrawlSummary()` — CrawlData → AI 프롬프트용 텍스트
   - `parseAgentResponse()` — AI 응답 JSON 파싱 + 유효성 검증
   - `parseCompetitorsResult()` — SWOT/로드맵/경쟁사 파싱
-  - `generateCmoSummary()` — CMO 검증 요약 생성
-- `src/features/diagnosis-paid/services/__tests__/run-diagnosis-paid.test.ts` — 31개 테스트
+  - `executeCmoAgent()` — CMO AI 호출 + 15초 타임아웃 + 폴백 (Task 5.4)
+  - `parseCmoResponse()` — CMO JSON 파싱 + 유효성 검증 (Task 5.4)
+  - `generateCmoSummaryFallback()` — CMO 실패 시 폴백 요약 (Task 5.4)
+- `src/features/diagnosis-paid/services/track-citations.ts` — AI 인용 실제 추적 (Task 5.3)
+  - `trackCitations()` — 4플랫폼 × 키워드 병렬 쿼리
+  - 어댑터 패턴: Claude/OpenAI/Google/Perplexity 통합 타입
+- `src/features/diagnosis-paid/services/__tests__/run-diagnosis-paid.test.ts` — 39개 테스트
 
-### Task 5.2 변경 요약 (Content Agent 데이터 품질 강화)
+### Task 5.3 변경 요약 (AI 인용 실제 추적)
 
-- `buildCrawlSummary()`: counts/booleans → full heading text, Schema types, OG tags, image/link 상세
-- Content Agent systemPrompt: 수신 데이터 형식 명시 + 5개 분석 초점 구체화
-- `DiagnosisStatus` 타입 추가 (OST 준수)
-- Schema markup 타입 가드 강화 (`typeof + 'in' narrowing`)
-- 6개 새 테스트 추가 (headings, schema, OG, images, links, graceful fallback)
+- `CITATION_TRACKING` 설정: 4플랫폼(Claude, ChatGPT, Gemini, Perplexity) + 쿼리 템플릿
+- `CitationKeywordResult`, `CitationPlatformSummary`, `AICitationTrackingResult` 타입
+- `AIPlatform` 타입을 `diagnosis-free`에서 import (OST 준수)
+- `PaidAnalysisData.aiCitationTracking` 필드 추가
+
+### Task 5.4 변경 요약 (CMO 검증 에이전트)
+
+- `CMO_AGENT` 별도 상수 (AGENTS 배열 분리 — 병렬 실행 포함 방지)
+- `AgentId`에 `'cmo'` 추가, `AnalysisAgentId = Exclude<AgentId, 'cmo'>` 타입 별칭
+- `CmoVerificationResponse` 타입 (executive_summary + quality_score + issues_found)
+- `executeCmoAgent()`: Promise.race 타임아웃 + clearTimeout 클린업
+- `aggregateResults()` → async 변환 (CMO 호출 포함)
+- `generateCmoSummary()` → `generateCmoSummaryFallback()`으로 리네임
+- 8개 새 테스트 추가 (parseCmoResponse 성공/실패/코드블록/필드 누락 등)
 
 ---
 
@@ -210,7 +224,7 @@
 pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm test
 ```
 
-최종 검증: ✅ 전체 통과 (367 tests, 2026-03-15)
+최종 검증: ✅ 전체 통과 (375 tests, 2026-03-15)
 
 ## 📝 빌드 참고
 

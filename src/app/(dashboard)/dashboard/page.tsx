@@ -8,6 +8,7 @@ import {
   parseAnalysisData,
   parsePartialInfo,
 } from '@/lib/utils/diagnosis-parser'
+import type { UserTier } from '@/lib/access-control/get-user-tier'
 
 export const metadata: Metadata = {
   title: '대시보드 | Findably',
@@ -28,7 +29,9 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
   // 가장 최근 진단 조회 (완료 우선, 없으면 진행 중)
   const { data: diagnosis, error } = await supabase
     .from('diagnoses')
-    .select('id, analysis_data, total_score, grade, status, crawl_data')
+    .select(
+      'id, analysis_data, total_score, grade, status, crawl_data, payment_status'
+    )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -97,6 +100,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
   }
 
   const partialInfo = parsePartialInfo(diagnosis.crawl_data)
+  const tier: UserTier = diagnosis.payment_status === 'paid' ? 'paid' : 'free'
 
   return (
     <DashboardContent
@@ -105,6 +109,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
       isPartial={partialInfo.isPartial}
       blockedReason={partialInfo.blockedReason}
       diagnosisId={diagnosis.id}
+      tier={tier}
     />
   )
 }

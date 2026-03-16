@@ -1,476 +1,173 @@
-# Epic 3 — 4-Layer 크롤링 엔진
+# Task 5.6 — 90일 로드맵 자동 생성
 
 ## 목표
 
-URL 입력 후 자동으로 4단계 데이터 수집 → `diagnoses.crawl_data` JSONB에 저장.
-Epic 4(진단 엔진)의 입력 데이터를 생산하는 파이프라인 완성.
+5개 AI 에이전트 인사이트 + 무료 진단 Quick Win + 카테고리 점수를 종합하여 **실행 가능한 90일 로드맵**을 rule-based로 자동 생성한다.
 
-완료 시: `pending → crawling → analyzing → completed` 상태 머신이 작동하고,
-Layer 1~3 크롤링 데이터가 `crawl_data` 컬럼에 구조화된 JSON으로 저장됨.
+현재: competitors 에이전트 1개만 로드맵 생성 → 실패 시 빈 배열.
+목표: 모든 데이터 소스를 활용하여 보강된 로드맵 생성. **추가 AI API 호출 0회, 비용 0원.**
 
----
+완료 조건:
 
-## 아키텍처 결정
-
-### n8n + Next.js 하이브리드 실행
-
-| 실행 환경                 | 역할                                  | 이유                                      |
-| ------------------------- | ------------------------------------- | ----------------------------------------- |
-| **n8n (Elest.io)**        | Playwright 크롤링 (Layer 1)           | Vercel 10초 타임아웃, Playwright 바이너리 |
-| **Next.js API Route**     | Google API/보안 도구 호출 (Layer 2~3) | 경량 HTTP 요청, Vercel Edge 적합          |
-| **Next.js Server Action** | 트리거 + 상태 폴링                    | 사용자 인터랙션 담당                      |
-
-```
-[사용자] URL 입력
-  → submitUrlAction (Server Action)
-  → diagnoses INSERT (status: 'pending')
-  → POST /api/crawl/trigger (fire-and-forget)
-  → n8n Webhook 호출
-      → Playwright 크롤링 (Layer 1)
-      → n8n → POST /api/crawl/callback (결과 저장)
-          → Layer 2~3 API 호출
-          → crawl_data UPDATE
-          → status: 'crawling' → 'analyzing'
-  → AnalyzingScreen 폴링으로 완료 감지
-  → /dashboard 이동
-```
-
-### 상태 머신
-
-```
-pending ──→ crawling ──→ analyzing ──→ completed
-   │            │            │
-   └────────────┴────────────┴──→ failed
-```
-
-| 전이                  | 트리거                       | 실행자                      |
-| --------------------- | ---------------------------- | --------------------------- |
-| pending → crawling    | n8n 크롤링 시작              | service_role (n8n callback) |
-| crawling → analyzing  | Layer 1 완료, Layer 2~3 시작 | service_role (callback)     |
-| analyzing → completed | 모든 Layer 완료              | service_role (callback)     |
-| \* → failed           | 에러 발생                    | service_role (callback)     |
-
-> 클라이언트 RLS에 UPDATE 없음 — 모든 상태 전이는 `service_role`만 가능 (보안)
+- `generateRoadmap()` 함수가 5개 에이전트 + Quick Win + 점수를 모두 반영한 `RoadmapItem[]` 반환
+- competitors 에이전트 실패해도 나머지 데이터로 기본 로드맵 생성 가능
+- 12주(90일)를 3개 Phase로 분배 (즉시/단기/중장기)
+- 기존 테스트 깨지지 않음 + 신규 테스트 커버리지 80%+
 
 ---
 
-## 4-Layer 상세
+## 기술 접근법
 
-### Layer 1: 직접 크롤링 (n8n + Playwright) — 비용 0원
+### 1. 새 파일 생성
 
-| 수집 항목      | 설명                                           |
-| -------------- | ---------------------------------------------- |
-| HTML 메타      | title, description, canonical, og:_, twitter:_ |
-| H 태그 구조    | H1~H6 텍스트 + 위계                            |
-| Schema Markup  | JSON-LD, Microdata 파싱                        |
-| 내부/외부 링크 | href, 깨진 링크 감지                           |
-| 이미지         | src, alt 유무, 크기                            |
-| robots.txt     | AI 봇 14개 차단 여부                           |
-| sitemap.xml    | 존재 여부, URL 수                              |
-| llms.txt       | AI 크롤러용 요약 존재 여부                     |
-| CMS 감지       | WordPress, Shopify 등                          |
-| 모바일         | viewport 375px 렌더링                          |
+**`src/features/diagnosis-paid/services/generate-roadmap.ts`**
 
-### Layer 2: Google 무료 API 4종 — 비용 0원
+```
+export function generateRoadmap(params: {
+  agentResults: AIAgentResult[]
+  categoryScores: CategoryScore[]
+  overallScore: OverallScore
+  quickWins: QuickWin[]
+  competitorRoadmap: RoadmapItem[]  // competitors 에이전트 파싱 결과 (빈 배열 가능)
+  competitorAnalyses?: CompetitorAnalysis[]
+}): RoadmapItem[]
+```
 
-| API                | 수집 항목                  |
-| ------------------ | -------------------------- |
-| PageSpeed Insights | LCP, FID, CLS, 속도 점수   |
-| CrUX               | 실사용자 경험 데이터       |
-| Safe Browsing      | 악성 사이트 여부           |
-| Search Console     | 연동 시 — 검색 노출 데이터 |
+로직 (rule-based, AI 호출 없음):
 
-### Layer 3: 오픈소스 도구 — 비용 0원
+**Phase 1: 즉시 실행 (Week 1–4) — "지금 바로 고치세요"**
 
-| 도구                | 수집 항목         |
-| ------------------- | ----------------- |
-| SSL Labs            | 인증서 등급 (A~F) |
-| Mozilla Observatory | 보안 헤더 점수    |
+- Quick Win 항목 → week 1–2, priority: high
+- critical severity 인사이트 → week 2–4, priority: high
+- 점수 < 40 카테고리 중 가장 낮은 것 → week 3–4, priority: high
 
-### Layer 4: 유료 API (Phase 2) — 사용량 비례
+**Phase 2: 단기 개선 (Week 5–8) — "한 달 안에 개선하세요"**
 
-- Moz Free (MVP~): DA/PA 점수
-- DataForSEO (100명+): 키워드/백링크
-- Ahrefs (500명+): 상세 SEO 메트릭
+- warning + actionable 인사이트 → week 5–6, priority: medium
+- 경쟁사 갭(gaps) 항목 → week 7–8, priority: medium
+- 점수 40–69 카테고리 → week 5–8, priority: medium
+
+**Phase 3: 중장기 최적화 (Week 9–12) — "꾸준히 최적화하세요"**
+
+- info + actionable 인사이트 → week 9–10, priority: low
+- 경쟁사 강점 대응 → week 11–12, priority: low
+- 전체 점수 기반 총평 항목 → week 12, priority: low
+
+보강 규칙:
+
+1. competitors 로드맵이 있으면 → 베이스로 사용 + 다른 데이터로 누락 주차 보강
+2. competitors 로드맵이 없으면 → 순수 rule-based로 12주 전체 생성
+3. 주차별 최대 3개 항목 (과도한 나열 방지)
+4. 전체 최대 24개 항목
+5. 중복 제거: title 기반 유사도 비교
+6. estimatedImpact: critical=9–10, warning=6–8, info=3–5 (severity 기반)
+7. category: 인사이트의 category 또는 Quick Win의 category 그대로 사용
+
+### 2. 기존 파일 수정
+
+**`src/features/diagnosis-paid/services/run-diagnosis-paid.ts`**
+
+- `aggregateResults()` 함수 수정 (Task 5.5 SWOT과 동일 패턴)
+
+```
+// before (현재)
+const { roadmap, competitors } = parsed
+
+// after (변경)
+const roadmap = generateRoadmap({
+  agentResults,
+  categoryScores: freeAnalysis.overallScore.categories,
+  overallScore: freeAnalysis.overallScore,
+  quickWins: freeAnalysis.quickWins,
+  competitorRoadmap: parsed.roadmap,
+  competitorAnalyses: competitors,
+})
+```
+
+**`src/features/diagnosis-paid/index.ts`**
+
+- `generateRoadmap` export 추가
+
+### 3. 새 테스트 파일
+
+**`src/features/diagnosis-paid/services/__tests__/generate-roadmap.test.ts`**
+
+테스트 시나리오:
+
+- 데이터 없음 → 빈 로드맵 (graceful)
+- Quick Win → Phase 1 (week 1–2) 배치
+- critical 인사이트 → Phase 1 (week 2–4), high priority
+- warning+actionable → Phase 2 (week 5–6), medium priority
+- info+actionable → Phase 3 (week 9–10), low priority
+- 낮은 점수 카테고리 → Phase 1에 배치
+- 경쟁사 갭 → Phase 2에 배치
+- competitors 로드맵 베이스 사용
+- competitors 실패 → 나머지 데이터로 기본 로드맵 생성
+- 전체 최대 24개 항목 제한
+- 주차별 최대 3개 항목 제한
+- 중복 제거 동작
+- competitors 에이전트 인사이트 스킵 (이미 로드맵으로 반영)
+- failed 에이전트 스킵
+- estimatedImpact severity 기반 배정
+- 입력 competitorRoadmap 불변성
 
 ---
 
-## crawl_data JSONB 구조
-
-`diagnoses.crawl_data` 컬럼에 저장되는 타입:
-
-```ts
-interface CrawlData {
-  version: '1.0'
-  crawled_at: string // ISO 8601
-  duration_ms: number // 총 크롤링 소요 시간
-
-  // Layer 1: Playwright 직접 크롤링
-  layer1: {
-    meta: {
-      title: string | null
-      description: string | null
-      canonical: string | null
-      og: Record<string, string> // og:title, og:image 등
-      twitter: Record<string, string>
-    }
-    headings: Array<{ level: number; text: string }>
-    schema_markup: unknown[] // JSON-LD 원본
-    links: {
-      internal: Array<{ href: string; text: string; status?: number }>
-      external: Array<{ href: string; text: string; status?: number }>
-      broken: Array<{ href: string; status: number }>
-    }
-    images: Array<{
-      src: string
-      alt: string | null
-      width?: number
-      height?: number
-    }>
-    html_size_bytes: number
-    word_count: number
-    language: string | null
-  }
-
-  // robots.txt 분석
-  robots_txt: {
-    exists: boolean
-    raw?: string
-    ai_bots: Array<{
-      name: string // 'GPTBot' | 'ClaudeBot' | 'PerplexityBot' 등 14개
-      allowed: boolean
-    }>
-    sitemap_urls: string[]
-  }
-
-  // sitemap.xml 분석
-  sitemap: {
-    exists: boolean
-    url_count: number
-    urls_sample: string[] // 최대 10개 샘플
-  }
-
-  // llms.txt
-  llms_txt: {
-    exists: boolean
-    content?: string
-  }
-
-  // CMS 감지
-  cms: {
-    detected: string | null // 'wordpress' | 'shopify' | 'wix' 등
-    version?: string
-    technologies: string[] // Wappalyzer 결과
-  }
-
-  // 모바일 크롤링
-  mobile: {
-    viewport_meta: boolean
-    responsive: boolean
-    touch_targets_ok: boolean
-    font_size_ok: boolean
-    screenshot_path?: string
-  }
-
-  // Layer 2: Google API
-  layer2: {
-    pagespeed?: {
-      performance_score: number
-      lcp_ms: number
-      fid_ms: number
-      cls: number
-      fcp_ms: number
-      ttfb_ms: number
-    }
-    crux?: {
-      lcp_p75: number
-      fid_p75: number
-      cls_p75: number
-      origin_summary: boolean
-    }
-    safe_browsing?: {
-      safe: boolean
-      threats: string[]
-    }
-  }
-
-  // Layer 3: 오픈소스 도구
-  layer3: {
-    ssl?: {
-      grade: string // 'A+' ~ 'F'
-      valid: boolean
-      issuer: string
-      expires_at: string
-    }
-    security_headers?: {
-      score: number // 0-100
-      headers_present: string[]
-      headers_missing: string[]
-    }
-  }
-}
-```
-
----
-
-## 비정상 행동 카탈로그
-
-### 카테고리 1: 입력 공격
-
-| 시나리오                          | 위험                | 대응                                                          |
-| --------------------------------- | ------------------- | ------------------------------------------------------------- |
-| SSRF (내부 IP 접근)               | 🔴 서버 내부 접근   | URL 보안 검증: 사설 IP, localhost, 메타데이터 엔드포인트 차단 |
-| 초장문 URL (>2048)                | 🟡 리소스 낭비      | Zod `.max(2048)`                                              |
-| 비HTTP 프로토콜 (ftp://, file://) | 🔴 파일 시스템 접근 | `.refine(startsWith http)` 이미 있음                          |
-| 동일 URL 폭탄 (1000회 제출)       | 🟡 리소스 고갈      | Rate limiting (Phase 2) + n8n 큐                              |
-| 유니코드 공격 (IDN homograph)     | 🟡 피싱 사이트 진단 | URL 정규화 후 저장                                            |
-
-### 카테고리 2: 크롤링 공격
-
-| 시나리오                           | 위험           | 대응                                          |
-| ---------------------------------- | -------------- | --------------------------------------------- |
-| 타겟 사이트 무한 리다이렉트        | 🟡 크롤러 멈춤 | 최대 리다이렉트 5회 제한                      |
-| 타겟 사이트 거대 응답 (100MB HTML) | 🟡 메모리 폭발 | 최대 응답 크기 10MB 제한                      |
-| 타겟 사이트 응답 없음              | 🟡 타임아웃    | 30초 타임아웃                                 |
-| 타겟 사이트 HTTP 401/403           | 🟢 정상 에러   | 접근 불가 안내 + 가능한 Layer 2~3만 실행      |
-| robots.txt 전체 차단               | 🟢 크롤링 불가 | 대체 데이터(PageSpeed, SSL 등 ~60%) + 안내 UI |
-
-### 카테고리 3: 폴링 공격
-
-| 시나리오                 | 위험           | 대응                            |
-| ------------------------ | -------------- | ------------------------------- |
-| 다른 사용자 진단 ID 조회 | 🔴 데이터 탈취 | RLS + `user_id` 이중 검증       |
-| diagnosisId 무작위 대입  | 🟡 불필요 쿼리 | UUID v4 (추측 불가) + RLS       |
-| 폴링 간격 0ms 설정       | 🟡 서버 부하   | 서버 측 rate limiting (Phase 2) |
-
-### 카테고리 4: 데이터 무결성
-
-| 시나리오               | 위험            | 대응                                       |
-| ---------------------- | --------------- | ------------------------------------------ |
-| n8n 콜백 위조          | 🔴 데이터 변조  | `X-Webhook-Secret` 검증                    |
-| 중복 콜백 (n8n 재시도) | 🟡 데이터 중복  | 멱등성: `status` 확인 후 UPDATE            |
-| 콜백 누락 (n8n 장애)   | 🟡 영구 pending | 30분 타임아웃 → failed 전환 (Phase 2 cron) |
-
----
-
-## 환경변수
-
-```
-# n8n 연동
-N8N_WEBHOOK_URL=https://n8n.jayden.example/webhook/findably-crawl
-N8N_WEBHOOK_SECRET=<random-32-char>
-
-# Google API
-GOOGLE_API_KEY=<google-cloud-api-key>
-
-# Supabase (기존)
-SUPABASE_SERVICE_ROLE_KEY=<already-exists>
-```
-
----
-
-## Task 분해 (11개, 6 Phase)
-
-### Phase 1: 기반 (Task 3.1)
-
-**Task 3.1: 크롤링 모듈 스캐폴드 + URL 보안 + 트리거**
-
-| 파일                                                     | 상태 | 설명                             |
-| -------------------------------------------------------- | ---- | -------------------------------- |
-| `features/crawling/types.ts`                             | 신규 | CrawlData, CrawlResult 타입      |
-| `features/crawling/constants.ts`                         | 신규 | 타임아웃, IP 블록리스트, 봇 목록 |
-| `features/crawling/schemas.ts`                           | 신규 | CrawlRequestSchema (Zod)         |
-| `features/crawling/utils/url-security.ts`                | 신규 | SSRF 방어 유틸                   |
-| `features/crawling/index.ts`                             | 신규 | 공개 인터페이스                  |
-| `config/crawling.ts`                                     | 신규 | 크롤링 설정 외부화               |
-| `lib/adapters/crawler.ts`                                | 신규 | n8n 웹훅 트리거 어댑터           |
-| `app/api/crawl/trigger/route.ts`                         | 신규 | 트리거 API (인증 + n8n 호출)     |
-| `onboarding/schemas.ts`                                  | 수정 | SSRF 검증 + max 2048 추가        |
-| `onboarding/actions/submit-url.ts`                       | 수정 | triggerCrawl() 호출 추가         |
-| `features/crawling/utils/__tests__/url-security.test.ts` | 신규 | 15+ 테스트                       |
-
-> 상세: `docs/blueprint-task-3.1.md` 참조
-
-### Phase 2: Layer 1 — Playwright 크롤링 (Task 3.2~3.5)
-
-**Task 3.2: robots.txt 파싱 + AI 봇 14개 체크**
-
-| 파일                                                     | 상태 | 설명                             |
-| -------------------------------------------------------- | ---- | -------------------------------- |
-| `features/crawling/parsers/robots-txt.ts`                | 신규 | robots.txt 파싱 + 봇별 차단 판정 |
-| `features/crawling/parsers/__tests__/robots-txt.test.ts` | 신규 | 파싱 테스트 (다양한 형식)        |
-
-- AI 봇 목록: GPTBot, ChatGPT-User, ClaudeBot, Claude-Web, PerplexityBot, Bytespider, GoogleOther, Bingbot, Applebot, Meta-ExternalAgent, Amazonbot, anthropic-ai, cohere-ai, FacebookBot
-- 차단 시 `robots_txt.ai_bots[].allowed = false` 기록
-
-**Task 3.3: sitemap.xml + llms.txt 파싱**
-
-| 파일                                    | 상태 | 설명                      |
-| --------------------------------------- | ---- | ------------------------- |
-| `features/crawling/parsers/sitemap.ts`  | 신규 | sitemap.xml 파싱          |
-| `features/crawling/parsers/llms-txt.ts` | 신규 | llms.txt 존재 확인 + 파싱 |
-
-**Task 3.4: CMS 감지**
-
-| 파일                                 | 상태 | 설명                           |
-| ------------------------------------ | ---- | ------------------------------ |
-| `features/crawling/detectors/cms.ts` | 신규 | HTML 패턴 + 메타 기반 CMS 감지 |
-| `config/cms-signatures.ts`           | 신규 | CMS별 시그니처 정의            |
-
-- WordPress, Shopify, Wix, Squarespace, Webflow, Next.js, Gatsby 등
-- Wappalyzer 오픈소스 시그니처 참고
-
-**Task 3.5: 모바일 크롤링 (375px)**
-
-| 파일                                    | 상태 | 설명                                |
-| --------------------------------------- | ---- | ----------------------------------- |
-| `features/crawling/analyzers/mobile.ts` | 신규 | viewport, 터치 타겟, 폰트 크기 검사 |
-
-- n8n에서 Playwright viewport 375x812로 별도 크롤링
-- viewport meta, 반응형 여부, 터치 타겟(44x44px), 폰트 크기(16px+) 검사
-
-### Phase 3: Layer 2 — Google API (Task 3.6~3.8)
-
-**Task 3.6: PageSpeed Insights API**
-
-| 파일                                  | 상태 | 설명                     |
-| ------------------------------------- | ---- | ------------------------ |
-| `features/crawling/apis/pagespeed.ts` | 신규 | PSI API 호출 + 결과 파싱 |
-| `lib/adapters/google.ts`              | 신규 | Google API 공통 어댑터   |
-
-- `GOOGLE_API_KEY` 환경변수 사용
-- LCP, FID, CLS, FCP, TTFB 수집
-
-**Task 3.7: CrUX API**
-
-| 파일                             | 상태 | 설명          |
-| -------------------------------- | ---- | ------------- |
-| `features/crawling/apis/crux.ts` | 신규 | CrUX API 호출 |
-
-- 실사용자 경험 데이터 (트래픽 부족 시 null 허용)
-- PageSpeed와 Google 어댑터 공유
-
-**Task 3.8: Safe Browsing API**
-
-| 파일                                      | 상태 | 설명                     |
-| ----------------------------------------- | ---- | ------------------------ |
-| `features/crawling/apis/safe-browsing.ts` | 신규 | Safe Browsing Lookup API |
-
-- 악성/피싱/원치않는 SW 여부
-
-### Phase 4: Layer 3 — 오픈소스 도구 (Task 3.9)
-
-**Task 3.9: SSL Labs + Mozilla Observatory**
-
-| 파일                                         | 상태 | 설명                    |
-| -------------------------------------------- | ---- | ----------------------- |
-| `features/crawling/apis/ssl-labs.ts`         | 신규 | SSL Labs API            |
-| `features/crawling/apis/security-headers.ts` | 신규 | Mozilla Observatory API |
-
-- SSL 등급(A+~F), 인증서 정보
-- 보안 헤더 점수, 누락 헤더 목록
-
-### Phase 5: 통합 (Task 3.10)
-
-**Task 3.10: 크롤링 결과 → Supabase 저장 + 콜백 API**
-
-| 파일                                            | 상태 | 설명                           |
-| ----------------------------------------------- | ---- | ------------------------------ |
-| `app/api/crawl/callback/route.ts`               | 신규 | n8n → Next.js 콜백 (결과 저장) |
-| `features/crawling/services/save-crawl-data.ts` | 신규 | crawl_data 조합 + UPDATE       |
-
-- n8n에서 Layer 1 완료 → POST `/api/crawl/callback`
-- `X-Webhook-Secret` 검증 → `service_role`로 `crawl_data` UPDATE
-- Layer 2~3은 콜백 내에서 순차 호출 (Google API + SSL)
-- 모든 Layer 완료 → `status: 'analyzing'` 전환
-
-### Phase 6: 차단 대응 (Task 3.11)
-
-**Task 3.11: robots.txt 차단 시 대체 데이터 + 안내 UI**
-
-| 파일                                           | 상태 | 설명                              |
-| ---------------------------------------------- | ---- | --------------------------------- |
-| `features/crawling/services/fallback-crawl.ts` | 신규 | 차단 시 Layer 2~3만 실행          |
-| 대시보드 배너 컴포넌트                         | 신규 | "일부 항목이 제한되었습니다" 안내 |
-
-- robots.txt 차단 감지 → Layer 1 스킵 → Layer 2~3만 수집 (~60%)
-- `crawl_data` 에 `restricted: true` 플래그
-- 대시보드에 안내 배너 + GSC 연동 유도 (Phase 2)
-
----
-
-## n8n 워크플로우 설계 (참고)
-
-```
-[Webhook 수신] diagnosisId, url
-  → [HTTP Request] robots.txt 확인
-  → [IF] 차단됨?
-      → Yes: POST callback (restricted: true, Layer 1 스킵)
-      → No:
-        → [Playwright] HTML 크롤링 (데스크톱)
-        → [Playwright] HTML 크롤링 (모바일 375px)
-        → [Code] 메타/링크/이미지/Schema 파싱
-        → [Code] CMS 감지
-        → [HTTP Request] sitemap.xml 파싱
-        → [HTTP Request] llms.txt 확인
-        → POST callback (Layer 1 결과)
-```
-
-n8n은 Task 3.10에서 연동 테스트. 워크플로우 구축은 n8n UI에서 수동.
+## 이탈/비정상 시나리오
+
+| 시나리오                                    | 대응                                                     |
+| ------------------------------------------- | -------------------------------------------------------- |
+| 모든 에이전트 실패 + Quick Win 0개          | 카테고리 점수 기반 최소 로드맵 (낮은 카테고리 개선 항목) |
+| Quick Win 10개 이상                         | Phase 1에 상위 3개만 배치, 나머지 Phase 2로 이동         |
+| 동일 카테고리 인사이트 과다                 | 카테고리별 최대 3개 필터 후 우선순위순 배치              |
+| competitors 로드맵 + 에이전트 인사이트 중복 | title 유사도 비교로 중복 제거                            |
 
 ---
 
 ## 리스크
 
-| 리스크                 | 영향                   | 대응                                         |
-| ---------------------- | ---------------------- | -------------------------------------------- |
-| Vercel 10초 타임아웃   | Layer 2~3 API 타임아웃 | 개별 API 5초 타임아웃 + 실패 시 skip         |
-| n8n 서버 다운          | 크롤링 불가            | fire-and-forget + pending 유지 + 재시도 안내 |
-| Google API 할당량 초과 | Layer 2 데이터 없음    | graceful skip + null 허용                    |
-| 타겟 사이트 응답 없음  | Layer 1 실패           | 30초 타임아웃 → Layer 2~3만 실행             |
-| SSRF 우회              | 🔴 내부 네트워크 접근  | DNS rebinding 방어는 Phase 2, 현재 IP 검증만 |
-| 콜백 시크릿 유출       | 🔴 데이터 변조         | 환경변수 관리 + 시크릿 로테이션              |
-| crawl_data JSONB 크기  | 인덱스 성능 저하       | 이미지/링크 최대 100개 제한                  |
-
----
-
-## 스코프 외 (하지 않을 것)
-
-- 진단 엔진 (룰 기반 점수) → Epic 4
-- AI 상세 분석 (5-Agent) → Epic 5
-- 경쟁사 크롤링 → Epic 6
-- Rate limiting → Phase 2
-- DNS rebinding 방어 → Phase 2
-- Layer 4 유료 API → Phase 2
-- 중복 URL 체크 → Phase 2
-- GSC 연동 → Phase 2
-
----
-
-## 구현 순서 (권장)
-
-```
-Task 3.1  → 스캐폴드 + URL 보안 + 트리거     (기반)
-Task 3.2  → robots.txt 파싱                    (Layer 1 시작)
-Task 3.3  → sitemap + llms.txt 파싱
-Task 3.4  → CMS 감지
-Task 3.5  → 모바일 크롤링
-Task 3.6  → PageSpeed Insights API              (Layer 2 시작)
-Task 3.7  → CrUX API
-Task 3.8  → Safe Browsing API
-Task 3.9  → SSL Labs + Security Headers         (Layer 3)
-Task 3.10 → 콜백 API + 결과 통합 저장           (통합)
-Task 3.11 → robots.txt 차단 대응                (엣지 케이스)
-```
+| 리스크                                  | 확률 | 대응                                                    |
+| --------------------------------------- | ---- | ------------------------------------------------------- |
+| 주차 배분 정확도                        | 중   | severity/priority 기반 기계적 배분 → "충분히 좋은" 수준 |
+| 중복 항목                               | 중   | title includes 기반 비교 (generate-swot.ts 패턴 재사용) |
+| aggregateResults 수정 시 기존 로직 깨짐 | 낮   | 로드맵 생성만 분리, 나머지 로직 불변                    |
+| 타입 불일치                             | 낮   | 기존 RoadmapItem 타입 그대로 사용                       |
+| 항목 수 과다                            | 중   | 주차별 3개 + 전체 24개 하드 리밋                        |
 
 ---
 
 ## 검증 방법
 
-1. `pnpm tsc --noEmit` — 타입 에러 0
-2. `pnpm lint` — 에러 0
-3. `pnpm build` — 빌드 성공
-4. `pnpm test` — 단위 테스트 통과
-5. Task 3.10 완료 후: URL 입력 → n8n 크롤링 → 콜백 → crawl_data 저장 → AnalyzingScreen 완료 감지 E2E 확인
-6. SSRF 테스트: `http://127.0.0.1`, `http://169.254.169.254` 등 차단 확인
-7. Supabase: `diagnoses` 테이블에 `crawl_data` JSONB 저장 확인
+```bash
+# 1. 타입 체크
+npx tsc --noEmit
+
+# 2. 린트
+npx eslint .
+
+# 3. 테스트 (신규 + 기존)
+npx vitest run src/features/diagnosis-paid/services/__tests__/generate-roadmap.test.ts
+npx vitest run
+
+# 4. 빌드
+pnpm build
+```
+
+셀프체크:
+
+- [ ] 역할: generateRoadmap은 로드맵 생성만 담당 (SRP)
+- [ ] 흐름: agentResults + quickWins + scores → rule 분류 → RoadmapItem[] 반환
+- [ ] 이유: competitors 단독 의존 제거 → 내결함성 향상
+- [ ] 영향: aggregateResults() 호출 변경만, 다른 모듈 영향 없음
+
+---
+
+## 파일 변경 요약
+
+| 파일                                          | 작업                           | 줄 수 (예상) |
+| --------------------------------------------- | ------------------------------ | ------------ |
+| `services/generate-roadmap.ts`                | 신규                           | ~180         |
+| `services/run-diagnosis-paid.ts`              | 수정 (aggregateResults 내 5줄) | ~7 변경      |
+| `index.ts`                                    | export 추가                    | ~1           |
+| `services/__tests__/generate-roadmap.test.ts` | 신규                           | ~250         |
+| **합계**                                      | 신규 2, 수정 2                 | ~438         |

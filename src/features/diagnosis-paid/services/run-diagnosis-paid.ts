@@ -23,6 +23,8 @@ import type {
   RunDiagnosisPaidResult,
 } from '../types'
 import { trackAICitation } from './track-ai-citation'
+import { generateSwotAnalysis } from './generate-swot'
+import { generateRoadmap } from './generate-roadmap'
 
 const DIAGNOSIS_STATUS: Record<string, DiagnosisStatus> = {
   ANALYZING: 'analyzing',
@@ -567,8 +569,27 @@ async function aggregateResults(
   const competitorsResult = agentResults.find(
     (r) => r.agentId === 'competitors'
   )
-  const { swot, roadmap, competitors } =
-    parseCompetitorsResult(competitorsResult)
+  const parsed = parseCompetitorsResult(competitorsResult)
+  const { competitors } = parsed
+
+  // Task 5.5 — 5개 에이전트 종합 SWOT (rule-based, AI 호출 없음)
+  const swot = generateSwotAnalysis({
+    agentResults,
+    categoryScores: freeAnalysis.overallScore.categories,
+    overallScore: freeAnalysis.overallScore,
+    competitorSwot: isValidSwot(parsed.swot) ? parsed.swot : null,
+    competitorAnalyses: competitors,
+  })
+
+  // Task 5.6 — 5개 에이전트 종합 90일 로드맵 (rule-based, AI 호출 없음)
+  const roadmap = generateRoadmap({
+    agentResults,
+    categoryScores: freeAnalysis.overallScore.categories,
+    overallScore: freeAnalysis.overallScore,
+    quickWins: freeAnalysis.quickWins,
+    competitorRoadmap: parsed.roadmap,
+    competitorAnalyses: competitors,
+  })
 
   // Phase 3 — CMO 검증 에이전트
   const { cmoSummary, cmoCostKrw } = await executeCmoAgent(

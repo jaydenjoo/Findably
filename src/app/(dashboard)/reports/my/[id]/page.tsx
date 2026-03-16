@@ -1,57 +1,86 @@
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+
+import { isPaidAnalysisData } from '@/features/diagnosis-paid'
 import { createClient } from '@/lib/supabase/server'
-import { BlurOverlay } from '@/components/shared/BlurOverlay'
+
+import { DetailedReportContent } from './_components/DetailedReportContent'
 
 export const metadata: Metadata = {
   title: '상세 리포트 | Findably',
   description: '상세 진단 리포트를 확인하세요.',
 }
 
-export default async function ReportDetailPage(): Promise<React.JSX.Element> {
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default async function ReportDetailPage({
+  params,
+}: PageProps): Promise<React.JSX.Element> {
+  const { id } = await params
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
   if (!user) redirect('/login')
 
-  return (
-    <BlurOverlay
-      visiblePercent={20}
-      ctaLabel="상세 분석 받기 — 9.9만원"
-      ctaHref="/pricing"
-      sampleLabel="샘플 먼저 보기 →"
-      sampleHref="/reports/sample"
-    >
-      <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">상세 리포트</h1>
-        <p className="text-slate-500">상세 진단 리포트 결과입니다.</p>
+  const { data: diagnosis, error } = await supabase
+    .from('diagnoses')
+    .select('id, url, status, tier, analysis_data, created_at')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
 
-        {/* Skeleton: score gauge placeholder */}
-        <div className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-32 w-32 animate-pulse rounded-full bg-slate-100" />
-            <div className="h-6 w-40 animate-pulse rounded bg-slate-200" />
-          </div>
-        </div>
+  if (error || !diagnosis) notFound()
 
-        {/* Skeleton: detailed sections */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-            >
-              <div className="mb-4 h-5 w-32 animate-pulse rounded bg-slate-200" />
-              <div className="space-y-2">
-                <div className="h-4 w-full animate-pulse rounded bg-slate-100" />
-                <div className="h-4 w-5/6 animate-pulse rounded bg-slate-100" />
-                <div className="h-4 w-4/6 animate-pulse rounded bg-slate-100" />
-              </div>
-            </div>
-          ))}
+  if (diagnosis.status !== 'completed') {
+    return (
+      <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-4 py-20 text-center">
+        <div className="flex size-16 items-center justify-center rounded-full bg-primary-50">
+          <svg
+            className="size-8 animate-spin text-primary-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
         </div>
+        <h1 className="text-xl font-semibold text-slate-900">
+          분석이 진행 중입니다
+        </h1>
+        <p className="text-sm text-slate-500">
+          AI가 사이트를 분석하고 있습니다. 잠시만 기다려 주세요.
+        </p>
       </div>
-    </BlurOverlay>
+    )
+  }
+
+  const isPaid = diagnosis.tier === 'paid'
+
+  if (!isPaidAnalysisData(diagnosis.analysis_data)) notFound()
+  const analysisData = diagnosis.analysis_data
+
+  return (
+    <DetailedReportContent
+      url={diagnosis.url}
+      createdAt={diagnosis.created_at}
+      analysisData={analysisData}
+      isPaid={isPaid}
+    />
   )
 }
