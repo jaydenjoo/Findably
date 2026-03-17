@@ -354,6 +354,9 @@ describe('buildCrawlSummary', () => {
     mobile: null,
     layer2: null,
     layer3: null,
+    markdownContent: null,
+    siteUrls: null,
+    firecrawlUsed: false,
   })
 
   it('should extract full heading text, not just counts', () => {

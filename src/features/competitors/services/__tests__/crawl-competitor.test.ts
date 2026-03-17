@@ -90,14 +90,22 @@ describe('crawlCompetitor', () => {
   })
 
   it('should handle missing API key', async () => {
-    vi.doMock('@/config/crawling', () => ({
-      crawlingConfig: { googleApiKey: '' },
-    }))
+    // crawlingConfig는 이미 vi.mock으로 모킹됨 — 직접 프로퍼티 변경
+    const { crawlingConfig } = await import('@/config/crawling')
+    const original = crawlingConfig.googleApiKey
+    Object.defineProperty(crawlingConfig, 'googleApiKey', {
+      value: '',
+      writable: true,
+    })
 
-    // Re-import to pick up the new mock
-    const mod = await import('../crawl-competitor')
-    const result = await mod.crawlCompetitor('https://example.com')
+    const result = await crawlCompetitor('https://example.com')
 
     expect(result.error).toBe('GOOGLE_API_KEY 환경변수 미설정')
+
+    // 복원
+    Object.defineProperty(crawlingConfig, 'googleApiKey', {
+      value: original,
+      writable: true,
+    })
   })
 })

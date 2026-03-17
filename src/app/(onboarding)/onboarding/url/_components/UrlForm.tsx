@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { submitUrlAction } from '@/features/onboarding/actions/submit-url'
 import { urlSchema } from '@/features/onboarding/schemas'
 import type { OnboardingActionState } from '@/features/onboarding/types'
@@ -20,6 +20,15 @@ export function UrlForm(): React.JSX.Element {
     FormData
   >(submitUrlAction, {})
   const [clientError, setClientError] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('findably_pending_url')
+    if (saved && inputRef.current) {
+      inputRef.current.value = saved
+      localStorage.removeItem('findably_pending_url')
+    }
+  }, [])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>): void {
     const formData = new FormData(e.currentTarget)
@@ -53,6 +62,7 @@ export function UrlForm(): React.JSX.Element {
       <div className="space-y-2">
         <Label htmlFor="diagnosis-url">웹사이트 URL</Label>
         <Input
+          ref={inputRef}
           id="diagnosis-url"
           name="url"
           type="url"

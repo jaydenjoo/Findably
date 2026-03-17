@@ -64,6 +64,7 @@ function makeQuickWin(
     severity: 'warning',
     message: '개선이 필요합니다',
     impact: 5,
+    source: 'rule',
     ...overrides,
   }
 }

@@ -89,6 +89,7 @@ export const MOCK_OVERALL_SCORE: OverallScore = {
       message:
         '메타 설명이 비어 있습니다. 검색 결과에서 사이트를 설명하는 155자 이내의 문구를 추가하세요.',
       impact: 9,
+      source: 'rule',
     },
     {
       ruleId: 'image-alt',
@@ -98,6 +99,7 @@ export const MOCK_OVERALL_SCORE: OverallScore = {
       message:
         '12개 이미지 중 7개에 alt 텍스트가 없습니다. 검색 엔진과 스크린 리더가 이미지를 이해할 수 없습니다.',
       impact: 7,
+      source: 'rule',
     },
     {
       ruleId: 'schema-markup',
@@ -107,6 +109,7 @@ export const MOCK_OVERALL_SCORE: OverallScore = {
       message:
         '구조화 데이터(JSON-LD)가 감지되지 않았습니다. AI가 사이트 정보를 정확히 파악하기 어렵습니다.',
       impact: 6,
+      source: 'rule',
     },
     {
       ruleId: 'llms-txt',
@@ -116,6 +119,7 @@ export const MOCK_OVERALL_SCORE: OverallScore = {
       message:
         'AI 크롤러를 위한 llms.txt 파일이 없습니다. AI 검색에서 사이트 요약을 제공하려면 추가하세요.',
       impact: 4,
+      source: 'rule',
     },
   ],
   totalRules: 50,

@@ -117,6 +117,7 @@ export function evaluate(data: CrawlData): OverallScore {
       severity: r.severity,
       message: r.message,
       impact: r.maxPoints,
+      source: 'rule' as const,
     }))
 
   return {

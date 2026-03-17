@@ -1,0 +1,128 @@
+import { timingSafeEqual } from 'crypto'
+import { type NextRequest } from 'next/server'
+import { z } from 'zod'
+import { successResponse, errorResponse } from '@/lib/api/response'
+import { crawlingConfig } from '@/config/crawling'
+import {
+  saveCrawlResult,
+  markDiagnosisFailed,
+} from '@/features/crawling/services/save-crawl-result'
+import { runDiagnosis } from '@/features/diagnosis-free/services/run-diagnosis'
+import type { CrawlData } from '@/features/crawling'
+import { parseCrawlV2Result } from '@/features/crawling/services/parse-crawl-v2'
+
+/**
+ * n8n v2 콜백 페이로드 스키마
+ *
+ * dataCompleteness: 0-100 (성공 소스 / 전체 소스 × 100)
+ * successSources: 성공한 소스 이름 배열
+ * failedSources: 실패한 소스 이름 배열
+ * crawlResult: 각 소스의 raw 응답 (정규화 전)
+ */
+const completePayloadSchema = z.object({
+  diagnosisId: z.string().uuid('diagnosisId must be a valid UUID'),
+  url: z.string().url('url must be a valid URL'),
+  dataCompleteness: z.number().min(0).max(100),
+  successSources: z.array(z.string()),
+  failedSources: z.array(z.string()),
+  crawlResult: z.record(z.string(), z.unknown()),
+})
+
+type CompletePayload = z.infer<typeof completePayloadSchema>
+
+/**
+ * POST /api/crawl/complete
+ *
+ * n8n v2 워크플로우 완료 콜백.
+ * 1. 웹훅 시크릿 검증 (Authorization 헤더)
+ * 2. 페이로드 파싱 + Zod 검증
+ * 3. raw crawlResult → CrawlData 정규화
+ * 4. Supabase 저장
+ * 5. 진단 엔진 실행
+ *
+ * 인증: 사용자 세션이 아닌 웹훅 시크릿으로 검증 (서버 간 통신)
+ */
+export async function POST(request: NextRequest): Promise<Response> {
+  // 1. 웹훅 시크릿 검증
+  const authHeader = request.headers.get('authorization')
+  const expectedSecret = crawlingConfig.webhookSecret
+
+  if (!expectedSecret) {
+    console.error('[crawl/complete] N8N_WEBHOOK_SECRET 미설정')
+    return errorResponse('서버 설정 오류', 500)
+  }
+
+  const expectedToken = `Bearer ${expectedSecret}`
+  if (
+    !authHeader ||
+    authHeader.length !== expectedToken.length ||
+    !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
+  ) {
+    return errorResponse('인증 실패', 401)
+  }
+
+  // 2. 페이로드 파싱
+  let payload: CompletePayload
+  try {
+    const body = (await request.json()) as Record<string, unknown>
+    payload = completePayloadSchema.parse(body)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '잘못된 요청'
+    return errorResponse(message, 400)
+  }
+
+  const startTime = Date.now()
+
+  try {
+    // 3. raw crawlResult → CrawlData 정규화
+    const crawlData: CrawlData = parseCrawlV2Result({
+      url: payload.url,
+      crawlResult: payload.crawlResult,
+      dataCompleteness: payload.dataCompleteness,
+      failedSources: payload.failedSources,
+    })
+
+    // 4. Supabase 저장
+    const result = await saveCrawlResult({
+      diagnosisId: payload.diagnosisId,
+      crawlData,
+    })
+
+    if (!result.success) {
+      console.error('[crawl/complete] 저장 실패:', result.error)
+      return errorResponse('크롤링 결과 저장에 실패했습니다', 500)
+    }
+
+    // 5. 진단 엔진 실행
+    const diagnosisResult = await runDiagnosis({
+      diagnosisId: payload.diagnosisId,
+      crawlData,
+      dataCompleteness: payload.dataCompleteness,
+    })
+
+    if (!diagnosisResult.success) {
+      console.error('[crawl/complete] 진단 실패:', diagnosisResult.error)
+      await markDiagnosisFailed(
+        payload.diagnosisId,
+        diagnosisResult.error ?? '진단 엔진 실행 실패'
+      )
+      return errorResponse('진단 처리에 실패했습니다', 500)
+    }
+
+    return successResponse({
+      saved: true,
+      diagnosed: true,
+      dataCompleteness: payload.dataCompleteness,
+      successSources: payload.successSources,
+      failedSources: payload.failedSources,
+      duration_ms: Date.now() - startTime,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '알 수 없는 오류'
+    console.error('[crawl/complete] 처리 중 예외:', message)
+
+    await markDiagnosisFailed(payload.diagnosisId, message)
+
+    return errorResponse('크롤링 처리 중 오류가 발생했습니다', 500)
+  }
+}

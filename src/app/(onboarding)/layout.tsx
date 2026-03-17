@@ -26,7 +26,10 @@ export default function OnboardingLayout({
       </header>
 
       {/* 중앙 콘텐츠 */}
-      <main className="flex flex-1 flex-col items-center px-4 py-10">
+      <main
+        id="main-content"
+        className="flex flex-1 flex-col items-center px-4 py-10"
+      >
         <div className="w-full max-w-2xl">{children}</div>
       </main>
     </div>

@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { DM_Sans, JetBrains_Mono } from 'next/font/google'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { JsonLd } from '@/components/shared/JsonLd'
+import { SkipLink } from '@/components/shared/SkipLink'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { SessionExpiryWarning } from '@/features/auth/components/SessionExpiryWarning'
 import { SEO } from '@/config/seo'
 import './globals.css'
@@ -82,9 +84,12 @@ export default function RootLayout({
       <body
         className={`${dmSans.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
+        <SkipLink />
         <TooltipProvider>
           <SessionExpiryWarning />
-          {children}
+          <ErrorBoundary>
+            <div>{children}</div>
+          </ErrorBoundary>
         </TooltipProvider>
         <JsonLd data={organizationJsonLd} />
         <JsonLd data={webSiteJsonLd} />

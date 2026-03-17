@@ -1,4 +1,5 @@
 import type { CrawlData } from '@/features/crawling'
+import type { MacroScoreId } from '@/config/scoring'
 import type { ScoreGrade } from '@/types/ui'
 
 // ─── 카테고리 ───
@@ -86,6 +87,42 @@ export interface QuickWin {
   severity: RuleSeverity
   message: string
   impact: number
+  /** 출처: 룰 기반 or AI 기반 */
+  source: 'rule' | 'ai'
+}
+
+// ─── 매크로 점수 (5-Score 집계) ───
+
+export type { MacroScoreId } from '@/config/scoring'
+
+/** 개별 매크로 점수 */
+export interface MacroScore {
+  id: MacroScoreId
+  label: string
+  score: number
+  grade: ScoreGrade
+  gradeLabel: string
+}
+
+/** 리포트 신뢰도 */
+export type ReportReliability = 'high' | 'medium' | 'low'
+
+/** 5-Score 집계 결과 */
+export interface AggregatedScores {
+  /** 5개 매크로 점수 */
+  macroScores: MacroScore[]
+  /** 가중 합산 종합 점수 (0-100) */
+  totalScore: number
+  /** 종합 등급 */
+  totalGrade: ScoreGrade
+  /** 종합 등급 라벨 */
+  totalGradeLabel: string
+  /** AI 데이터 포함 여부 */
+  hasAIData: boolean
+  /** 데이터 완성도 (0-100) */
+  dataCompleteness: number
+  /** 리포트 신뢰도 */
+  reportReliability: ReportReliability
 }
 
 // ─── AI 인용 가능성 (Task 4.3) ───

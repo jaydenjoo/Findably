@@ -1,7 +1,7 @@
 # Findably — 진행상황 문서
 
 > **이 파일을 세션 시작 시 첫 번째로 읽으면 100% 이어서 작업 가능**
-> 최종 업데이트: 2026-03-16
+> 최종 업데이트: 2026-03-17
 
 ---
 
@@ -193,16 +193,109 @@
 | 8.1  | 가상 회사 "그린테크" 데이터 생성 | ✅ 완료 | `0a97fa3` |
 | 8.2  | /reports/sample 풀 리포트 페이지 | ✅ 완료 | `0a97fa3` |
 
+### Epic 9: Free/유료 분기 + 결제 ✅
+
+| Task | 설명                           | 상태    | 비고                                  |
+| ---- | ------------------------------ | ------- | ------------------------------------- |
+| 9.1  | 사용자 상태 미들웨어           | ✅ 완료 | middleware.ts (PROTECTED/AUTH 경로)   |
+| 9.2  | BlurOverlay 컴포넌트           | ✅ 완료 | shared/BlurOverlay (gradient+CTA)     |
+| 9.3  | 유료 전환 CTA 배치             | ✅ 완료 | Dashboard, Pricing 페이지 연동        |
+| 9.4  | Toss Payments 건당 결제 (Mock) | ✅ 완료 | MockPaymentAdapter + checkout API     |
+| 9.5  | 결제 완료 → 상세 진단 트리거   | ✅ 완료 | fire-and-forget /api/dev/trigger-paid |
+
+> **결제 참고**: MockPaymentAdapter 사용 중. Toss Payments 실 연동은 별도 지시 시 진행 예정. `lib/adapters/payment.ts` 어댑터 패턴으로 교체 용이.
+
+---
+
+### Epic 10: 인프라 + 품질 (부분 완료)
+
+| Task | 설명                     | 상태      | 비고                            |
+| ---- | ------------------------ | --------- | ------------------------------- |
+| 10.1 | Vercel 배포 + 도메인     | 🔧 인프라 | 배포 설정 필요                  |
+| 10.2 | n8n 서버 (Elest.io)      | 🔧 인프라 | 크롤링 자동화 연동              |
+| 10.3 | E2E 테스트 (핵심 3 Flow) | ✅ 완료   | 19 tests, 3 files               |
+| 10.4 | 404/500 에러 페이지      | ✅ 완료   | not-found + global-error        |
+| 10.5 | 접근성 + Lighthouse      | ✅ 완료   | SkipLink + ErrorBoundary + ARIA |
+
+---
+
+### Task 18: n8n 워크플로우 병렬 처리 재설계 ✅
+
+| 산출물        | 파일                                               | 설명                             |
+| ------------- | -------------------------------------------------- | -------------------------------- |
+| n8n JSON 골격 | `n8n/workflows/findably-crawl-v2.json`             | 16노드 3-Group 병렬 워크플로우   |
+| 설계 문서     | `docs/n8n-workflow.md`                             | 아키텍처 + 노드 상세 + 환경변수  |
+| 콜백 API      | `src/app/api/crawl/complete/route.ts`              | n8n → Next.js 웹훅 시크릿 인증   |
+| 정규화 파서   | `src/features/crawling/services/parse-crawl-v2.ts` | raw crawlResult → CrawlData 변환 |
+
+> v1 순차(~90초) → v2 3-Group 병렬(~35초). 10개 소스 동시 실행 + dataCompleteness 장애 허용.
+
+---
+
+### Task 19: 진단 오케스트레이터 v2 ✅
+
+| 산출물         | 파일                                                            | 설명                                                              |
+| -------------- | --------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 스코어링 상수  | `src/config/scoring.ts`                                         | 매크로 가중치·매핑·임계값 외부화                                  |
+| 타입 확장      | `src/features/diagnosis-free/types.ts`                          | MacroScore, AggregatedScores, ReportReliability + QuickWin.source |
+| 점수 집계기    | `src/features/diagnosis-free/services/score-aggregator.ts`      | 5-score 가중 합산 + reportReliability                             |
+| 테스트         | `src/features/diagnosis-free/services/score-aggregator.test.ts` | 7개 케이스                                                        |
+| 오케스트레이터 | `src/features/diagnosis-free/services/run-diagnosis.ts`         | params 객체화 + aggregateScores 통합                              |
+
+> 5개 매크로 점수(SEO 20% / GEO 25% / Performance 20% / AI 25% / Security 10%) 가중 합산.
+> AI 데이터 없으면 자동 폴백 가중치(SEO 25% / GEO 30% / Perf 25% / Sec 20%).
+> dataCompleteness → reportReliability(high/medium/low) 매핑.
+
 ---
 
 ## ⏳ 진행 중
 
-없음 — Epic 1~8 전체 완료. Epic 7 전체 완료.
+### Task 10.4 + 10.5: 접근성/에러 페이지 (부분 완료)
+
+**완료된 부분:**
+
+- [x] `src/components/shared/SkipLink.tsx` — 신규 생성 (Server Component, 키보드 스킵 내비게이션)
+- [x] `src/app/layout.tsx` — SkipLink + ErrorBoundary 래핑 추가
+- [x] `src/app/(public)/layout.tsx` — `<main id="main-content">` 추가
+- [x] `src/app/(dashboard)/layout.tsx` — `<main id="main-content">` 추가
+- [x] `src/app/(onboarding)/layout.tsx` — `<main id="main-content">` 추가
+- [x] `src/app/(marketing)/page.tsx` — `<main id="main-content">` 추가 (리뷰에서 발견 후 수정)
+- [x] 랜딩 8개 섹션 aria-labelledby 적용 (hero, pain-points, score-preview, features, comparison, how-it-works, concerns, pricing, cta)
+- [x] `src/components/landing/score-preview.tsx` — SVG Gauge에 `role="meter"` + `aria-valuenow/min/max` + `aria-label` 추가
+- [x] 코드 리뷰 통과 (4-gate 리뷰 → 🟠 1개 + 🟡 1개 → 전체 수정 완료)
+
+**미완료 (플랜 기준):**
+
+- [ ] `src/app/not-found.tsx` — 404 전용 페이지 신규 생성
+- [ ] `src/app/global-error.tsx` — 500 페이지 수정 (디자인 토큰 적용, role="alert", 홈 링크 추가)
+
+**플랜 파일:** `/Users/jayden/.claude/plans/tranquil-strolling-manatee.md`
+
+**참고:**
+
+- `.next` 캐시 문제: 삭제된 `(public)/page.tsx` 참조로 `validator.ts` tsc 에러 발생 → `grep -v 'validator.ts'`로 필터링하면 실제 에러 0개
+- `rm -rf .next` 후 재빌드하면 해결됨
 
 ## 🔜 다음 할 일
 
-1. **Epic 9** — Free/유료 분기 + 결제 (🔴 보안) — 별도 세션에서 진행
-2. **Epic 10** — 인프라 + 품질 (E2E, 404/500, 접근성)
+### Task 10.4 잔여 — 404/500 에러 페이지
+
+1. **`src/app/not-found.tsx`** — 404 전용 페이지 (Server Component, SearchX 아이콘, 디자인 토큰 적용)
+2. **`src/app/global-error.tsx`** — 500 페이지 개선 (bg-blue→bg-primary, role="alert", 홈 링크 추가)
+
+### Phase 1 마무리 (인프라)
+
+3. **Task 10.1** — Vercel 배포 + 도메인 연결
+4. **Task 10.2** — n8n 서버 설정 (Elest.io)
+5. **Toss Payments 실 연동** — 현재 Mock → 별도 지시 시 진행
+
+### Phase 2 (v2 기능)
+
+4. **경쟁사 벤치마킹** — 경쟁사 자동 탐색 + 병렬 크롤링 + 비교 매트릭스
+5. **AI 가시성 실시간 추적** — 타겟 키워드별 AI 플랫폼 인용 주기적 추적
+6. **주간 자동 재크롤링** — 크론 기반 주간 재진단 + 점수 변화 추적 + 이메일 알림
+
+> **Phase 1 코딩 작업 전체 완료** (2026-03-17). 최종 검증: 596 tests, 0 failed.
 
 ---
 
@@ -251,7 +344,7 @@
 pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm test
 ```
 
-최종 검증: ✅ 전체 통과 (459 tests pass, 1 pre-existing fail in crawl-competitor.test.ts, 2026-03-16)
+최종 검증: ✅ 전체 통과 (596 tests, 0 failed, 2026-03-17)
 
 ## 📝 빌드 참고
 

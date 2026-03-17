@@ -156,6 +156,9 @@ export const crawlDataSchema = z.object({
   mobile: mobileSchema.nullable(),
   layer2: layer2Schema.nullable(),
   layer3: layer3Schema.nullable(),
+  markdownContent: z.string().nullable(),
+  siteUrls: z.array(z.string()).nullable(),
+  firecrawlUsed: z.boolean(),
 })
 
 export type CrawlDataInput = z.infer<typeof crawlDataSchema>

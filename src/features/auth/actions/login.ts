@@ -28,6 +28,12 @@ export async function loginAction(
   })
 
   if (error) {
+    console.error(
+      '[loginAction] Supabase error:',
+      error.message,
+      error.status,
+      error.code
+    )
     return { error: AUTH_ERROR_GENERIC }
   }
 

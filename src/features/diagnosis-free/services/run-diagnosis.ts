@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { evaluate } from '../engine'
 import { calculateAICitationPossibility } from '../rules/ai-citation-helpers'
+import { aggregateScores } from './score-aggregator'
 import type { CrawlData } from '@/features/crawling'
 import type { Json } from '@/types/database'
 
@@ -10,6 +11,16 @@ const DIAGNOSIS_STATUS = {
   FAILED: 'failed',
 } as const
 
+/** 기본 데이터 완성도 (v1 호환 — dataCompleteness 미전달 시) */
+const DEFAULT_DATA_COMPLETENESS = 100
+
+interface RunDiagnosisParams {
+  diagnosisId: string
+  crawlData: CrawlData
+  /** 데이터 완성도 (0-100) — n8n v2 콜백에서 전달 */
+  dataCompleteness?: number
+}
+
 interface RunDiagnosisResult {
   success: boolean
   error?: string
@@ -18,14 +29,20 @@ interface RunDiagnosisResult {
 /**
  * 크롤링 데이터로 진단 엔진 실행 + 결과 저장
  *
- * 1. evaluate() — 67개 룰 평가 → 종합 점수
+ * 1. evaluate() — 67개 룰 평가 → 종합 점수 (7개 카테고리)
  * 2. calculateAICitationPossibility() — AI 인용 가능성 점수
- * 3. analysis_data + total_score + grade + status=completed 저장
+ * 3. aggregateScores() — 7개 카테고리 → 5개 매크로 점수 집계
+ * 4. analysis_data + total_score + grade + status=completed 저장
  */
 export async function runDiagnosis(
-  diagnosisId: string,
-  crawlData: CrawlData
+  params: RunDiagnosisParams
 ): Promise<RunDiagnosisResult> {
+  const {
+    diagnosisId,
+    crawlData,
+    dataCompleteness = DEFAULT_DATA_COMPLETENESS,
+  } = params
+
   try {
     // 1. 진단 엔진 실행 (67개 룰 평가)
     const overallScore = evaluate(crawlData)
@@ -33,21 +50,29 @@ export async function runDiagnosis(
     // 2. AI 인용 가능성 점수 계산
     const aiCitation = calculateAICitationPossibility(crawlData)
 
-    // 3. analysis_data 조립
+    // 3. 5-Score 매크로 점수 집계
+    const aggregated = aggregateScores({
+      overallScore,
+      aiCitation,
+      dataCompleteness,
+    })
+
+    // 4. analysis_data 조립
     const analysisData = {
       overallScore,
       aiCitation,
+      aggregated,
     }
 
-    // 4. Supabase 업데이트 (service_role)
+    // 5. Supabase 업데이트 (service_role)
     const supabase = createAdminClient()
 
     const { error } = await supabase
       .from('diagnoses')
       .update({
         analysis_data: analysisData as unknown as Json,
-        total_score: overallScore.score,
-        grade: overallScore.grade,
+        total_score: aggregated.totalScore,
+        grade: aggregated.totalGrade,
         status: DIAGNOSIS_STATUS.COMPLETED,
         completed_at: new Date().toISOString(),
       })

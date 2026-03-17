@@ -30,6 +30,9 @@ function createValidCrawlData(overrides?: Partial<CrawlData>): CrawlData {
     mobile: null,
     layer2: null,
     layer3: null,
+    markdownContent: null,
+    siteUrls: null,
+    firecrawlUsed: false,
     ...overrides,
   }
 }

@@ -55,9 +55,18 @@ function createMockCrawlData(overrides: Partial<CrawlData> = {}): CrawlData {
       safe_browsing: { is_safe: true, threats: [] },
     },
     layer3: {
-      ssl: { grade: 'A', valid: true, expires_at: null, issuer: 'LE' },
+      ssl: {
+        grade: 'A',
+        valid: true,
+        expires_at: null,
+        issuer: 'LE',
+        protocols: [],
+      },
       observatory: null,
     },
+    markdownContent: null,
+    siteUrls: null,
+    firecrawlUsed: false,
     ...overrides,
   }
 }
@@ -279,7 +288,13 @@ describe('calculateAICitationPossibility', () => {
     it('should reduce score when SSL is invalid', () => {
       const data = createMockCrawlData({
         layer3: {
-          ssl: { grade: 'F', valid: false, expires_at: null, issuer: null },
+          ssl: {
+            grade: 'F',
+            valid: false,
+            expires_at: null,
+            issuer: null,
+            protocols: [],
+          },
           observatory: null,
         },
       })
@@ -374,7 +389,13 @@ describe('calculateAICitationPossibility', () => {
     it('should cap all platform scores at 40 when SSL is invalid', () => {
       const data = createMockCrawlData({
         layer3: {
-          ssl: { grade: 'F', valid: false, expires_at: null, issuer: null },
+          ssl: {
+            grade: 'F',
+            valid: false,
+            expires_at: null,
+            issuer: null,
+            protocols: [],
+          },
           observatory: null,
         },
       })
@@ -393,7 +414,13 @@ describe('calculateAICitationPossibility', () => {
           safe_browsing: { is_safe: false, threats: ['MALWARE'] },
         },
         layer3: {
-          ssl: { grade: 'F', valid: false, expires_at: null, issuer: null },
+          ssl: {
+            grade: 'F',
+            valid: false,
+            expires_at: null,
+            issuer: null,
+            protocols: [],
+          },
           observatory: null,
         },
       })

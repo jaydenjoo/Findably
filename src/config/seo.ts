@@ -43,6 +43,16 @@ export const LANDING_JSON_LD = {
     priceCurrency: 'KRW',
     description: '무료 간단 진단',
   },
+  featureList: [
+    'SEO 종합 진단 (메타태그, 구조화 데이터, robots.txt)',
+    'GEO(Generative Engine Optimization) 분석',
+    'AI 인용 가능성 점수 (ChatGPT, Perplexity, Gemini)',
+    'Core Web Vitals 성능 분석',
+    'Quick Win 자동 식별 및 우선순위 추천',
+    'Schema Markup 자동 생성',
+    '메타태그 최적화 추천',
+    '경쟁사 비교 분석',
+  ],
   publisher: {
     '@type': 'Organization',
     name: SEO.organization.name,

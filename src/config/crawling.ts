@@ -8,6 +8,9 @@ export const crawlingConfig = {
   /** Layer 2 Google API 키 */
   googleApiKey: process.env.GOOGLE_API_KEY ?? '',
 
+  /** Firecrawl API 키 (JS 렌더링 크롤링) */
+  firecrawlApiKey: process.env.FIRECRAWL_API_KEY ?? '',
+
   /** 이미지 크기 경고 기준 (KB) */
   largeImageThresholdKb: 200,
 
@@ -16,6 +19,9 @@ export const crawlingConfig = {
 
   /** 큰 이미지 리포트 최대 개수 */
   maxLargeImageReports: 20,
+
+  /** Firecrawl API 타임아웃 (ms) */
+  firecrawlTimeoutMs: 30_000,
 } as const
 
 // ─── 환경변수 누락 경고 (서버 시작 시 1회 출력) ───

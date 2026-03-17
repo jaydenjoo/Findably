@@ -9,7 +9,7 @@ export default function PublicLayout({
   return (
     <>
       <GNB />
-      <main>{children}</main>
+      <main id="main-content">{children}</main>
       <Footer />
     </>
   )

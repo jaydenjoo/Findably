@@ -31,6 +31,8 @@ export interface Layer1Data {
   page_size_bytes: number
   load_time_ms: number
   html_lang: string | null
+  /** hreflang 태그 목록 (e.g. ['ko', 'en', 'ja']) */
+  hreflang?: string[]
 }
 
 /** robots.txt 파싱 결과 */
@@ -53,6 +55,8 @@ export interface SitemapData {
 export interface LlmsTxtData {
   exists: boolean
   content: string | null
+  /** llms-full.txt 존재 여부 */
+  hasFullVersion?: boolean
 }
 
 /** CMS 감지 결과 */
@@ -107,6 +111,8 @@ export interface Layer3Data {
     valid: boolean
     expires_at: string | null
     issuer: string | null
+    /** 지원하는 TLS 프로토콜 버전 목록 (e.g. ['TLSv1.2', 'TLSv1.3']) */
+    protocols: string[]
   } | null
   observatory: {
     grade: string | null
@@ -129,6 +135,12 @@ export interface CrawlData {
   mobile: MobileData | null
   layer2: Layer2Data | null
   layer3: Layer3Data | null
+  /** Firecrawl이 반환한 마크다운 콘텐츠 */
+  markdownContent: string | null
+  /** Firecrawl /map 엔드포인트가 반환한 사이트 URL 목록 */
+  siteUrls: string[] | null
+  /** Firecrawl 사용 여부 (API 키 미설정 또는 실패 시 false) */
+  firecrawlUsed: boolean
 }
 
 /** 크롤링 트리거 요청 */

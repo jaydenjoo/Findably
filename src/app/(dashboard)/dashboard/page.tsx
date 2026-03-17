@@ -29,9 +29,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
   // 가장 최근 진단 조회 (완료 우선, 없으면 진행 중)
   const { data: diagnosis, error } = await supabase
     .from('diagnoses')
-    .select(
-      'id, analysis_data, total_score, grade, status, crawl_data, payment_status'
-    )
+    .select('id, analysis_data, total_score, grade, status, crawl_data, tier')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -39,6 +37,12 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
 
   // DB 에러
   if (error) {
+    console.error(
+      '[dashboard] DB error:',
+      error.message,
+      error.code,
+      error.hint
+    )
     return (
       <EmptyState
         icon={AlertCircle}
@@ -61,20 +65,38 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
     )
   }
 
+  const isPaid = diagnosis.tier === 'paid'
+
   // 진행 중 (pending / crawling / analyzing)
   if (diagnosis.status !== 'completed' && diagnosis.status !== 'failed') {
     return (
       <EmptyState
         icon={BarChart3}
-        title="분석이 진행 중입니다"
-        description="잠시 후 자동으로 결과가 표시됩니다. 페이지를 새로고침해보세요."
+        title={
+          isPaid ? '유료 상세 분석이 진행 중입니다' : '분석이 진행 중입니다'
+        }
+        description={
+          isPaid
+            ? '5개 AI 전문가가 심층 분석 중입니다 (약 1분 소요). 잠시 후 새로고침해주세요.'
+            : '잠시 후 자동으로 결과가 표시됩니다. 페이지를 새로고침해보세요.'
+        }
         action={{ label: '새로고침 →', href: '/dashboard' }}
       />
     )
   }
 
-  // 실패
+  // 실패 — 유료/무료 분기
   if (diagnosis.status === 'failed') {
+    if (isPaid) {
+      return (
+        <EmptyState
+          icon={AlertCircle}
+          title="상세 분석에 일시적 문제가 발생했습니다"
+          description="결제는 정상 처리되었습니다. 새로고침하면 분석이 재시도됩니다. 문제가 계속되면 support@findably.co.kr로 문의해주세요."
+          action={{ label: '새로고침 →', href: '/dashboard' }}
+        />
+      )
+    }
     return (
       <EmptyState
         icon={AlertCircle}
@@ -100,7 +122,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
   }
 
   const partialInfo = parsePartialInfo(diagnosis.crawl_data)
-  const tier: UserTier = diagnosis.payment_status === 'paid' ? 'paid' : 'free'
+  const tier: UserTier = diagnosis.tier === 'paid' ? 'paid' : 'free'
 
   return (
     <DashboardContent

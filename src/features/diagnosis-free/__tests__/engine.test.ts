@@ -45,6 +45,9 @@ function createMockCrawlData(): CrawlData {
     mobile: null,
     layer2: null,
     layer3: null,
+    markdownContent: null,
+    siteUrls: null,
+    firecrawlUsed: false,
   }
 }
 
@@ -180,6 +183,7 @@ describe('Quick Win 식별', () => {
       severity: 'critical',
       message: '타이틀이 없습니다',
       impact: 8,
+      source: 'rule',
     })
   })
 })

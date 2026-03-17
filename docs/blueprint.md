@@ -1,16 +1,16 @@
-# Task 7.7: CMS 감지 기반 맞춤 가이드 — 구현 계획
+# Task 10.3: E2E 테스트 (핵심 3 Flow) — 구현 계획
 
 ## 목표
 
-감지된 CMS에 따라 메타태그/Schema/일반 SEO 적용 방법을 CMS별 맞춤 가이드로 제공한다.
+PRD F-001/F-002/F-003 핵심 유저 플로우를 Playwright E2E 테스트로 커버한다.
 
 완료 조건:
 
-- CMS별 가이드 데이터 확장 (Schema + 메타태그 + 일반 SEO 가이드)
-- `/actions/meta-tags` 페이지에 CMS 가이드 섹션 추가
-- CmsGuideSection 컴포넌트를 범용화하여 가이드 타입별 재사용 가능
-- 기존 Schema 페이지 가이드 그대로 유지 (regression 없음)
-- 빌드 통과 + 타입 체크 통과
+- F-001 (무료 진단 Flow): 랜딩 → 가입 → URL 입력 → 분석 대기 → 대시보드
+- F-002 (샘플 열람 Flow): 랜딩/대시보드 → 샘플 리포트 → CTA 확인
+- F-003 (유료 전환 Flow): 대시보드 BlurOverlay CTA → 결제 페이지 연결 확인
+- 기존 auth.spec.ts + layout.spec.ts 깨지지 않음
+- `pnpm test:e2e` 전체 통과
 
 ---
 
@@ -18,19 +18,17 @@
 
 ### 이미 존재
 
-- **`CMS_GUIDES`** (`features/actions/constants/cms-guides.ts`) — WordPress, Shopify, Wix, Squarespace + DEFAULT. 현재 Schema Markup 전용 steps만 있음
-- **`CmsGuide` 타입** (`features/actions/types.ts`) — `{ cms, displayName, steps, pluginRecommendation?, codeLocation? }`
-- **`CmsGuideSection`** (`actions/schema/_components/`) — 범용 렌더링 컴포넌트 (CmsGuide props 받음)
-- **CMS 감지** (`features/crawling/parsers/cms.ts`) — `{ detected: string | null, confidence: number, technologies: string[] }`
-- **Schema 페이지** — CmsGuideSection으로 CMS 가이드 표시 중 (동작 검증 완료)
-- **Meta-tags 페이지** — Task 7.6 완료. CMS 가이드 미포함
+- **Playwright 설정**: `e2e/playwright.config.ts` (baseURL: localhost:3600)
+- **auth.spec.ts**: 로그인/회원가입/비밀번호재설정 페이지 렌더링 + 네비게이션 (7 tests)
+- **layout.spec.ts**: GNB + CTA + 접근제어 + 반응형 (4 describe blocks)
+- **테스트 패턴**: 접근성 셀렉터 (`getByRole`, `getByLabel`, `getByText`)
+- **모든 라우트 구현 완료**: 25개 page.tsx 파일
 
 ### 없는 것
 
-- 메타태그 적용을 위한 CMS별 가이드 데이터
-- 일반 SEO 최적화를 위한 CMS별 가이드 데이터
-- Meta-tags 페이지의 CMS 가이드 섹션
-- CmsGuideSection 범용 공유 (현재 schema 전용 `_components/`에 위치)
+- F-001 무료 진단 플로우 테스트
+- F-002 샘플 열람 플로우 테스트
+- F-003 유료 전환 플로우 테스트
 
 ---
 
@@ -38,213 +36,124 @@
 
 ### 핵심 결정
 
-1. **CmsGuideSection을 공유 컴포넌트로 이동**: `schema/_components/` → `components/shared/` (meta-tags + 향후 roadmap에서도 재사용)
-2. **가이드 데이터 확장**: 기존 `CMS_GUIDES`(Schema용)는 유지하고, `CMS_META_GUIDES`(메타태그용) 상수를 추가
-3. **타입 확장 불필요**: 기존 `CmsGuide` 타입 그대로 재사용 (steps/pluginRecommendation/codeLocation 구조가 동일)
+1. **UI 수준 테스트**: 실제 Supabase 인증/DB 없이 UI 렌더링 + 네비게이션 + 폼 검증에 집중 (기존 패턴 유지)
+2. **비로그인 접근 가능 경로만 실제 네비게이션 테스트**: `/`, `/signup`, `/login`, `/pricing`, `/reports/sample`
+3. **인증 필요 경로는 리다이렉트 검증**: `/dashboard`, `/onboarding/*`, `/actions/*` → `/login` 리다이렉트 확인
+4. **결제 플로우는 CTA 존재 + 링크 검증**: Toss Payments 실제 호출 불가 → BlurOverlay CTA 렌더링 + href 확인
 
-### 왜 상수 분리인가?
+### 왜 UI 수준인가?
 
-각 가이드의 steps, pluginRecommendation, codeLocation이 완전히 다르다:
-
-- Schema 가이드: "header.php에 JSON-LD 붙여넣기" / "Yoast SEO 플러그인"
-- 메타태그 가이드: "Yoast SEO → SEO 제목/설명 수정" / "All in One SEO 플러그인"
-
-하나의 CmsGuide에 두 가이드를 합치면 불필요하게 복잡해진다. 단순히 별도 상수가 최선.
+실제 인증 테스트는 로컬 Supabase 인스턴스가 필요하며 CI 환경 설정이 별도 Task. 기존 auth.spec.ts도 동일한 접근법 사용 중. UI 수준 검증만으로도 라우팅/렌더링/접근제어 회귀를 충분히 방지.
 
 ---
 
 ### 파일 구조
 
 ```
-변경/이동:
-  src/app/(dashboard)/actions/schema/_components/CmsGuideSection.tsx
-    → src/components/shared/CmsGuideSection.tsx  (공유로 이동)
-
-신규:
-  src/features/actions/constants/cms-meta-guides.ts  (메타태그용 CMS 가이드 데이터)
-
-수정:
-  src/app/(dashboard)/actions/schema/_components/SchemaContent.tsx  (import 경로 변경)
-  src/app/(dashboard)/actions/meta-tags/_components/MetaTagContent.tsx  (CMS 가이드 섹션 추가)
-  src/features/actions/index.ts  (새 상수 re-export)
+e2e/flows/
+├── auth.spec.ts         ← 기존 (수정 없음)
+├── layout.spec.ts       ← 기존 (수정 없음)
+├── f001-free-diagnosis.spec.ts   ← 신규
+├── f002-sample-report.spec.ts    ← 신규
+└── f003-paid-upgrade.spec.ts     ← 신규
 ```
 
-**총 파일**: 이동 1개 + 신규 1개 + 수정 3개 = 5개
+**총 파일**: 신규 3개 (기존 수정 0개)
 
 ---
 
-## 수정 상세
+## 신규 파일 상세 (3개)
 
-### 1. `CmsGuideSection.tsx` — 이동 (schema → shared)
+### 1. `f001-free-diagnosis.spec.ts` — 무료 진단 Flow
 
-**경로 변경**: `actions/schema/_components/CmsGuideSection.tsx` → `components/shared/CmsGuideSection.tsx`
+PRD F-001 경로: `/` → `/signup` → `/onboarding/url` → `/onboarding/analyzing` → `/dashboard`
 
-코드 변경 없음. import 경로만 변경.
-
-### 2. `cms-meta-guides.ts` — 신규 (메타태그용 CMS 가이드 데이터)
-
-```typescript
-import type { CmsGuide } from '../types'
-
-export const CMS_META_GUIDES: Record<string, CmsGuide> = {
-  WordPress: {
-    cms: 'WordPress',
-    displayName: 'WordPress',
-    steps: [
-      'WordPress 관리자 → 게시물/페이지 편집 화면을 엽니다.',
-      'Yoast SEO (또는 Rank Math) 메타 박스에서 "SEO 제목"과 "메타 설명"을 수정합니다.',
-      'OG 이미지는 "소셜" 탭에서 별도 설정할 수 있습니다.',
-      '변경사항을 저장하고 미리보기로 확인합니다.',
-    ],
-    pluginRecommendation:
-      'Yoast SEO 또는 Rank Math 플러그인을 사용하면 페이지별로 메타태그를 쉽게 관리할 수 있습니다.',
-    codeLocation: 'SEO 플러그인 → 각 페이지 편집 화면',
-  },
-  Shopify: {
-    cms: 'Shopify',
-    displayName: 'Shopify',
-    steps: [
-      'Shopify 관리자 → 온라인 스토어 → 페이지(또는 상품)를 선택합니다.',
-      '하단 "검색엔진 목록" 영역에서 "웹사이트 SEO 편집"을 클릭합니다.',
-      '페이지 제목과 설명을 수정합니다.',
-      'OG 이미지는 theme.liquid에서 직접 설정하거나 SEO 앱을 사용합니다.',
-    ],
-    codeLocation: '각 페이지/상품 → 검색엔진 목록',
-  },
-  Wix: {
-    cms: 'Wix',
-    displayName: 'Wix',
-    steps: [
-      'Wix 에디터에서 수정할 페이지를 엽니다.',
-      '메뉴 → 페이지 SEO(기본) 탭을 클릭합니다.',
-      '제목 태그, 메타 설명을 입력합니다.',
-      'OG 이미지는 "소셜 공유" 탭에서 설정합니다.',
-      '게시 버튼을 눌러 반영합니다.',
-    ],
-    codeLocation: '페이지 설정 → SEO(기본) 탭',
-  },
-  Squarespace: {
-    cms: 'Squarespace',
-    displayName: 'Squarespace',
-    steps: [
-      '수정할 페이지에서 톱니바퀴 아이콘(페이지 설정)을 클릭합니다.',
-      '"SEO" 탭에서 SEO 제목과 SEO 설명을 입력합니다.',
-      '"소셜 이미지" 탭에서 OG 이미지를 설정합니다.',
-      '저장 후 라이브 사이트에서 확인합니다.',
-    ],
-    codeLocation: '페이지 설정 → SEO 탭',
-  },
-}
-
-export const DEFAULT_CMS_META_GUIDE: CmsGuide = {
-  cms: 'default',
-  displayName: '일반 HTML',
-  steps: [
-    'HTML 파일의 <head> 영역을 엽니다.',
-    '<meta name="title">, <meta name="description"> 태그를 추가하거나 수정합니다.',
-    '<meta property="og:title">, <meta property="og:description">, <meta property="og:image"> 태그를 추가합니다.',
-    '<link rel="canonical"> 태그로 대표 URL을 지정합니다.',
-    '파일을 저장하고 서버에 배포한 뒤 소셜 공유 디버거로 확인합니다.',
-  ],
-  codeLocation: '<head> 영역',
-}
+```
+테스트 케이스:
+1. 랜딩 → "무료 진단 시작" CTA → /signup 이동 확인
+2. /signup 폼 렌더링 (이메일 + 비밀번호 + Google)
+3. /signup → 가입 후 → /onboarding/url 경로 존재 확인 (비로그인 시 /login 리다이렉트)
+4. /onboarding/url → /login 리다이렉트 (비로그인 접근 제어)
+5. /onboarding/info → /login 리다이렉트 (비로그인 접근 제어)
+6. /onboarding/analyzing → /login 리다이렉트 (비로그인 접근 제어)
+7. /dashboard → /login 리다이렉트 (비로그인 접근 제어)
 ```
 
-### 3. `SchemaContent.tsx` — import 경로 수정
+### 2. `f002-sample-report.spec.ts` — 샘플 열람 Flow
 
-```diff
-- import { CmsGuideSection } from './CmsGuideSection'
-+ import { CmsGuideSection } from '@/components/shared/CmsGuideSection'
+PRD F-002 경로: 랜딩 → `/reports/sample` → CTA
+
+```
+테스트 케이스:
+1. /reports/sample 페이지 렌더링 (비로그인 접근 가능)
+2. 샘플 리포트에 "그린테크" 브랜드명 표시 확인
+3. 샘플 리포트에 주요 섹션 렌더링: 점수, SWOT, 로드맵, 인사이트 등
+4. "내 사이트도 분석하기" CTA 존재 + /signup 또는 /onboarding 링크 확인
+5. 랜딩 페이지에서 "샘플 리포트 보기" 링크 → /reports/sample 확인
+6. 모바일 뷰포트 (375px) 에서 샘플 리포트 렌더링 확인
 ```
 
-### 4. `MetaTagContent.tsx` — CMS 가이드 섹션 추가
+### 3. `f003-paid-upgrade.spec.ts` — 유료 전환 Flow
 
-```typescript
-// 추가 import
-import { CMS_META_GUIDES, DEFAULT_CMS_META_GUIDE } from '@/features/actions'
-import { CmsGuideSection } from '@/components/shared/CmsGuideSection'
+PRD F-003 경로: /dashboard BlurOverlay CTA → 결제
 
-// props에 cmsDetected 추가 (page.tsx에서 전달)
-interface MetaTagContentProps {
-  crawlData: CrawlData | null
-  url: string
-  isPaid: boolean
-  cmsDetected: string | null // 추가
-}
-
-// 렌더링 영역 (RecommendedMetaTagsSection 아래)
-const metaGuide =
-  cmsDetected && cmsDetected in CMS_META_GUIDES
-    ? (CMS_META_GUIDES[cmsDetected] ?? DEFAULT_CMS_META_GUIDE)
-    : DEFAULT_CMS_META_GUIDE
-
-// isPaid일 때만 표시, 또는 BlurOverlay 래핑
 ```
-
-### 5. `features/actions/index.ts` — re-export 추가
-
-```diff
-  export { CMS_GUIDES, DEFAULT_CMS_GUIDE } from './constants/cms-guides'
-+ export { CMS_META_GUIDES, DEFAULT_CMS_META_GUIDE } from './constants/cms-meta-guides'
-```
-
-### 6. `meta-tags/page.tsx` — cmsDetected prop 전달
-
-```typescript
-const cmsDetected = crawlData?.cms?.detected ?? null
-// MetaTagContent에 cmsDetected 추가 전달
+테스트 케이스:
+1. /dashboard → 비로그인 시 /login 리다이렉트 (이미 layout.spec.ts에 있지만 flow 맥락 재검증)
+2. /reports/my/[id] → 비로그인 시 /login 리다이렉트
+3. /actions/schema → 비로그인 시 /login 리다이렉트
+4. /actions/meta-tags → 비로그인 시 /login 리다이렉트
+5. /actions/roadmap → 비로그인 시 /login 리다이렉트
+6. /diagnosis/competitors → 비로그인 시 /login 리다이렉트
+7. /pricing 페이지 렌더링 + 가격 정보("9.9만원" 또는 "99,000") 표시 확인
+8. /pricing → CTA 링크 존재 확인
 ```
 
 ---
 
 ## 리스크
 
-| 리스크                                           | 심각도 | 대응                                                          |
-| ------------------------------------------------ | ------ | ------------------------------------------------------------- |
-| CmsGuideSection 이동 시 schema 페이지 regression | 🟢     | import 경로만 변경, 컴포넌트 코드 불변                        |
-| CMS 미감지 (detected=null)                       | 🟢     | DEFAULT_CMS_META_GUIDE 표시                                   |
-| 메타태그 가이드 내용 품질                        | 🟡     | 4개 CMS 공식 문서 기반 steps 작성                             |
-| roadmap 페이지 아직 skeleton                     | 🟢     | 이번 Task에서 roadmap 가이드 추가 안 함 (skeleton 상태이므로) |
+| 리스크                                  | 심각도 | 대응                                                    |
+| --------------------------------------- | ------ | ------------------------------------------------------- |
+| 개발 서버 미실행 시 테스트 실패         | 🟢     | playwright.config.ts의 webServer가 자동 실행            |
+| Supabase 미연결 시 특정 페이지 500 에러 | 🟡     | error.tsx 존재 확인, 비로그인 경로만 실제 렌더링 테스트 |
+| 샘플 리포트 데이터 구조 변경 시 깨짐    | 🟢     | 텍스트 매칭 느슨하게 (정규식 사용)                      |
+| layout.spec.ts 중복 테스트              | 🟢     | 의도적 — flow 맥락에서 재검증, 기존 것 수정 안 함       |
 
 ---
 
 ## 스코프 가드
 
-- ❌ roadmap 페이지 CMS 가이드 → roadmap 페이지 구현 시(별도 Task)
-- ❌ CMS 가이드 AI 자동 생성 → 하드코딩 상수로 충분
-- ❌ CmsGuide 타입 변경 → 기존 타입 그대로 재사용
-- ❌ 새 CMS 추가 (Webflow, Ghost 등) → Phase 2
-- ❌ features/actions/ 모듈 구조 변경 → 상수 파일 1개 추가만
+- ❌ 실제 Supabase 인증 테스트 → 로컬 Supabase 인스턴스 설정 필요 (별도 Task)
+- ❌ 실제 결제 테스트 → Toss Payments 테스트 모드 설정 필요 (Epic 9)
+- ❌ E2E 테스트 CI 파이프라인 → GitHub Actions 설정 (Task 10.9 등)
+- ❌ 스크린샷 비교 (Visual Regression) → Phase 2
+- ❌ playwright.config.ts 수정 → 기존 설정 그대로 사용
 
 ---
 
 ## 구현 순서
 
-| 단계 | 파일                                    | 설명                               |
-| ---- | --------------------------------------- | ---------------------------------- |
-| 1    | CmsGuideSection.tsx                     | schema → shared로 이동             |
-| 2    | SchemaContent.tsx                       | import 경로 수정 (regression 방지) |
-| 3    | cms-meta-guides.ts                      | 메타태그용 CMS 가이드 데이터 생성  |
-| 4    | features/actions/index.ts               | 새 상수 re-export                  |
-| 5    | meta-tags/page.tsx + MetaTagContent.tsx | CMS 가이드 섹션 연결               |
+| 단계 | 파일                        | 설명                                  |
+| ---- | --------------------------- | ------------------------------------- |
+| 1    | f001-free-diagnosis.spec.ts | 무료 진단 Flow (CTA 링크 + 접근 제어) |
+| 2    | f002-sample-report.spec.ts  | 샘플 열람 Flow (렌더링 + CTA)         |
+| 3    | f003-paid-upgrade.spec.ts   | 유료 전환 Flow (접근 제어 + pricing)  |
 
 ---
 
 ## 검증 방법
 
 ```bash
-# 1. 타입 체크
-pnpm tsc --noEmit
+# 1. 기존 테스트 회귀 확인
+pnpm test:e2e -- e2e/flows/auth.spec.ts
+pnpm test:e2e -- e2e/flows/layout.spec.ts
 
-# 2. 린트
-pnpm lint
+# 2. 신규 테스트 실행
+pnpm test:e2e -- e2e/flows/f001-free-diagnosis.spec.ts
+pnpm test:e2e -- e2e/flows/f002-sample-report.spec.ts
+pnpm test:e2e -- e2e/flows/f003-paid-upgrade.spec.ts
 
-# 3. 빌드
-pnpm build
-
-# 4. 수동 확인
-# - /actions/schema → CMS 가이드 여전히 정상 표시 (regression 없음)
-# - /actions/meta-tags → CMS 가이드 섹션 표시 (유료: 전체, 무료: BlurOverlay)
-# - CMS 미감지 → "일반 HTML" 가이드 표시
-# - 모바일 반응형 확인
+# 3. 전체 E2E 스위트
+pnpm test:e2e
 ```

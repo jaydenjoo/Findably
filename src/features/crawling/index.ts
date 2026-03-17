@@ -38,6 +38,7 @@ export { fetchSslLabs } from './fetchers/ssl-labs'
 export { fetchObservatory } from './fetchers/observatory'
 
 // ─── 서비스 (Layer 2+3 실행 + DB 저장) ───
+export { parseCrawlV2Result } from './services/parse-crawl-v2'
 export { runLayers } from './services/run-layers'
 export {
   saveCrawlResult,

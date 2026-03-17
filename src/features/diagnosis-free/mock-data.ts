@@ -391,6 +391,7 @@ const mockQuickWins: QuickWin[] = [
     message:
       'GPTBot, ClaudeBot 등 AI 봇을 robots.txt에서 차단하고 있습니다. 이를 허용하면 ChatGPT, Claude 등에서 인용될 확률이 높아집니다.',
     impact: 12,
+    source: 'rule',
   },
   {
     ruleId: 'tech-2',
@@ -399,6 +400,7 @@ const mockQuickWins: QuickWin[] = [
     severity: 'warning',
     message: 'robots.txt 파일을 생성하고 검색 엔진 크롤러를 안내하세요.',
     impact: 8,
+    source: 'rule',
   },
   {
     ruleId: 'content-3',
@@ -407,6 +409,7 @@ const mockQuickWins: QuickWin[] = [
     severity: 'warning',
     message: '30개 이미지 중 8개에 설명적인 ALT 텍스트를 추가하세요.',
     impact: 7,
+    source: 'rule',
   },
   {
     ruleId: 'perf-2',
@@ -416,6 +419,7 @@ const mockQuickWins: QuickWin[] = [
     message:
       'LCP를 2.5초 이하로 개선하세요. 이미지 최적화와 스크립트 지연 로딩을 확인하세요.',
     impact: 6,
+    source: 'rule',
   },
   {
     ruleId: 'mobile-2',
@@ -424,6 +428,7 @@ const mockQuickWins: QuickWin[] = [
     severity: 'warning',
     message: '8개 터치 타겟을 44x44px 이상으로 확대하세요.',
     impact: 5,
+    source: 'rule',
   },
   {
     ruleId: 'content-4',
@@ -433,6 +438,7 @@ const mockQuickWins: QuickWin[] = [
     message:
       '페이지 콘텐츠를 300단어 이상으로 확대하면 검색 순위가 개선될 수 있습니다.',
     impact: 3,
+    source: 'rule',
   },
 ]
 

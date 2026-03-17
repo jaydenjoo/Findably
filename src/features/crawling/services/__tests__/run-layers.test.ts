@@ -63,6 +63,7 @@ describe('runLayers', () => {
       valid: true,
       expires_at: '2027-01-01T00:00:00Z',
       issuer: "Let's Encrypt",
+      protocols: ['TLS 1.3', 'TLS 1.2'],
     }
     const observatoryData = {
       grade: 'A',

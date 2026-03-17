@@ -37,5 +37,8 @@ export async function buildFallbackCrawlData(
     mobile: null,
     layer2,
     layer3,
+    markdownContent: null,
+    siteUrls: null,
+    firecrawlUsed: false,
   }
 }

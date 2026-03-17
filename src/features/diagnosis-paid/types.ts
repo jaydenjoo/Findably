@@ -30,6 +30,43 @@ export interface AIInsight {
   category: CategoryId | 'seo'
   actionable: boolean
   suggestedFix?: string
+  /** v2: 비즈니스 임팩트 (e.g. "매출 15% 감소 가능성") */
+  impact?: string
+  /** v2: 근거 — 크롤링 데이터에서 발견한 수치 기반 증거 */
+  evidence?: string
+  /** v2: 우선순위 (1=최우선 ~ 10=낮음, Impact×Effort 매트릭스 기반) */
+  priority?: number
+}
+
+// ─── v2: 강화된 Quick Win + 전략 권고 ───
+
+/** v2: 구체적 실행안이 포함된 Quick Win */
+export interface EnhancedQuickWin {
+  action: string
+  effect: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  estimatedTime: string
+  category: CategoryId
+}
+
+/** v2: 컨설팅급 전략 권고 항목 */
+export interface StrategicRecommendation {
+  title: string
+  description: string
+  timeframe: 'immediate' | 'short-term' | 'mid-term'
+  expectedImpact: 'high' | 'medium' | 'low'
+  category: CategoryId
+  dependencies?: string[]
+}
+
+/** v2: AI 인용 가능성 심층 평가 */
+export interface AICitabilityAssessment {
+  /** 인용 가능성 점수 (0-100) */
+  score: number
+  /** 점수 산정 근거 */
+  reasoning: string
+  /** 개선 필요 영역 목록 */
+  improvementAreas: string[]
 }
 
 // ─── 경쟁사 / SWOT / 로드맵 ───
@@ -155,6 +192,15 @@ export interface PaidAnalysisData {
 
   /** 유료 전용 — CMO 검증 요약 */
   cmoSummary: string
+
+  /** v2: 컨설팅급 전략 권고 (optional — 하위호환) */
+  strategicRecommendations?: StrategicRecommendation[]
+
+  /** v2: 강화된 Quick Win (optional — 하위호환) */
+  enhancedQuickWins?: EnhancedQuickWin[]
+
+  /** v2: AI 인용 가능성 심층 평가 (optional — 하위호환) */
+  aiCitability?: AICitabilityAssessment
 
   /** 에이전트 실행 메타데이터 */
   agentResults: AIAgentResult[]

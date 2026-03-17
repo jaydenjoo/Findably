@@ -1,5 +1,3 @@
-import { createHmac } from 'node:crypto'
-
 import { crawlingConfig } from '@/config/crawling'
 import type {
   CrawlTriggerRequest,
@@ -12,7 +10,7 @@ import type {
  * Next.js → n8n (Elest.io) 웹훅 호출을 추상화.
  * 향후 Apify 등 대체 크롤러로 교체 가능.
  *
- * 인증: HMAC-SHA256 서명 (X-Webhook-Signature 헤더)
+ * 인증: Bearer 토큰 (Authorization 헤더) — n8n headerAuth와 일치
  */
 export async function triggerCrawl(
   request: CrawlTriggerRequest
@@ -26,16 +24,13 @@ export async function triggerCrawl(
 
   const payload = JSON.stringify(request)
 
-  // HMAC-SHA256 서명 생성 (시크릿 있을 때만)
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
 
+  // Bearer 토큰 인증 — n8n webhook의 headerAuth 방식과 일치
   if (webhookSecret) {
-    const signature = createHmac('sha256', webhookSecret)
-      .update(payload)
-      .digest('hex')
-    headers['X-Webhook-Signature'] = signature
+    headers['Authorization'] = `Bearer ${webhookSecret}`
   }
 
   try {
