@@ -94,19 +94,28 @@ export function MetaTagContent({
           <p className="mt-2 text-sm text-slate-500">
             현재 메타태그를 분석하고 SEO 최적화 방안을 제안합니다.
           </p>
+          {url && <p className="mt-1 truncate text-xs text-slate-400">{url}</p>}
         </div>
         <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-16 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-slate-100">
-            <span className="text-lg text-slate-400" aria-hidden="true">
-              ?
+          <div className="flex size-12 items-center justify-center rounded-full bg-warning-50">
+            <span className="text-lg text-warning-500" aria-hidden="true">
+              !
             </span>
           </div>
           <p className="text-sm font-medium text-slate-700">
-            메타태그 데이터가 없습니다
+            메타태그 상세 데이터를 수집하지 못했습니다
           </p>
-          <p className="text-xs text-slate-500">
-            크롤링 데이터에서 메타태그 정보를 찾을 수 없습니다.
+          <p className="text-xs text-slate-500 leading-relaxed">
+            크롤링 시 일부 사이트에서 HTML 메타태그 수집이 제한될 수 있습니다.
+            <br />
+            다시 진단을 실행하면 최신 데이터를 가져올 수 있습니다.
           </p>
+          <a
+            href="/onboarding/url"
+            className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary-500 hover:text-primary-600 transition-colors"
+          >
+            다시 진단하기 →
+          </a>
         </div>
       </div>
     )
