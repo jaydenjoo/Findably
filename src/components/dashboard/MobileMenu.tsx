@@ -3,9 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, Lock } from 'lucide-react'
+import { Menu, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Sheet,
   SheetTrigger,
@@ -14,6 +13,8 @@ import {
 } from '@/components/ui/sheet'
 import { DASHBOARD_NAV_ITEMS, isNavActive } from '@/config/navigation'
 import { SITE_NAME } from '@/config/site'
+import { NavLink } from './NavLink'
+import { logoutAction } from '@/features/auth/actions/logout'
 
 export function MobileMenu(): React.JSX.Element {
   const pathname = usePathname()
@@ -56,39 +57,39 @@ export function MobileMenu(): React.JSX.Element {
           {DASHBOARD_NAV_ITEMS.map((item) => {
             const Icon = item.icon
             const active = isNavActive(pathname, item.href)
+            const ariaLabel = item.locked
+              ? `${item.label} — PRO 전용`
+              : item.label
 
             return (
-              <Link
+              <NavLink
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  active
-                    ? 'bg-primary-50 font-semibold text-primary-700'
-                    : 'font-normal text-slate-600 hover:bg-slate-50'
-                } ${item.locked ? 'opacity-70' : ''}`}
+                icon={Icon}
+                label={item.label}
+                active={active}
+                locked={item.locked ?? false}
+                ariaLabel={ariaLabel}
                 onClick={() => setOpen(false)}
-                {...(active ? { 'aria-current': 'page' as const } : {})}
-                aria-label={
-                  item.locked ? `${item.label} — PRO 전용` : item.label
-                }
-              >
-                <Icon className="size-4" />
-                <span>{item.label}</span>
-                {item.locked && (
-                  <>
-                    <Badge
-                      variant="secondary"
-                      className="ml-auto h-4 px-1.5 text-[10px] font-semibold"
-                    >
-                      PRO
-                    </Badge>
-                    <Lock className="size-3" />
-                  </>
-                )}
-              </Link>
+              />
             )
           })}
         </nav>
+
+        {/* 로그아웃 */}
+        <div className="border-t border-slate-200 px-3 py-3">
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-slate-600 transition-colors hover:bg-slate-50"
+              aria-label="로그아웃"
+              onClick={() => setOpen(false)}
+            >
+              <LogOut className="size-4" />
+              <span>로그아웃</span>
+            </button>
+          </form>
+        </div>
       </SheetContent>
     </Sheet>
   )

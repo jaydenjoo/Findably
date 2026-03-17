@@ -1,16 +1,18 @@
 'use client'
 
+import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Lock } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { LogOut } from 'lucide-react'
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from '@/components/ui/tooltip'
+import { NavLink } from './NavLink'
 import { DASHBOARD_NAV_ITEMS, isNavActive } from '@/config/navigation'
 import { SITE_NAME, SITE_VERSION } from '@/config/site'
+import { logoutAction } from '@/features/auth/actions/logout'
 
 export function Sidebar(): React.JSX.Element {
   const pathname = usePathname()
@@ -35,32 +37,19 @@ export function Sidebar(): React.JSX.Element {
         {DASHBOARD_NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = isNavActive(pathname, item.href)
+          const ariaLabel = item.locked
+            ? `${item.label} — PRO 전용`
+            : item.label
 
           const navLink = (
-            <Link
+            <NavLink
               href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                active
-                  ? 'bg-primary-50 font-semibold text-primary-700'
-                  : 'font-normal text-slate-600 hover:bg-slate-50'
-              } ${item.locked ? 'opacity-70' : ''}`}
-              {...(active ? { 'aria-current': 'page' as const } : {})}
-              aria-label={item.locked ? `${item.label} — PRO 전용` : item.label}
-            >
-              <Icon className="size-4" />
-              <span>{item.label}</span>
-              {item.locked && (
-                <>
-                  <Badge
-                    variant="secondary"
-                    className="ml-auto h-4 px-1.5 text-[10px] font-semibold"
-                  >
-                    PRO
-                  </Badge>
-                  <Lock className="size-3" />
-                </>
-              )}
-            </Link>
+              icon={Icon}
+              label={item.label}
+              active={active}
+              locked={item.locked ?? false}
+              ariaLabel={ariaLabel}
+            />
           )
 
           if (item.locked) {
@@ -74,13 +63,23 @@ export function Sidebar(): React.JSX.Element {
             )
           }
 
-          return navLink
+          return <React.Fragment key={item.href}>{navLink}</React.Fragment>
         })}
       </nav>
 
       {/* 하단 */}
       <div className="border-t border-slate-200 px-5 py-3">
-        <p className="text-xs text-slate-400">
+        <form action={logoutAction}>
+          <button
+            type="submit"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-slate-600 transition-colors hover:bg-slate-50"
+            aria-label="로그아웃"
+          >
+            <LogOut className="size-4" />
+            <span>로그아웃</span>
+          </button>
+        </form>
+        <p className="mt-2 text-xs text-slate-400">
           {SITE_NAME}{' '}
           <span className="font-mono text-[10px]">v{SITE_VERSION}</span>
         </p>

@@ -95,6 +95,7 @@ function parseSslLabsResponse(json: unknown): SslData | null {
     valid: certInfo.valid,
     expires_at: certInfo.expires_at,
     issuer: certInfo.issuer,
+    protocols: extractProtocols(root),
   }
 }
 
@@ -155,4 +156,39 @@ function extractCertInfo(root: Record<string, unknown>): {
   }
 
   return { valid, expires_at: expiresAt, issuer }
+}
+
+/** endpoints[0].details.protocols에서 TLS 프로토콜 버전명 추출 */
+function extractProtocols(root: Record<string, unknown>): string[] {
+  const endpoints = root['endpoints']
+  if (!Array.isArray(endpoints) || endpoints.length === 0) {
+    return []
+  }
+
+  const ep = endpoints[0]
+  if (typeof ep !== 'object' || ep === null) {
+    return []
+  }
+
+  const details = (ep as Record<string, unknown>)['details']
+  if (typeof details !== 'object' || details === null) {
+    return []
+  }
+
+  const protocols = (details as Record<string, unknown>)['protocols']
+  if (!Array.isArray(protocols)) {
+    return []
+  }
+
+  return protocols
+    .filter(
+      (p): p is Record<string, unknown> => typeof p === 'object' && p !== null
+    )
+    .flatMap((p) => {
+      const name = p['name']
+      const version = p['version']
+      return typeof name === 'string' && typeof version === 'string'
+        ? [`${name} ${version}`]
+        : []
+    })
 }
