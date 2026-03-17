@@ -12,9 +12,15 @@ export function QuickWinCard({
   quickWin,
   diagnosisId,
 }: QuickWinCardProps): React.JSX.Element {
-  const severity = SCORING.SEVERITY_STYLES[quickWin.severity]
-  const categoryName = CATEGORY_CONFIG[quickWin.category].name
-  const barColor = SCORING.SEVERITY_BAR_COLORS[quickWin.severity]
+  const severity = SCORING.SEVERITY_STYLES[quickWin.severity] ?? {
+    bg: 'bg-slate-50',
+    text: 'text-slate-600',
+    label: quickWin.severity,
+  }
+  const categoryName =
+    CATEGORY_CONFIG[quickWin.category]?.name ?? quickWin.category
+  const barColor =
+    SCORING.SEVERITY_BAR_COLORS[quickWin.severity] ?? 'bg-slate-400'
   const detailUrl = `/diagnosis/overview?id=${diagnosisId}`
 
   return (
