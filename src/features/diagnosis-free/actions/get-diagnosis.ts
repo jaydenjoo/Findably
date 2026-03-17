@@ -39,7 +39,7 @@ export async function getDiagnosisAction(
 
     let query = supabase
       .from('diagnoses')
-      .select('id, url, analysis_data, payment_status, crawl_data, status')
+      .select('id, url, analysis_data, tier, crawl_data, status')
       .eq('user_id', user.id)
 
     if (diagnosisId) {
@@ -69,7 +69,7 @@ export async function getDiagnosisAction(
     }
 
     const partialInfo = parsePartialInfo(data.crawl_data)
-    const tier: UserTier = data.payment_status === 'paid' ? 'paid' : 'free'
+    const tier: UserTier = data.tier === 'paid' ? 'paid' : 'free'
 
     return {
       data: {
