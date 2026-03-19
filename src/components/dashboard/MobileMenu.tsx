@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu, LogOut } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import {
   Sheet,
   SheetTrigger,
@@ -23,14 +22,8 @@ export function MobileMenu(): React.JSX.Element {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            aria-label="메뉴 열기"
-          />
-        }
+        className="inline-flex size-8 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none lg:hidden"
+        aria-label="메뉴 열기"
       >
         <Menu className="size-5" />
       </SheetTrigger>

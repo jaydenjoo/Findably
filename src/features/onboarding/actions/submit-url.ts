@@ -56,55 +56,51 @@ export async function submitUrlAction(
     return { error: '진단 요청에 실패했습니다. 잠시 후 다시 시도해주세요.' }
   }
 
-  // 폴백용 baseUrl을 리퀘스트 컨텍스트 안에서 미리 캡처
-  // (headers()는 redirect 후 fire-and-forget에서 호출 불가)
-  const headersList = await headers()
-  const host = headersList.get('host') ?? 'localhost:3600'
-  const proto = headersList.get('x-forwarded-proto') ?? 'http'
-  const fallbackBaseUrl = `${proto}://${host}`
-
-  // n8n 웹훅으로 크롤링 트리거 (fire-and-forget: redirect() 사용하므로 await 불가)
+  // n8n 웹훅으로 크롤링 트리거 (await — Vercel 서버리스에서 void fire-and-forget 불가)
   // n8n v2: 10 노드 병렬 크롤링 → /api/crawl/complete 콜백 → 진단 엔진
   // n8n 미설정 시 폴백: /api/crawl/execute (Layer 2+3, ~60% 데이터)
-  void triggerCrawl({
-    diagnosisId: data.id,
-    url: validated.data.url,
-    userId: user.id,
-  })
-    .then(async (result) => {
-      if (result.success) {
-        // n8n 트리거 성공 → status를 crawling으로 업데이트
-        const updateSupabase = await createClient()
-        await updateSupabase
-          .from('diagnoses')
-          .update({ status: 'crawling' })
-          .eq('id', data.id)
-        return
-      }
+  try {
+    const triggerResult = await triggerCrawl({
+      diagnosisId: data.id,
+      url: validated.data.url,
+      userId: user.id,
+    })
 
+    if (triggerResult.success) {
+      // n8n 트리거 성공 → status를 crawling으로 업데이트
+      await supabase
+        .from('diagnoses')
+        .update({ status: 'crawling' })
+        .eq('id', data.id)
+    } else {
       // n8n 미설정 또는 실패 → /api/crawl/execute 폴백
-      console.warn('[submitUrlAction] n8n 실패, 폴백:', result.error)
-      if (!CRAWL_EXECUTE_SECRET) {
+      console.warn('[submitUrlAction] n8n 실패, 폴백:', triggerResult.error)
+      if (CRAWL_EXECUTE_SECRET) {
+        const headersList = await headers()
+        const host = headersList.get('host') ?? 'localhost:3600'
+        const proto = headersList.get('x-forwarded-proto') ?? 'http'
+        const fallbackBaseUrl = `${proto}://${host}`
+
+        await fetch(`${fallbackBaseUrl}/api/crawl/execute`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-internal-secret': CRAWL_EXECUTE_SECRET,
+          },
+          body: JSON.stringify({
+            diagnosisId: data.id,
+            url: validated.data.url,
+          }),
+        })
+      } else {
         console.error(
           '[submitUrlAction] 폴백 불가: CRAWL_EXECUTE_SECRET 미설정'
         )
-        return
       }
-      await fetch(`${fallbackBaseUrl}/api/crawl/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-internal-secret': CRAWL_EXECUTE_SECRET,
-        },
-        body: JSON.stringify({
-          diagnosisId: data.id,
-          url: validated.data.url,
-        }),
-      })
-    })
-    .catch((triggerError: unknown) => {
-      console.error('[submitUrlAction] 크롤링 트리거 실패:', triggerError)
-    })
+    }
+  } catch (triggerError: unknown) {
+    console.error('[submitUrlAction] 크롤링 트리거 실패:', triggerError)
+  }
 
   redirect(`/onboarding/info?id=${data.id}`)
 }

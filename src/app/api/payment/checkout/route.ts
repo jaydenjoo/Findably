@@ -1,4 +1,4 @@
-import { type NextRequest } from 'next/server'
+import { type NextRequest, after } from 'next/server'
 import { z } from 'zod'
 import { withAuth } from '@/lib/api/with-auth'
 import { successResponse, errorResponse } from '@/lib/api/response'
@@ -78,21 +78,25 @@ export async function POST(request: NextRequest): Promise<Response> {
       )
     }
 
-    // 5. 유료 분석 트리거 (fire-and-forget — 결제 응답 즉시 반환)
+    // 5. 유료 분석 트리거 (after() — Vercel Lambda 수명 연장)
     //    createPayment에서 이미 status='analyzing'으로 설정됨
     //    분석 실패 시 status='failed'로 변경되어 대시보드에서 재시도 안내
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
     const internalSecret = process.env.CRAWL_EXECUTE_SECRET
     if (baseUrl && internalSecret) {
-      fetch(`${baseUrl}/api/payment/trigger-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-internal-secret': internalSecret,
-        },
-        body: JSON.stringify({ diagnosisId: body.diagnosisId }),
-      }).catch((triggerError: unknown) => {
-        console.error('[checkout] 유료 분석 트리거 실패:', triggerError)
+      after(async () => {
+        try {
+          await fetch(`${baseUrl}/api/payment/trigger-analysis`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-internal-secret': internalSecret,
+            },
+            body: JSON.stringify({ diagnosisId: body.diagnosisId }),
+          })
+        } catch (triggerError: unknown) {
+          console.error('[checkout] 유료 분석 트리거 실패:', triggerError)
+        }
       })
     } else {
       console.error('[checkout] 환경변수 미설정:', {

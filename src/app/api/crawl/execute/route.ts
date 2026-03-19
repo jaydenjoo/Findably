@@ -60,8 +60,10 @@ export async function POST(request: NextRequest): Promise<Response> {
     return errorResponse('진단을 찾을 수 없습니다', 404)
   }
 
-  // 이미 완료/분석 중이면 중복 실행 방지
-  if (diagnosis.status === 'completed' || diagnosis.status === 'analyzing') {
+  // 이미 진행 중/완료/실패면 중복 실행 방지 (race condition 가드)
+  if (
+    ['completed', 'analyzing', 'crawling', 'failed'].includes(diagnosis.status)
+  ) {
     return successResponse({
       skipped: true,
       reason: `이미 ${diagnosis.status} 상태입니다`,
