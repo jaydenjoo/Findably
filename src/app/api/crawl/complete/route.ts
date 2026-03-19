@@ -31,9 +31,8 @@ const completePayloadSchema = z.object({
 type CompletePayload = z.infer<typeof completePayloadSchema>
 
 /**
- * POST /api/crawl/complete
+ * n8n v2 워크플로우 완료 콜백 — 공통 핸들러
  *
- * n8n v2 워크플로우 완료 콜백.
  * 1. 웹훅 시크릿 검증 (Authorization 헤더)
  * 2. 페이로드 파싱 + Zod 검증
  * 3. raw crawlResult → CrawlData 정규화
@@ -42,7 +41,7 @@ type CompletePayload = z.infer<typeof completePayloadSchema>
  *
  * 인증: 사용자 세션이 아닌 웹훅 시크릿으로 검증 (서버 간 통신)
  */
-export async function POST(request: NextRequest): Promise<Response> {
+async function handleCallback(request: NextRequest): Promise<Response> {
   // 1. 웹훅 시크릿 검증
   const authHeader = request.headers.get('authorization')
   const expectedSecret = crawlingConfig.webhookSecret
@@ -126,3 +125,10 @@ export async function POST(request: NextRequest): Promise<Response> {
     return errorResponse('크롤링 처리 중 오류가 발생했습니다', 500)
   }
 }
+
+/**
+ * POST — 정상 콜백
+ * GET  — n8n이 trailing slash 308 리다이렉트 따라가면서 POST→GET 변환되는 케이스 대응
+ */
+export const POST = handleCallback
+export const GET = handleCallback
