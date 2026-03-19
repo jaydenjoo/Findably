@@ -1,5 +1,7 @@
 'use client'
 
+import { useCallback, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type {
   AICitationPossibilityScore,
@@ -25,6 +27,12 @@ interface DashboardContentProps {
   tier: UserTier
 }
 
+/** 결제 API 응답 타입 */
+interface CheckoutApiResponse {
+  success: boolean
+  error?: string
+}
+
 const SCORE_MESSAGES: Record<ScoreGrade, string> = {
   excellent: '마케팅 건강 상태가 양호합니다. 세부 최적화로 완성도를 높이세요.',
   good: '좋은 출발이에요! 아래 Quick Win부터 개선하면 크게 성장할 수 있습니다.',
@@ -44,8 +52,40 @@ export function DashboardContent({
   diagnosisId,
   tier,
 }: DashboardContentProps): React.JSX.Element {
+  const router = useRouter()
   const scoreColor = SCORING.getScoreColor(overallScore.score)
   const isFree = tier === 'free'
+
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
+
+  // 즉시 결제 처리 (Mock — 별도 결제 프로세스 없이 바로 유료 전환)
+  const handleInstantCheckout = useCallback(async () => {
+    if (isProcessing) return
+    setIsProcessing(true)
+    setCheckoutError(null)
+
+    try {
+      const response = await fetch('/api/payment/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ diagnosisId }),
+      })
+      const result = (await response.json()) as CheckoutApiResponse
+
+      if (!response.ok || !result.success) {
+        setCheckoutError(result.error ?? '처리에 실패했습니다.')
+        setIsProcessing(false)
+        return
+      }
+
+      // 성공 → 페이지 새로고침으로 tier='paid' 반영
+      router.refresh()
+    } catch {
+      setCheckoutError('네트워크 오류가 발생했습니다. 다시 시도해주세요.')
+      setIsProcessing(false)
+    }
+  }, [diagnosisId, isProcessing, router])
 
   // DB에 저장된 구버전 데이터에 이 필드가 null일 수 있으므로 방어 처리
   const passedRules = overallScore.passedRules ?? 0
@@ -77,6 +117,17 @@ export function DashboardContent({
 
       {/* robots.txt 차단 경고 배너 */}
       {isPartial && <PartialDataBanner blockedReason={blockedReason} />}
+
+      {/* 결제 에러 표시 */}
+      {checkoutError && (
+        <div
+          className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700"
+          role="alert"
+          aria-live="polite"
+        >
+          {checkoutError}
+        </div>
+      )}
 
       {/* 1행: 종합 점수 + AI 인용 가능성 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -145,7 +196,8 @@ export function DashboardContent({
           {isFree && hiddenQuickWins.length > 0 && (
             <BlurOverlay
               visiblePercent={15}
-              ctaHref={`/checkout/${diagnosisId}`}
+              onCtaClick={handleInstantCheckout}
+              ctaDisabled={isProcessing}
             >
               <div className="flex gap-4 overflow-hidden pb-2">
                 {hiddenQuickWins.map((qw) => (
@@ -175,12 +227,14 @@ export function DashboardContent({
             계획까지 제공합니다.
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link
-              href={`/checkout/${diagnosisId}`}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600"
+            <button
+              type="button"
+              onClick={handleInstantCheckout}
+              disabled={isProcessing}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              상세 분석 받기 — 9.9만원
-            </Link>
+              {isProcessing ? '처리 중...' : '상세 분석 받기 — 9.9만원'}
+            </button>
             <Link
               href="/reports/sample"
               className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"

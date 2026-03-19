@@ -30,6 +30,10 @@ export interface BlurOverlayProps {
   visiblePercent?: number
   ctaLabel?: string
   ctaHref?: string
+  /** ctaHref 대신 클릭 핸들러 사용 (즉시 결제 등) */
+  onCtaClick?: () => void
+  /** CTA 버튼 비활성화 (처리 중) */
+  ctaDisabled?: boolean
   sampleLabel?: string
   sampleHref?: string
 }

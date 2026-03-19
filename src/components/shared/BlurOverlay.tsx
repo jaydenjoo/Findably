@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link'
 import { Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -6,16 +8,15 @@ import type { BlurOverlayProps } from '@/types/ui'
 /**
  * 유료 전환 블러 오버레이 — 상단 일부만 선명하게 보여주고 나머지는 블러
  *
- * @example
- * <BlurOverlay ctaHref="/pricing" sampleHref="/reports/sample">
- *   <DetailedReport data={data} />
- * </BlurOverlay>
+ * onCtaClick이 제공되면 Link 대신 button onClick으로 동작 (즉시 결제 등)
  */
 export function BlurOverlay({
   children,
   visiblePercent = 25,
   ctaLabel = '상세 분석 받기 — 9.9만원',
   ctaHref = '/pricing',
+  onCtaClick,
+  ctaDisabled,
   sampleLabel = '샘플 먼저 보기 →',
   sampleHref = '/reports/sample',
 }: BlurOverlayProps): React.JSX.Element {
@@ -50,12 +51,22 @@ export function BlurOverlay({
         </p>
 
         <div className="flex flex-col items-center gap-2 sm:flex-row">
-          <Button
-            render={<Link href={ctaHref} />}
-            aria-label={`${ctaLabel} — 유료 상세 분석으로 이동`}
-          >
-            {ctaLabel}
-          </Button>
+          {onCtaClick ? (
+            <Button
+              onClick={onCtaClick}
+              disabled={ctaDisabled}
+              aria-label={`${ctaLabel} — 유료 상세 분석 즉시 활성화`}
+            >
+              {ctaDisabled ? '처리 중...' : ctaLabel}
+            </Button>
+          ) : (
+            <Button
+              render={<Link href={ctaHref} />}
+              aria-label={`${ctaLabel} — 유료 상세 분석으로 이동`}
+            >
+              {ctaLabel}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
