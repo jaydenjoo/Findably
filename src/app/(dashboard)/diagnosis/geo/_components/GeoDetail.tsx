@@ -98,13 +98,24 @@ export function GeoDetail({
   )
 
   const totalWeight = geoCategories.reduce((sum, c) => sum + c.weight, 0)
-  const weightedScore =
+  const categoryScore =
     totalWeight > 0
       ? Math.round(
           geoCategories.reduce((sum, c) => sum + c.score * c.weight, 0) /
             totalWeight
         )
       : 0
+
+  // 카테고리 룰이 모두 skip되어 0점이면 AI 인용 점수를 대표 점수로 사용
+  const allSkipped = geoCategories.every(
+    (c) => c.passedCount === 0 && c.totalCount === c.skippedCount
+  )
+  let weightedScore = 0
+  if (categoryScore > 0) {
+    weightedScore = categoryScore
+  } else if (allSkipped) {
+    weightedScore = citation.overallScore
+  }
 
   return (
     <div className="flex flex-col gap-6">

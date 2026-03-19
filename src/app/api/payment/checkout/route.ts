@@ -82,19 +82,23 @@ export async function POST(request: NextRequest): Promise<Response> {
     //    createPayment에서 이미 status='analyzing'으로 설정됨
     //    분석 실패 시 status='failed'로 변경되어 대시보드에서 재시도 안내
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
-    if (baseUrl) {
-      fetch(`${baseUrl}/api/dev/trigger-paid`, {
+    const internalSecret = process.env.CRAWL_EXECUTE_SECRET
+    if (baseUrl && internalSecret) {
+      fetch(`${baseUrl}/api/payment/trigger-analysis`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Cookie: request.headers.get('cookie') ?? '',
+          'x-internal-secret': internalSecret,
         },
         body: JSON.stringify({ diagnosisId: body.diagnosisId }),
       }).catch((triggerError: unknown) => {
         console.error('[checkout] 유료 분석 트리거 실패:', triggerError)
       })
     } else {
-      console.error('[checkout] NEXT_PUBLIC_SITE_URL 환경변수 미설정')
+      console.error('[checkout] 환경변수 미설정:', {
+        siteUrl: !!baseUrl,
+        secret: !!internalSecret,
+      })
     }
 
     return successResponse({

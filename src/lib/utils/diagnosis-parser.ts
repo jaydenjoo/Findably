@@ -90,6 +90,57 @@ function isBlocked(status: string | undefined): boolean {
   return status === 'blocked' || status === 'none'
 }
 
+/** severity 문자열 → 숫자 impact 변환 (fallback용) */
+const SEVERITY_TO_IMPACT: Record<string, number> = {
+  critical: 15,
+  high: 10,
+  medium: 5,
+  low: 2,
+}
+
+/** DB 원시 QuickWin 형태 (엔진 버전에 따라 필드명 차이 가능) */
+interface RawQuickWin {
+  ruleId?: string
+  ruleName?: string
+  id?: string
+  name?: string
+  category?: string
+  severity?: string
+  message?: string
+  impact?: unknown
+  points?: number
+  maxPoints?: number
+  source?: string
+}
+
+/** 원시 impact/severity/points → 숫자 impact 변환 */
+function resolveImpact(item: RawQuickWin): number {
+  if (typeof item.impact === 'number') return item.impact
+  if (item.maxPoints != null) return item.maxPoints
+  if (item.points != null) return item.points
+  if (typeof item.impact === 'string')
+    return SEVERITY_TO_IMPACT[item.impact] ?? 5
+  if (typeof item.severity === 'string')
+    return SEVERITY_TO_IMPACT[item.severity] ?? 5
+  return 5
+}
+
+/** 원시 quickWins 배열 → QuickWin[] 정규화 (BUG 1·3 수정) */
+function normalizeQuickWins(raw: unknown): OverallScore['quickWins'] {
+  if (!Array.isArray(raw)) return []
+
+  return raw.map((item: RawQuickWin) => ({
+    ruleId: item.ruleId ?? item.id ?? 'unknown',
+    ruleName: item.ruleName ?? item.name ?? '알 수 없는 항목',
+    category: (item.category ?? 'technical') as CategoryId,
+    severity: (item.severity ??
+      'medium') as OverallScore['quickWins'][number]['severity'],
+    message: item.message ?? '',
+    impact: resolveImpact(item),
+    source: (item.source === 'ai' ? 'ai' : 'rule') as 'rule' | 'ai',
+  }))
+}
+
 /** 점수 기반 AI 인용 추천 메시지 생성 */
 function generateCitationRecommendation(score: number): string {
   if (score >= 70) {
@@ -192,17 +243,27 @@ export function parseAnalysisData(raw: unknown): AnalysisData | null {
     grade,
     gradeLabel,
     categories: normalizeCategories(rawOverall.categories),
-    quickWins: Array.isArray(rawOverall.quickWins)
-      ? (rawOverall.quickWins as OverallScore['quickWins'])
-      : [],
+    quickWins: normalizeQuickWins(rawOverall.quickWins),
     totalRules:
       typeof rawOverall.totalRules === 'number' ? rawOverall.totalRules : 0,
     passedRules:
-      typeof rawOverall.passedRules === 'number' ? rawOverall.passedRules : 0,
+      typeof rawOverall.passedRules === 'number'
+        ? rawOverall.passedRules
+        : typeof rawOverall.passedCount === 'number'
+          ? (rawOverall.passedCount as number)
+          : 0,
     failedRules:
-      typeof rawOverall.failedRules === 'number' ? rawOverall.failedRules : 0,
+      typeof rawOverall.failedRules === 'number'
+        ? rawOverall.failedRules
+        : typeof rawOverall.failedCount === 'number'
+          ? (rawOverall.failedCount as number)
+          : 0,
     skippedRules:
-      typeof rawOverall.skippedRules === 'number' ? rawOverall.skippedRules : 0,
+      typeof rawOverall.skippedRules === 'number'
+        ? rawOverall.skippedRules
+        : typeof rawOverall.skippedCount === 'number'
+          ? (rawOverall.skippedCount as number)
+          : 0,
     evaluatedAt:
       typeof rawOverall.evaluatedAt === 'string'
         ? rawOverall.evaluatedAt

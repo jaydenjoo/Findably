@@ -3,6 +3,8 @@ import type {
   GapAnalysisResult,
 } from '@/features/competitors'
 import { BlurOverlay } from '@/components/shared/BlurOverlay'
+import { EmptyState } from '@/components/shared/EmptyState'
+import { Users } from 'lucide-react'
 import { ComparisonMatrixTable } from './ComparisonMatrixTable'
 import { GapAnalysisSection } from './GapAnalysisSection'
 
@@ -17,6 +19,30 @@ export function CompetitorsContent({
   gapAnalysis,
   isPaid,
 }: CompetitorsContentProps): React.JSX.Element {
+  const hasCompetitors = matrix.competitors.length > 0
+
+  // 유료 사용자인데 경쟁사 데이터가 없는 경우 — 빈 상태
+  if (isPaid && !hasCompetitors) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            경쟁사 비교 분석
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            경쟁사 데이터를 수집하면 카테고리별 비교 분석을 확인할 수 있습니다.
+          </p>
+        </div>
+        <EmptyState
+          icon={Users}
+          title="경쟁사 데이터가 아직 없습니다"
+          description="상세 분석을 진행하면 경쟁사를 자동으로 탐색하고 비교 분석합니다."
+          action={{ label: '대시보드로 이동 →', href: '/dashboard' }}
+        />
+      </div>
+    )
+  }
+
   const content = (
     <div className="space-y-8">
       {/* Header */}
@@ -25,9 +51,7 @@ export function CompetitorsContent({
           경쟁사 비교 분석
         </h1>
         <p className="mt-2 text-sm text-slate-500">
-          {matrix.competitors.length > 0
-            ? `${matrix.competitors.length}개 경쟁사와의 카테고리별 비교 분석입니다.`
-            : '경쟁사 데이터가 아직 없습니다. 상세 분석을 통해 경쟁사를 추가하세요.'}
+          {`${matrix.competitors.length}개 경쟁사와의 카테고리별 비교 분석입니다.`}
         </p>
       </div>
 
