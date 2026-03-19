@@ -1,17 +1,23 @@
 import type { Metadata } from 'next'
+import dynamic from 'next/dynamic'
 import { DM_Sans, JetBrains_Mono } from 'next/font/google'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { JsonLd } from '@/components/shared/JsonLd'
 import { SkipLink } from '@/components/shared/SkipLink'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { SessionExpiryWarning } from '@/features/auth/components/SessionExpiryWarning'
 import { SEO } from '@/config/seo'
+
+const SessionExpiryWarning = dynamic(() =>
+  import('@/features/auth/components/SessionExpiryWarning').then(
+    (mod) => mod.SessionExpiryWarning
+  )
+)
 import './globals.css'
 
 const dmSans = DM_Sans({
   variable: '--font-dm-sans',
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+  weight: ['400', '600', '700', '800'],
   display: 'swap',
 })
 
