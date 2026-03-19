@@ -21,7 +21,9 @@ export function GoogleAuthButton(): React.JSX.Element {
     setErrorMessage('')
     const supabase = createClient()
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+    // 클라이언트 컴포넌트이므로 window.location.origin 직접 사용
+    // NEXT_PUBLIC_ 변수는 빌드 시점에 고정되어 환경별 차이 발생 가능
+    const baseUrl = window.location.origin
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
