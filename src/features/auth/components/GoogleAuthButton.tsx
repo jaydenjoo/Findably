@@ -21,10 +21,11 @@ export function GoogleAuthButton(): React.JSX.Element {
     setErrorMessage('')
     const supabase = createClient()
 
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${baseUrl}/auth/callback`,
       },
     })
 
