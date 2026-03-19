@@ -47,3 +47,6 @@ next-env.d.ts
 
 # playwright mcp
 .playwright-mcp/
+
+# n8n workflows (contains hardcoded API keys)
+n8n/

@@ -87,11 +87,20 @@ export function OverviewContent({
 }: OverviewContentProps): React.JSX.Element {
   const scoreColor = SCORING.getScoreColor(overallScore.score)
   const isFree = tier === 'free'
+
+  // DB에 저장된 구버전 데이터에 이 필드가 null일 수 있으므로 방어 처리
+  const totalRules = overallScore.totalRules ?? 0
+  const passedRules = overallScore.passedRules ?? 0
+  const failedRules = overallScore.failedRules ?? 0
+  const skippedRules = overallScore.skippedRules ?? 0
+  const categories = overallScore.categories ?? []
+  const quickWins = overallScore.quickWins ?? []
+
   const visibleQuickWins = isFree
-    ? overallScore.quickWins.slice(0, ACCESS.FREE_QUICK_WIN_LIMIT)
-    : overallScore.quickWins
+    ? quickWins.slice(0, ACCESS.FREE_QUICK_WIN_LIMIT)
+    : quickWins
   const hiddenQuickWins = isFree
-    ? overallScore.quickWins.slice(ACCESS.FREE_QUICK_WIN_LIMIT)
+    ? quickWins.slice(ACCESS.FREE_QUICK_WIN_LIMIT)
     : []
 
   return (
@@ -111,28 +120,28 @@ export function OverviewContent({
           <span>
             통과{' '}
             <strong className="font-semibold text-slate-700">
-              {overallScore.passedRules}
+              {passedRules}
             </strong>
           </span>
           <span>
             실패{' '}
             <strong className="font-semibold text-slate-700">
-              {overallScore.failedRules}
+              {failedRules}
             </strong>
           </span>
-          {overallScore.skippedRules > 0 && (
+          {skippedRules > 0 && (
             <span>
               스킵{' '}
               <strong className="font-semibold text-slate-700">
-                {overallScore.skippedRules}
+                {skippedRules}
               </strong>
             </span>
           )}
         </div>
         <p className="max-w-md text-center text-sm text-slate-500">
-          총 {overallScore.totalRules}개 항목을 분석했습니다.{' '}
-          {overallScore.failedRules > 0
-            ? `${overallScore.failedRules}개 항목이 개선이 필요합니다.`
+          총 {totalRules}개 항목을 분석했습니다.{' '}
+          {failedRules > 0
+            ? `${failedRules}개 항목이 개선이 필요합니다.`
             : '모든 항목이 양호합니다.'}
         </p>
       </section>
@@ -143,7 +152,7 @@ export function OverviewContent({
           카테고리별 점수
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {overallScore.categories.map((cat) => (
+          {categories.map((cat) => (
             <CategoryCard
               key={cat.id}
               category={cat}

@@ -47,12 +47,19 @@ export function DashboardContent({
   const scoreColor = SCORING.getScoreColor(overallScore.score)
   const isFree = tier === 'free'
 
+  // DB에 저장된 구버전 데이터에 이 필드가 null일 수 있으므로 방어 처리
+  const passedRules = overallScore.passedRules ?? 0
+  const failedRules = overallScore.failedRules ?? 0
+  const skippedRules = overallScore.skippedRules ?? 0
+  const categories = overallScore.categories ?? []
+  const quickWins = overallScore.quickWins ?? []
+
   // Free 사용자: Quick Win 제한
   const visibleQuickWins = isFree
-    ? overallScore.quickWins.slice(0, ACCESS.FREE_QUICK_WIN_LIMIT)
-    : overallScore.quickWins
+    ? quickWins.slice(0, ACCESS.FREE_QUICK_WIN_LIMIT)
+    : quickWins
   const hiddenQuickWins = isFree
-    ? overallScore.quickWins.slice(ACCESS.FREE_QUICK_WIN_LIMIT)
+    ? quickWins.slice(ACCESS.FREE_QUICK_WIN_LIMIT)
     : []
 
   return (
@@ -94,19 +101,19 @@ export function DashboardContent({
             <span>
               통과{' '}
               <strong className="font-semibold text-slate-700">
-                {overallScore.passedRules}
+                {passedRules}
               </strong>
             </span>
             <span>
               실패{' '}
               <strong className="font-semibold text-slate-700">
-                {overallScore.failedRules}
+                {failedRules}
               </strong>
             </span>
             <span>
               스킵{' '}
               <strong className="font-semibold text-slate-700">
-                {overallScore.skippedRules}
+                {skippedRules}
               </strong>
             </span>
           </div>
@@ -117,7 +124,7 @@ export function DashboardContent({
       </div>
 
       {/* 2행: Quick Win — Free는 1개만, 나머지 BlurOverlay */}
-      {overallScore.quickWins.length > 0 && (
+      {quickWins.length > 0 && (
         <section className="flex flex-col gap-3" aria-label="Quick Win 항목">
           <h2 className="text-lg font-semibold text-slate-900">
             지금 바로 개선할 수 있는 항목
@@ -190,7 +197,7 @@ export function DashboardContent({
           카테고리별 점수
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {overallScore.categories.map((cat) => (
+          {categories.map((cat) => (
             <CategoryScoreCard
               key={cat.id}
               category={cat}

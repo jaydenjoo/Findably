@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 const Footer = () => (
   <footer className="bg-findably-dark text-slate-400 py-20 px-6 border-t border-findably-light/5">
     <div className="max-w-[1120px] mx-auto">
@@ -15,28 +17,20 @@ const Footer = () => (
           <h5 className="text-findably-light font-bold mb-6 text-sm">제품</h5>
           <ul className="space-y-4 text-sm">
             <li>
-              <a
-                href="#"
-                className="hover:text-findably-cyan transition-colors"
-              >
-                진단 항목
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
-                className="hover:text-findably-cyan transition-colors"
-              >
-                시뮬레이터
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
+              <Link
+                href="/pricing"
                 className="hover:text-findably-cyan transition-colors"
               >
                 가격
-              </a>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/reports/sample"
+                className="hover:text-findably-cyan transition-colors"
+              >
+                샘플 리포트
+              </Link>
             </li>
           </ul>
         </div>
@@ -44,20 +38,20 @@ const Footer = () => (
           <h5 className="text-findably-light font-bold mb-6 text-sm">법적</h5>
           <ul className="space-y-4 text-sm">
             <li>
-              <a
-                href="#"
+              <Link
+                href="/terms"
                 className="hover:text-findably-cyan transition-colors"
               >
                 이용약관
-              </a>
+              </Link>
             </li>
             <li>
-              <a
-                href="#"
+              <Link
+                href="/privacy"
                 className="hover:text-findably-cyan transition-colors"
               >
                 개인정보처리방침
-              </a>
+              </Link>
             </li>
           </ul>
         </div>
