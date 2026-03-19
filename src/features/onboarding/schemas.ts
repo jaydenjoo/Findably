@@ -9,7 +9,30 @@ export const urlSchema = z.object({
     .string()
     .min(1, 'URL을 입력해주세요')
     .max(2048, 'URL이 너무 깁니다 (최대 2,048자)')
-    .url('올바른 URL 형식이 아닙니다')
+    .transform((val) => {
+      const trimmed = val.trim()
+      // 프로토콜 없으면 https:// 자동 추가
+      if (
+        trimmed &&
+        !trimmed.startsWith('http://') &&
+        !trimmed.startsWith('https://')
+      ) {
+        return `https://${trimmed}`
+      }
+      return trimmed
+    })
+    .refine(
+      (url) => url !== 'https://' && url !== 'http://',
+      'URL을 입력해주세요'
+    )
+    .refine((url) => {
+      try {
+        new URL(url)
+        return true
+      } catch {
+        return false
+      }
+    }, '올바른 URL 형식이 아닙니다')
     .refine(
       (url) => url.startsWith('http://') || url.startsWith('https://'),
       'http:// 또는 https://로 시작해야 합니다'

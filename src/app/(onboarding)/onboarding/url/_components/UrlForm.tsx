@@ -65,8 +65,8 @@ export function UrlForm(): React.JSX.Element {
           ref={inputRef}
           id="diagnosis-url"
           name="url"
-          type="url"
-          placeholder="https://example.com"
+          type="text"
+          placeholder="example.com"
           autoComplete="url"
           aria-label="진단할 웹사이트 URL"
           aria-describedby={errorMessage ? 'url-error' : 'url-hint'}
@@ -78,7 +78,7 @@ export function UrlForm(): React.JSX.Element {
           </p>
         ) : (
           <p id="url-hint" className="text-sm text-slate-500">
-            분석할 웹사이트의 전체 주소를 입력해주세요.
+            도메인만 입력해도 됩니다. https://는 자동으로 붙습니다.
           </p>
         )}
       </div>
