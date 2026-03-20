@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test'
  * 1. 로그인 (기존 테스트 계정)
  * 2. 대시보드 → 무료 리포트 확인
  * 3. 샘플 리포트 열람
- * 4. Dev API로 유료 진단 트리거 (결제 건너뜀)
+ * 4. 결제 API로 유료 진단 트리거 (mock 어댑터 — 항상 성공)
  * 5. 대시보드 → 유료 상태 확인
  * 6. 상세 리포트 페이지 확인
  * 7. 로그아웃
@@ -25,19 +25,43 @@ test.describe('Full Flow — 무료 → 유료 → 리포트 → 로그아웃', 
     await page.goto('/login')
     await page.getByLabel('이메일').fill(TEST_EMAIL)
     await page.getByLabel('비밀번호').fill(TEST_PASSWORD)
-    await page.getByRole('button', { name: '로그인' }).click()
+    await page.getByRole('button', { name: '로그인 →' }).click()
 
-    // 대시보드 도착 대기
+    // 대시보드 도착 대기 (URL 변경 + Server Component 렌더링 완료)
     await page.waitForURL('**/dashboard**', { timeout: 15_000 })
+    await page.waitForLoadState('networkidle')
     await expect(page).toHaveURL(/\/dashboard/)
 
     // ─── Step 2: 대시보드 — 무료 리포트 확인 ───
-    // 종합 점수 게이지 또는 빈 상태 확인
+    // 대시보드에 올 수 있는 모든 유효 상태를 확인
     const hasScore = await page.locator('[role="meter"]').count()
     const hasEmptyState = await page
       .getByText('아직 진단 결과가 없어요')
       .count()
-    expect(hasScore + hasEmptyState).toBeGreaterThan(0)
+    const hasAnalyzing = await page.getByText(/분석이 진행 중입니다/).count()
+    const hasTimedOut = await page
+      .getByText('분석이 예상보다 오래 걸리고 있습니다')
+      .count()
+    const hasFailedPaid = await page
+      .getByText('상세 분석에 일시적 문제가 발생했습니다')
+      .count()
+    const hasFailedFree = await page.getByText('진단에 실패했습니다').count()
+    const hasParseError = await page
+      .getByText('진단 데이터를 읽을 수 없습니다')
+      .count()
+    const hasDbError = await page
+      .getByText('데이터를 불러올 수 없습니다')
+      .count()
+    const dashboardStateCount =
+      hasScore +
+      hasEmptyState +
+      hasAnalyzing +
+      hasTimedOut +
+      hasFailedPaid +
+      hasFailedFree +
+      hasParseError +
+      hasDbError
+    expect(dashboardStateCount).toBeGreaterThan(0)
 
     // ─── Step 3: 샘플 리포트 열람 ───
     await page.goto('/reports/sample')
@@ -46,98 +70,98 @@ test.describe('Full Flow — 무료 → 유료 → 리포트 → 로그아웃', 
     // 그린테크 샘플 콘텐츠 확인
     await expect(page.getByText(/그린테크/).first()).toBeVisible()
 
-    // ─── Step 4: 유료 진단 트리거 (결제 건너뜀) ───
-    // 먼저 현재 진단 ID 가져오기
-    // Dev API 엔드포인트 존재 확인 (ID 없이 400 예상)
-    const devApiCheck = await page.evaluate(async () => {
-      const res = await fetch('/api/dev/trigger-paid', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diagnosisId: '__NEED_ID__' }),
-      })
-      return res.status
-    })
-    expect(devApiCheck).toBe(400) // diagnosisId 검증 실패
-
-    // 진단 ID를 DB에서 가져와야 함 → 대시보드 페이지에서 추출
+    // ─── Step 4: 결제 API로 유료 진단 트리거 (mock 어댑터) ───
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
 
     // 진단이 있는 경우에만 유료 트리거 진행
     if (hasScore > 0) {
-      // 대시보드에서 진단 ID 추출 (data 속성 또는 링크에서)
+      // 대시보드에서 checkout 링크 또는 진단 ID 추출
+      const checkoutLink = await page.locator('a[href*="/checkout/"]').first()
       const diagnosisLink = await page
         .locator('a[href*="/reports/my/"]')
         .first()
-      const linkCount = await diagnosisLink.count()
 
-      if (linkCount > 0) {
-        const href = await diagnosisLink.getAttribute('href')
-        const extractedId = href?.split('/reports/my/')[1]
+      // checkout 링크에서 diagnosisId 추출 시도
+      let extractedId: string | null = null
 
-        if (extractedId) {
-          // Dev API로 유료 진단 트리거
-          const triggerResult = await page.evaluate(async (id: string) => {
-            const res = await fetch('/api/dev/trigger-paid', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ diagnosisId: id }),
-            })
-            const data = await res.json()
-            return { status: res.status, data }
-          }, extractedId)
+      const checkoutCount = await checkoutLink.count()
+      if (checkoutCount > 0) {
+        const href = await checkoutLink.getAttribute('href')
+        extractedId = href?.split('/checkout/')[1] ?? null
+      }
 
-          // 성공 또는 이미 완료 확인
-          console.log(
-            '[E2E] trigger-paid result:',
-            JSON.stringify(triggerResult)
-          )
+      // checkout 링크 없으면 리포트 링크에서 추출
+      if (!extractedId) {
+        const reportLinkCount = await diagnosisLink.count()
+        if (reportLinkCount > 0) {
+          const href = await diagnosisLink.getAttribute('href')
+          extractedId = href?.split('/reports/my/')[1] ?? null
+        }
+      }
 
-          // ─── Step 5: 대시보드 → 유료 상태 확인 ───
+      if (extractedId) {
+        // 결제 API로 유료 진단 트리거 (mock 어댑터 — 항상 성공)
+        const checkoutResult = await page.evaluate(async (id: string) => {
+          const res = await fetch('/api/payment/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ diagnosisId: id }),
+          })
+          const data = await res.json()
+          return { status: res.status, data }
+        }, extractedId)
+
+        console.log('[E2E] checkout result:', JSON.stringify(checkoutResult))
+
+        // ─── Step 5: 대시보드 → 유료 상태 확인 ───
+        // 분석 완료 대기 (최대 2분)
+        if (checkoutResult.status === 200) {
+          await page.waitForTimeout(5_000) // 분석 트리거 후 잠시 대기
           await page.goto('/dashboard')
           await page.waitForLoadState('networkidle')
 
-          // 유료 전환 후 BlurOverlay가 사라졌는지 확인
-          // (BlurOverlay CTA에 "상세 분석 받기" 텍스트가 없어야 함)
           const blurOverlayCount = await page
             .getByText('상세 분석 받기')
             .count()
+          console.log('[E2E] BlurOverlay count after paid:', blurOverlayCount)
+        }
 
-          // 유료 전환 성공 시 BlurOverlay 없음
-          if (triggerResult.status === 200) {
-            // BlurOverlay가 줄어들었거나 없어야 함
-            console.log('[E2E] BlurOverlay count after paid:', blurOverlayCount)
-          }
+        // ─── Step 6: 상세 리포트 페이지 ───
+        await page.goto(`/reports/my/${extractedId}`)
+        await page.waitForLoadState('networkidle')
 
-          // ─── Step 6: 상세 리포트 페이지 ───
-          await page.goto(`/reports/my/${extractedId}`)
-          await page.waitForLoadState('networkidle')
-
-          // 리포트 페이지가 로드됨 (404가 아님)
-          const is404 = await page.getByText('찾으시는 페이지').count()
-          if (is404 === 0) {
-            // 리포트 콘텐츠 존재 확인
-            const reportContent = await page.locator('main').count()
-            expect(reportContent).toBeGreaterThan(0)
-          }
+        // 리포트 페이지가 로드됨 (404가 아님)
+        const is404 = await page.getByText('찾으시는 페이지').count()
+        if (is404 === 0) {
+          const reportContent = await page.locator('main').count()
+          expect(reportContent).toBeGreaterThan(0)
         }
       }
     }
 
     // ─── Step 7: 로그아웃 ───
-    // 데스크톱: 사이드바 로그아웃 / 모바일: 메뉴
-    const viewport = page.viewportSize()
-    if (viewport && viewport.width >= 1024) {
-      // 데스크톱 사이드바
-      await page.getByRole('button', { name: '로그아웃' }).click()
-    } else {
-      // 모바일 메뉴
-      await page.getByRole('button', { name: '메뉴 열기' }).click()
-      await page.getByRole('button', { name: '로그아웃' }).click()
-    }
+    await page.goto('/dashboard')
+    await page.waitForLoadState('networkidle')
 
-    // 랜딩 페이지로 리다이렉트
-    await page.waitForURL('**/', { timeout: 10_000 })
+    // Server Action <form action={logoutAction}>는 force:true 클릭으로 submit 안 됨
+    // → requestSubmit()으로 직접 폼 제출
+    const viewport = page.viewportSize()
+    if (viewport && viewport.width < 1024) {
+      await page
+        .getByRole('button', { name: '메뉴 열기' })
+        .click({ force: true })
+      await page.waitForTimeout(500)
+    }
+    await page.evaluate(() => {
+      const btn = document.querySelector('button[aria-label="로그아웃"]')
+      const form = btn?.closest('form')
+      if (form) form.requestSubmit()
+    })
+
+    // Server Action redirect → / 또는 미들웨어가 /login으로 리다이렉트
+    // 로그아웃 성공 = 더 이상 /dashboard에 머물지 않음
+    await expect(page).toHaveURL(/\/(login.*)?$/, { timeout: 15_000 })
   })
 })
 

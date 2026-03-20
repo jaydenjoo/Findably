@@ -351,12 +351,16 @@ Be specific and provide real recommendations based on your knowledge.`,
   QUERY_TEMPLATE: `"{keyword}" 관련 추천할 만한 서비스, 도구, 웹사이트를 알려주세요. 가능하면 구체적인 URL과 함께 설명해주세요.`,
 } as const
 
+/** 분석 타임아웃 (ms) — 대시보드에서 stuck 감지용 */
+const ANALYSIS_TIMEOUT_MS = 5 * 60 * 1000
+
 export const DIAGNOSIS_PAID_CONFIG = {
   MODEL,
   MIN_SUCCESS_COUNT,
   MAX_COST_PER_DIAGNOSIS_KRW,
   TOKEN_COST_USD,
   USD_TO_KRW,
+  ANALYSIS_TIMEOUT_MS,
   AGENTS,
   CMO_AGENT,
   CITATION_TRACKING,

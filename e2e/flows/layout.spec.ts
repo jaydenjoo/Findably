@@ -15,13 +15,11 @@ test.describe('Public 레이아웃 — GNB', () => {
     await page.goto('/')
 
     // GNB 존재
-    const nav = page.getByRole('navigation', { name: '메인 내비게이션' })
+    const nav = page.locator('nav')
     await expect(nav).toBeVisible()
 
-    // 로고 (Findably 텍스트 링크)
-    const logo = nav.getByRole('link', { name: /Findably 홈으로 이동/ })
-    await expect(logo).toBeVisible()
-    await expect(logo).toHaveAttribute('href', '/')
+    // 로고 (Findably 텍스트)
+    await expect(nav.getByText('Findably').first()).toBeVisible()
   })
 
   test('GNB 데스크톱 메뉴 링크 표시', async ({ page }) => {
@@ -29,12 +27,12 @@ test.describe('Public 레이아웃 — GNB', () => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/')
 
-    const nav = page.getByRole('navigation', { name: '메인 내비게이션' })
+    const nav = page.locator('nav')
 
     // 메뉴 항목
     await expect(nav.getByRole('link', { name: '기능' })).toBeVisible()
-    await expect(nav.getByRole('link', { name: '요금제' })).toBeVisible()
-    await expect(nav.getByRole('link', { name: '샘플 리포트' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: '가격' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: '비교' })).toBeVisible()
 
     // CTA 버튼
     await expect(nav.getByRole('link', { name: '로그인' })).toBeVisible()
@@ -49,37 +47,38 @@ test.describe('Public 레이아웃 — GNB', () => {
     await page.goto('/')
 
     // 데스크톱 메뉴 숨겨짐
-    const nav = page.getByRole('navigation', { name: '메인 내비게이션' })
+    const nav = page.locator('nav')
     await expect(nav.getByRole('link', { name: '기능' })).not.toBeVisible()
 
     // 햄버거 버튼 클릭
-    const hamburger = page.getByRole('button', { name: '메뉴 열기' })
+    const hamburger = page.getByRole('button', { name: '메뉴 열기/닫기' })
     await expect(hamburger).toBeVisible()
     await hamburger.click()
 
-    // Sheet에서 메뉴 항목 표시
-    await expect(page.getByRole('link', { name: '기능' })).toBeVisible()
-    await expect(page.getByRole('link', { name: '요금제' })).toBeVisible()
-    await expect(page.getByRole('link', { name: '샘플 리포트' })).toBeVisible()
+    // Sheet에서 메뉴 항목 표시 (footer에도 동일 링크 존재 → nav 스코프)
+    await expect(nav.getByRole('link', { name: '기능' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: '가격' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: '비교' })).toBeVisible()
   })
 })
 
 test.describe('홈페이지 CTA', () => {
-  test('메인 CTA → /signup 링크', async ({ page }) => {
+  test('메인 CTA 버튼 존재 확인', async ({ page }) => {
     await page.goto('/')
 
-    // GNB CTA와 메인 CTA 둘 다 있으므로 main 영역의 것 확인
+    // 히어로 CTA는 <button> (URL 입력 후 handleSubmit으로 /signup 이동)
     const mainCta = page
       .locator('section')
-      .getByRole('link', { name: /무료 진단 시작/ })
-    await expect(mainCta).toHaveAttribute('href', '/signup')
+      .getByRole('button', { name: /무료 진단 시작/ })
+      .first()
+    await expect(mainCta).toBeVisible()
   })
 
   test('샘플 CTA → /reports/sample 링크', async ({ page }) => {
     await page.goto('/')
 
     const sampleLink = page
-      .locator('section')
+      .locator('footer')
       .getByRole('link', { name: /샘플 리포트/ })
     await expect(sampleLink).toHaveAttribute('href', '/reports/sample')
   })
@@ -99,7 +98,8 @@ test.describe('Auth 레이아웃 — GNB 미표시', () => {
     await page.goto('/login')
 
     // auth 페이지에는 메인 내비게이션이 없어야 함
-    const nav = page.getByRole('navigation', { name: '메인 내비게이션' })
-    await expect(nav).not.toBeVisible()
+    // 로그인 페이지에 nav가 있으면 public GNB 메뉴 항목은 없어야 함
+    const navLinks = page.locator('nav').getByRole('link', { name: '기능' })
+    await expect(navLinks).not.toBeVisible()
   })
 })

@@ -42,6 +42,18 @@ interface FreeAnalysisData {
   aiCitation: AICitationPossibilityScore
 }
 
+/** analysis_data JSON을 FreeAnalysisData로 안전하게 파싱 */
+function isValidFreeAnalysis(data: unknown): data is FreeAnalysisData {
+  if (!data || typeof data !== 'object') return false
+  const obj = data as Record<string, unknown>
+  return (
+    'overallScore' in obj &&
+    'categoryScores' in obj &&
+    'quickWins' in obj &&
+    'aiCitation' in obj
+  )
+}
+
 /** 사이트 컨텍스트 (DB에서 조회) */
 interface SiteContext {
   targetKeywords: string[]
@@ -60,6 +72,41 @@ interface ExecuteAgentParams {
   crawlData: CrawlData
   url: string
   context: SiteContext
+}
+
+/**
+ * 무료 분석(analysis_data) 완료를 폴링 대기
+ * 결제가 무료 분석 완료 전에 트리거되는 타이밍 이슈 대응
+ */
+async function waitForFreeAnalysis(
+  diagnosisId: string,
+  maxAttempts = 3,
+  intervalMs = 10_000
+): Promise<FreeAnalysisData | null> {
+  const supabase = createAdminClient()
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const { data } = await supabase
+      .from('diagnoses')
+      .select('analysis_data')
+      .eq('id', diagnosisId)
+      .single()
+
+    const raw = data?.analysis_data
+    if (isValidFreeAnalysis(raw)) {
+      console.log(`[runDiagnosisPaid] analysis_data 확인 (${attempt}번째 시도)`)
+      return raw
+    }
+
+    if (attempt < maxAttempts) {
+      console.log(
+        `[runDiagnosisPaid] analysis_data 대기 중... (${attempt}/${maxAttempts})`
+      )
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    }
+  }
+
+  return null
 }
 
 /**
@@ -91,12 +138,32 @@ export async function runDiagnosisPaid(
     }
 
     const crawlData = diagnosis.crawl_data as unknown as CrawlData
-    const freeAnalysis = diagnosis.analysis_data as unknown as FreeAnalysisData
 
-    if (!crawlData || !freeAnalysis) {
+    if (!crawlData) {
       return {
         success: false,
-        error: '크롤링 또는 무료 분석 데이터가 없습니다.',
+        error: '크롤링 데이터가 없습니다. 먼저 URL 분석을 완료해주세요.',
+      }
+    }
+
+    // analysis_data 확인 — 없으면 폴링 대기 (무료 분석 완료 대기)
+    let freeAnalysis: FreeAnalysisData | null = isValidFreeAnalysis(
+      diagnosis.analysis_data
+    )
+      ? diagnosis.analysis_data
+      : null
+
+    if (!freeAnalysis) {
+      console.log('[runDiagnosisPaid] analysis_data 없음 — 폴링 시작')
+      freeAnalysis = await waitForFreeAnalysis(diagnosisId)
+    }
+
+    // 폴링 후에도 없으면 실패 반환 (무료 분석 자동 트리거는 trigger-analysis API에서 처리)
+    if (!freeAnalysis) {
+      return {
+        success: false,
+        error:
+          '무료 분석 데이터가 준비되지 않았습니다. 잠시 후 다시 시도해주세요.',
       }
     }
 
@@ -228,7 +295,7 @@ async function executeAgentsParallel(
     if (!agent) {
       console.error(`[Agent:index=${index}] 에이전트 설정을 찾을 수 없음`)
       return {
-        agentId: 'technical' as AgentId,
+        agentId: (agents[0]?.id ?? 'technical') as AgentId,
         status: 'failed' as const,
         insights: [],
         tokenUsage: { input: 0, output: 0 },

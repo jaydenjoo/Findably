@@ -35,10 +35,12 @@ test.describe('F-003: 유료 전환 — Pricing 페이지', () => {
     await expect(page).toHaveURL(/\/pricing/)
 
     // 요금제 제목 렌더링
-    await expect(page.getByRole('heading', { name: '요금제' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: /내 사이트에 맞는 플랜/ })
+    ).toBeVisible()
 
-    // 요금제 비교 안내 텍스트 존재
-    await expect(page.getByText(/요금제 비교/)).toBeVisible()
+    // 요금제 뱃지 텍스트 존재
+    await expect(page.getByText(/심플한 요금제/)).toBeVisible()
   })
 
   test('/pricing 비로그인 접근 가능 (Public)', async ({ page }) => {

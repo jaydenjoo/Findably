@@ -58,7 +58,7 @@ test.describe('F-002: 샘플 리포트 — 랜딩에서 진입', () => {
     await page.goto('/')
 
     const sampleLink = page
-      .locator('section')
+      .locator('footer')
       .getByRole('link', { name: /샘플 리포트/ })
     await expect(sampleLink).toHaveAttribute('href', '/reports/sample')
   })

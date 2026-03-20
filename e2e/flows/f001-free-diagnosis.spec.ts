@@ -10,20 +10,15 @@ import { test, expect } from '@playwright/test'
  */
 
 test.describe('F-001: 무료 진단 Flow — CTA + 네비게이션', () => {
-  test('랜딩 → "무료 진단 시작" CTA → /signup 이동', async ({ page }) => {
+  test('랜딩 → "무료 진단 시작" CTA 버튼 존재 확인', async ({ page }) => {
     await page.goto('/')
 
-    // 메인 영역의 CTA (GNB CTA와 구분)
+    // 히어로 CTA는 <button> (URL 입력 후 handleSubmit으로 /signup 이동)
     const mainCta = page
       .locator('section')
-      .getByRole('link', { name: /무료 진단 시작/ })
+      .getByRole('button', { name: /무료 진단 시작/ })
       .first()
     await expect(mainCta).toBeVisible()
-    await expect(mainCta).toHaveAttribute('href', '/signup')
-
-    // 클릭 → /signup 이동
-    await mainCta.click()
-    await expect(page).toHaveURL(/\/signup/)
   })
 
   test('/signup 폼 렌더링 (이메일 + 비밀번호 + Google)', async ({ page }) => {

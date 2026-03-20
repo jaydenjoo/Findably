@@ -9,6 +9,7 @@ import {
   parsePartialInfo,
 } from '@/lib/utils/diagnosis-parser'
 import type { UserTier } from '@/lib/access-control/get-user-tier'
+import { DIAGNOSIS_PAID_CONFIG } from '@/config/diagnosis-paid'
 
 export const metadata: Metadata = {
   title: '대시보드 | Findably',
@@ -29,7 +30,9 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
   // 가장 최근 진단 조회 (완료 우선, 없으면 진행 중)
   const { data: diagnosis, error } = await supabase
     .from('diagnoses')
-    .select('id, analysis_data, total_score, grade, status, crawl_data, tier')
+    .select(
+      'id, analysis_data, total_score, grade, status, crawl_data, tier, updated_at'
+    )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -69,6 +72,27 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
 
   // 진행 중 (pending / crawling / analyzing)
   if (diagnosis.status !== 'completed' && diagnosis.status !== 'failed') {
+    // 타임아웃 감지: updated_at이 5분 이상 지났으면 분석 실패로 간주
+    const updatedAt = diagnosis.updated_at
+      ? new Date(diagnosis.updated_at as string)
+      : null
+    const now = new Date()
+    const isTimedOut =
+      updatedAt !== null &&
+      now.getTime() - updatedAt.getTime() >
+        DIAGNOSIS_PAID_CONFIG.ANALYSIS_TIMEOUT_MS
+
+    if (isTimedOut) {
+      return (
+        <EmptyState
+          icon={AlertCircle}
+          title="분석이 예상보다 오래 걸리고 있습니다"
+          description="분석 중 일시적 문제가 발생한 것 같습니다. 새로고침을 시도해주세요. 문제가 계속되면 support@findably.co.kr로 문의해주세요."
+          action={{ label: '새로고침 →', href: '/dashboard' }}
+        />
+      )
+    }
+
     return (
       <EmptyState
         icon={BarChart3}

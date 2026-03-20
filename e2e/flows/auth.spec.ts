@@ -15,7 +15,7 @@ test.describe('Auth Pages — 렌더링 + 네비게이션', () => {
     await page.goto('/login')
 
     // 제목 확인
-    await expect(page.getByRole('heading', { name: '로그인' })).toBeVisible()
+    await expect(page.getByText('로그인').first()).toBeVisible()
 
     // 이메일/비밀번호 입력 필드 존재
     await expect(page.getByLabel(/이메일/)).toBeVisible()
@@ -31,7 +31,7 @@ test.describe('Auth Pages — 렌더링 + 네비게이션', () => {
   test('회원가입 페이지 렌더링', async ({ page }) => {
     await page.goto('/signup')
 
-    await expect(page.getByRole('heading', { name: '회원가입' })).toBeVisible()
+    await expect(page.getByText('회원가입').first()).toBeVisible()
 
     await expect(page.getByLabel(/이메일/)).toBeVisible()
     await expect(page.getByLabel(/비밀번호/)).toBeVisible()
@@ -44,9 +44,7 @@ test.describe('Auth Pages — 렌더링 + 네비게이션', () => {
   test('비밀번호 재설정 페이지 렌더링', async ({ page }) => {
     await page.goto('/reset-password')
 
-    await expect(
-      page.getByRole('heading', { name: '비밀번호 재설정' })
-    ).toBeVisible()
+    await expect(page.getByText('비밀번호 재설정').first()).toBeVisible()
 
     await expect(page.getByLabel(/이메일/)).toBeVisible()
     await expect(
@@ -57,11 +55,9 @@ test.describe('Auth Pages — 렌더링 + 네비게이션', () => {
   test('이메일 확인 페이지 렌더링', async ({ page }) => {
     await page.goto('/signup/confirm')
 
-    await expect(
-      page.getByRole('heading', { name: '이메일을 확인해주세요' })
-    ).toBeVisible()
+    await expect(page.getByText('이메일을 확인해주세요').first()).toBeVisible()
 
-    await expect(page.getByText(/인증 링크/)).toBeVisible()
+    await expect(page.getByText(/인증 링크/).first()).toBeVisible()
   })
 
   test('로그인 → 가입 → 로그인 네비게이션', async ({ page }) => {
@@ -93,17 +89,18 @@ test.describe('Auth Forms — 클라이언트 검증', () => {
     await page.goto('/login')
 
     // 빈 상태에서 제출
-    await page.getByRole('button', { name: /로그인/ }).click()
+    await page.getByRole('button', { name: '로그인 →' }).click()
 
-    // HTML5 required 또는 Zod 에러 메시지 표시
-    // (정확한 에러 표시 방식은 구현에 따라 다름)
-    await expect(page.getByLabel(/이메일/)).toBeFocused()
+    // Zod 클라이언트 검증 → role="alert" 에러 메시지 표시
+    await expect(page.getByRole('alert').first()).toBeVisible()
   })
 
   test('회원가입: 빈 폼 제출 시 에러 표시', async ({ page }) => {
     await page.goto('/signup')
 
-    await page.getByRole('button', { name: /가입/ }).click()
-    await expect(page.getByLabel(/이메일/)).toBeFocused()
+    await page.getByRole('button', { name: '가입하기 →' }).click()
+
+    // Zod 클라이언트 검증 → role="alert" 에러 메시지 표시
+    await expect(page.getByRole('alert').first()).toBeVisible()
   })
 })
