@@ -10,6 +10,7 @@ import {
 import { runDiagnosis } from '@/features/diagnosis-free/services/run-diagnosis'
 import type { CrawlData } from '@/features/crawling'
 import { parseCrawlV2Result } from '@/features/crawling/services/parse-crawl-v2'
+import { fetchSslLabs } from '@/features/crawling/fetchers/ssl-labs'
 
 /**
  * n8n v2 콜백 페이로드 스키마
@@ -74,12 +75,25 @@ async function handleCallback(request: NextRequest): Promise<Response> {
 
   try {
     // 3. raw crawlResult → CrawlData 정규화
-    const crawlData: CrawlData = parseCrawlV2Result({
+    const parsedCrawlData: CrawlData = parseCrawlV2Result({
       url: payload.url,
       crawlResult: payload.crawlResult,
       dataCompleteness: payload.dataCompleteness,
       failedSources: payload.failedSources,
     })
+
+    // 3.5. SSL Labs 보충 — n8n에서 실패/미수집 시 Next.js에서 직접 호출
+    let crawlData = parsedCrawlData
+    if (!parsedCrawlData.layer3?.ssl) {
+      const ssl = await fetchSslLabs(payload.url)
+      if (ssl) {
+        const layer3 = parsedCrawlData.layer3
+          ? { ...parsedCrawlData.layer3, ssl }
+          : { ssl, observatory: null }
+        crawlData = { ...parsedCrawlData, layer3 }
+        console.log('[crawl/complete] SSL Labs 보충 성공:', ssl.grade)
+      }
+    }
 
     // 4. Supabase 저장
     const result = await saveCrawlResult({

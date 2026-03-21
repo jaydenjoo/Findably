@@ -579,7 +579,73 @@ export function buildCrawlSummary(crawlData: CrawlData): string {
     parts.push(`### CMS\n- 감지: ${crawlData.cms.detected}`)
   }
 
+  // ── markdownContent 요약 (Firecrawl 본문) ──
+  if (crawlData.markdownContent) {
+    const contentSummary = extractContentSummary(crawlData.markdownContent)
+    parts.push(`### 페이지 본문 요약\n${contentSummary}`)
+  }
+
+  // ── siteUrls (사이트 구조) ──
+  if (crawlData.siteUrls && crawlData.siteUrls.length > 0) {
+    const urlList = crawlData.siteUrls.slice(0, 20).join('\n- ')
+    parts.push(
+      `### 사이트 구조 (${crawlData.siteUrls.length}개 URL)\n- ${urlList}`
+    )
+  }
+
   return parts.join('\n\n') || '크롤링 데이터 없음'
+}
+
+/**
+ * markdownContent에서 AI 분석에 필요한 핵심 부분만 추출
+ * - 토큰 폭발 방지를 위해 2000자 제한
+ * - 첫 문단 + H2 구조 + 핵심 통계 + 결론부
+ */
+export function extractContentSummary(
+  markdown: string,
+  maxLength: number = 2000
+): string {
+  if (!markdown || markdown.trim().length === 0) return '(본문 없음)'
+
+  const parts: string[] = []
+
+  // 1. 첫 문단 (H1 이후 첫 텍스트 블록)
+  const firstParagraph = markdown
+    .split('\n\n')
+    .find((p) => p.trim().length > 50 && !p.startsWith('#'))
+  if (firstParagraph) {
+    parts.push(`[도입부] ${firstParagraph.trim().slice(0, 300)}`)
+  }
+
+  // 2. H2 구조 목록
+  const h2Matches = markdown.match(/^## .+$/gm)
+  if (h2Matches && h2Matches.length > 0) {
+    parts.push(`[구조] ${h2Matches.slice(0, 10).join(' | ')}`)
+  }
+
+  // 3. 핵심 통계 (숫자 포함 문장)
+  const statLines = markdown
+    .split('\n')
+    .filter((line) => /\d+[%만억원건]/.test(line) && line.trim().length > 10)
+    .slice(0, 5)
+  if (statLines.length > 0) {
+    parts.push(`[통계] ${statLines.join(' / ')}`)
+  }
+
+  // 4. 결론부 (마지막 2 문단)
+  const paragraphs = markdown
+    .split('\n\n')
+    .filter((p) => p.trim().length > 30 && !p.startsWith('#'))
+  if (paragraphs.length >= 2) {
+    const conclusion = paragraphs
+      .slice(-2)
+      .map((p) => p.trim().slice(0, 200))
+      .join(' ')
+    parts.push(`[결론부] ${conclusion}`)
+  }
+
+  const result = parts.join('\n')
+  return result.length > maxLength ? result.slice(0, maxLength) + '...' : result
 }
 
 // ─── 응답 파싱 ───
@@ -831,6 +897,7 @@ export async function executeCmoAgent(
       systemPrompt: CMO_AGENT.systemPrompt,
       userMessage,
       maxTokens: CMO_AGENT.maxTokens,
+      model: CMO_AGENT.model,
     })
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined

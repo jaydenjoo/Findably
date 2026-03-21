@@ -35,6 +35,8 @@ interface CitationPlatformSpec {
 
 /** 모델 ID */
 const MODEL = 'claude-sonnet-4-6-20250514' as const
+/** CMO 전용 Opus 모델 — Executive Summary 품질 향상 */
+const MODEL_OPUS = 'claude-opus-4-6-20250514' as const
 
 /** 최소 성공 에이전트 수 (5개 중 3개) */
 const MIN_SUCCESS_COUNT = 3
@@ -82,13 +84,36 @@ const V2_STRATEGIC_SCHEMA = `{
   "dependencies": ["string — 선행 조건 (있을 경우)"]
 }`
 
-const V2_ANALYSIS_FRAMEWORK = `## 분석 프레임워크 (6단계)
-1. **현재 상태 진단 (As-Is)** — 데이터에서 드러나는 현재 상황을 팩트 기반으로 기술
-2. **비즈니스 임팩트 정량화** — "이것이 비즈니스에 어떤 영향을 미치는가?" (트래픽, 전환율, 매출 등)
-3. **근거 기반 분석 (Evidence)** — 크롤링 데이터의 구체적 수치를 인용 (예: "LCP 4.2s로 Google 기준 poor")
-4. **우선순위 매트릭스 (Impact × Effort)** — priority 1(높은 임팩트+낮은 노력) ~ 10(낮은 임팩트+높은 노력)
-5. **구체적 실행안 (Action Items)** — 코드 스니펫, 설정값, 도구명까지 포함
-6. **업종 벤치마크** — 동종 업계 평균 대비 현재 위치 평가`
+const V2_ANALYSIS_FRAMEWORK = `## 분석 프레임워크 — 맥킨지 6단계 (MECE 원칙)
+
+각 단계를 빠짐없이 수행하세요. 한 단계라도 누락하면 분석 품질이 저하됩니다.
+
+1. **현재 상태 진단 (As-Is)**
+   - 데이터에서 드러나는 현재 상황을 팩트 기반으로 기술
+   - 반드시 크롤링 데이터의 구체적 수치를 인용 (예: "LCP 4.2s → Google 기준 poor")
+   - "~인 것 같습니다" 금지. "~입니다" 단정적 서술
+
+2. **비즈니스 임팩트 정량화**
+   - "이것이 매출/트래픽/전환율에 어떤 영향을 미치는가?"
+   - 가능하면 추정 수치 포함 (예: "LCP 1초 개선 시 전환율 ~7% 향상 예상")
+
+3. **근거 기반 분석 (Evidence)**
+   - 주장에는 반드시 데이터 근거를 제시
+   - 업계 벤치마크 대비 현재 위치 명시
+   - 근거 없는 추측은 "추정" 명시
+
+4. **우선순위 매트릭스 (Impact × Effort)**
+   - priority 1(높은 임팩트+낮은 노력) ~ 10(낮은 임팩트+높은 노력)
+   - 각 항목에 예상 소요 시간 포함 (예: "~2시간", "~1주")
+
+5. **구체적 실행안 (Action Items)**
+   - 코드 스니펫, 설정값, 도구명까지 포함
+   - "~를 개선하세요" 금지 → "~를 ~로 변경하세요" 구체적 지시
+   - CMS별 적용 방법 차이가 있으면 명시
+
+6. **업종 벤치마크**
+   - 동종 업계 상위 10% 사이트 대비 현재 위치
+   - 달성 가능한 목표치 제시 (3개월/6개월)`
 
 /** 에이전트별 시스템 프롬프트 및 설정 */
 const AGENTS: readonly AgentSpec[] = [
@@ -195,6 +220,7 @@ ${V2_ANALYSIS_FRAMEWORK}
 - 이미지/멀티미디어 수 및 상세
 - 링크 구조 (내부, 외부, 깨진 링크)
 - 페이지 크기 및 로드 시간
+- **페이지 본문 요약** (markdownContent 기반 — 도입부, H2 구조, 핵심 통계, 결론부)
 
 ## 분석 영역
 1. **헤딩 계층 품질** — H1→H2→H3 순차, 레벨 건너뛰기 감지, 키워드 포함 여부
@@ -202,12 +228,21 @@ ${V2_ANALYSIS_FRAMEWORK}
 3. **E-E-A-T 신호** — 저자 정보(Schema), 전문성 키워드, Organization/Person 마크업
 4. **콘텐츠 신선도** — og:modified, og:published, 최신 정보 반영 여부
 5. **가독성** — 헤딩 밀도, 텍스트-미디어 비율, 문단 구조
+6. **핵심 메시지 명확성** — 본문 요약에서 사이트의 핵심 가치 제안(Value Proposition)이 명확한지
+7. **AI 인용 적합성** — 본문이 AI(ChatGPT, Perplexity)가 인용하기 좋은 구조인지 (134-167 단어의 독립적 답변 블록, 팩트 기반 서술, 출처 명시)
+8. **CTA 효과성** — 본문 내 행동 유도 요소의 명확성과 위치 적절성
 
 ## 응답 형식 (JSON만 반환)
 {
   "insights": [${V2_INSIGHT_SCHEMA}],
   "quickWins": [${V2_QUICK_WIN_SCHEMA}],
   "strategicRecommendations": [${V2_STRATEGIC_SCHEMA}],
+  "contentScore": {
+    "messageClarity": 0-100,
+    "aiCitability": 0-100,
+    "ctaEffectiveness": 0-100,
+    "reasoning": "string — 각 점수의 근거 2-3문장"
+  },
   "summary": "string — 콘텐츠 영역 종합 평가 2~3문장"
 }
 
@@ -272,21 +307,39 @@ const CMO_AGENT = {
   id: 'cmo' as const,
   name: 'CMO 검증가',
   description: '5개 에이전트 분석 결과 품질 검증 + Executive Summary 생성',
-  maxTokens: 1024,
-  timeoutMs: 15_000,
-  systemPrompt: `You are a Chief Marketing Officer reviewing the combined analysis from 5 specialist agents (Technical, SEO, GEO, Content, Competitors).
+  maxTokens: 4096,
+  timeoutMs: 30_000,
+  model: MODEL_OPUS,
+  systemPrompt: `당신은 10년차 CMO(Chief Marketing Officer)입니다.
+5개 전문가 에이전트(기술, SEO, GEO, 콘텐츠, 경쟁사)의 분석 결과를 종합 검증합니다.
 
-Your task:
-1. Generate a concise executive summary (2-3 sentences) of the overall marketing health
-2. Assess the quality of the combined analysis (0-100)
-3. Flag any issues: contradictions between agents, unsupported claims, or duplicate findings
+## 핵심 역할
+1. **Executive Summary 작성** — 대표/마케팅 담당자가 읽고 즉시 행동할 수 있는 핵심 요약
+2. **품질 검증** — 에이전트 간 모순, 근거 없는 주장, 중복 발견 식별
+3. **최우선 과제 선정** — "지금 당장 하나만 한다면?" 에 대한 답
 
-Input: Agent insights summary, scores, and AI citation results.
+## Executive Summary 작성 규칙
+- **분량**: 4-6문장 (200-400자)
+- **구조**: 현재 상태 요약 → 가장 큰 기회 → 가장 큰 위험 → 즉시 실행 권고
+- **어조**: 전문적이되 이해하기 쉽게. 기술 용어 사용 시 괄호 설명 추가
+- **금지**: "~인 것 같습니다", "~를 고려해볼 수 있습니다" 같은 모호한 표현
 
-Return JSON:
+## 품질 검증 기준
+- quality_score 80+: 모든 에이전트 결과가 데이터 근거 기반, 모순 없음
+- quality_score 60-79: 일부 근거 부족하나 전체 방향성 올바름
+- quality_score 60 미만: 모순 또는 근거 없는 주장 다수
+
+## 응답 형식 (JSON만 반환)
 {
-  "executive_summary": "string (2-3 sentences, Korean)",
+  "executive_summary": "string (4-6문장, 한국어, 200-400자)",
   "quality_score": 0-100,
+  "top_priority": {
+    "action": "string — 지금 당장 해야 할 1가지",
+    "reason": "string — 왜 이것이 최우선인지",
+    "expected_impact": "string — 예상 효과"
+  },
+  "confidence_level": "high | medium | low",
+  "confidence_reasoning": "string — 이 분석 결과의 신뢰도 판단 근거",
   "issues_found": [
     {
       "type": "contradiction | unsupported | duplicate",
@@ -296,7 +349,7 @@ Return JSON:
   ]
 }
 
-Respond in Korean. Return ONLY valid JSON.`,
+한국어로 응답. 반드시 유효한 JSON만 반환.`,
 } as const
 
 /** AI 인용 추적 설정 (Task 5.3) */
