@@ -173,19 +173,32 @@ export async function runDiagnosisPaid(
       .update({ status: DIAGNOSIS_STATUS.ANALYZING })
       .eq('id', diagnosisId)
 
-    // 3. Phase 1 — 5개 에이전트 병렬 실행
+    // 3. Phase 1 — 5개 에이전트 병렬 실행 (글로벌 2분 타임아웃)
     const context: SiteContext = {
       targetKeywords: diagnosis.target_keywords ?? [],
       competitorUrls: diagnosis.competitor_urls ?? [],
       industry: diagnosis.industry ?? '',
     }
 
-    const [agentResults, citationResult] = await Promise.all([
+    const GLOBAL_TIMEOUT_MS = 2 * 60 * 1000 // 2분
+
+    const agentsPromise = Promise.all([
       executeAgentsParallel(crawlData, diagnosis.url, context),
       trackAICitation({
         url: diagnosis.url,
         keywords: context.targetKeywords,
       }),
+    ])
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`글로벌 타임아웃: ${GLOBAL_TIMEOUT_MS / 1000}초 초과`))
+      }, GLOBAL_TIMEOUT_MS)
+    })
+
+    const [agentResults, citationResult] = await Promise.race([
+      agentsPromise,
+      timeoutPromise,
     ])
 
     // 4. 성공/실패 집계

@@ -28,6 +28,7 @@ export type Database = {
           target_keywords: string[] | null
           tier: string
           total_score: number | null
+          updated_at: string
           url: string
           user_id: string
         }
@@ -44,6 +45,7 @@ export type Database = {
           target_keywords?: string[] | null
           tier?: string
           total_score?: number | null
+          updated_at?: string
           url: string
           user_id: string
         }
@@ -60,6 +62,7 @@ export type Database = {
           target_keywords?: string[] | null
           tier?: string
           total_score?: number | null
+          updated_at?: string
           url?: string
           user_id?: string
         }
