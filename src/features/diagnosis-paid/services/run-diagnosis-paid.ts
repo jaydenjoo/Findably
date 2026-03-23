@@ -2,10 +2,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { executeAIRequest, calculateCostKrw } from '@/lib/adapters/ai'
 import { DIAGNOSIS_PAID_CONFIG } from '@/config/diagnosis-paid'
 import type { CrawlData } from '@/features/crawling'
+import { crawlDataSchema } from '@/features/crawling/schemas'
 import type {
   OverallScore,
   AICitationPossibilityScore,
   AggregatedScores,
+  CategoryId,
+  RuleResult,
 } from '@/features/diagnosis-free'
 import type { Json } from '@/types/database'
 import type {
@@ -45,6 +48,12 @@ function isValidFreeAnalysis(data: unknown): data is FreeAnalysisData {
   if (!data || typeof data !== 'object') return false
   const obj = data as Record<string, unknown>
   return 'overallScore' in obj && 'aiCitation' in obj
+}
+
+/** crawl_data JSON을 CrawlData로 안전하게 파싱 */
+function isValidCrawlData(data: unknown): data is CrawlData {
+  const result = crawlDataSchema.safeParse(data)
+  return result.success
 }
 
 /** 사이트 컨텍스트 (DB에서 조회) */
@@ -130,14 +139,25 @@ export async function runDiagnosisPaid(
       return { success: false, error: '진단 데이터를 찾을 수 없습니다.' }
     }
 
-    const crawlData = diagnosis.crawl_data as unknown as CrawlData
-
-    if (!crawlData) {
+    if (!diagnosis.crawl_data) {
       return {
         success: false,
         error: '크롤링 데이터가 없습니다. 먼저 URL 분석을 완료해주세요.',
       }
     }
+
+    if (!isValidCrawlData(diagnosis.crawl_data)) {
+      console.error(
+        '[runDiagnosisPaid] 크롤링 데이터 검증 실패',
+        diagnosis.crawl_data
+      )
+      return {
+        success: false,
+        error: '크롤링 데이터 형식이 올바르지 않습니다.',
+      }
+    }
+
+    const crawlData = diagnosis.crawl_data
 
     // analysis_data 확인 — 없으면 폴링 대기 (무료 분석 완료 대기)
     let freeAnalysis: FreeAnalysisData | null = isValidFreeAnalysis(
@@ -203,9 +223,9 @@ export async function runDiagnosisPaid(
     }
 
     // 4. 성공/실패 집계 — 'completed'만 진짜 성공 (insights > 0)
-    const successResults = agentResults.filter((r) => r.status === 'completed')
+    let successResults = agentResults.filter((r) => r.status === 'completed')
     const emptyResults = agentResults.filter((r) => r.status === 'empty')
-    const failedAgents = agentResults
+    let failedAgents = agentResults
       .filter((r) => r.status === 'failed' || r.status === 'empty')
       .map((r) => r.agentId)
 
@@ -213,6 +233,85 @@ export async function runDiagnosisPaid(
       console.warn(
         `[runDiagnosisPaid] ${emptyResults.length}개 에이전트가 API 성공했으나 유효 인사이트 0개:`,
         emptyResults.map((r) => r.agentId)
+      )
+    }
+
+    // 4.1. 재시도 — 실패/빈 에이전트를 축소 토큰으로 1회 재실행
+    const retryTargets = agentResults.filter(
+      (r) => r.status === 'failed' || r.status === 'empty'
+    )
+
+    if (retryTargets.length > 0) {
+      const currentCostKrw = agentResults.reduce(
+        (sum, r) => sum + calculateCostKrw(r.tokenUsage),
+        0
+      )
+
+      const retryResults = await retryFailedAgents(
+        retryTargets,
+        crawlData,
+        diagnosis.url,
+        context,
+        currentCostKrw
+      )
+
+      // 재시도 성공분을 원본 결과에 병합
+      for (const retried of retryResults) {
+        const idx = agentResults.findIndex((r) => r.agentId === retried.agentId)
+        if (idx !== -1) {
+          agentResults[idx] = retried
+        }
+      }
+
+      // 재시도 후 성공/실패 재집계
+      successResults = agentResults.filter((r) => r.status === 'completed')
+      failedAgents = agentResults
+        .filter((r) => r.status === 'failed' || r.status === 'empty')
+        .map((r) => r.agentId)
+
+      if (retryResults.some((r) => r.status === 'completed')) {
+        console.log(
+          `[runDiagnosisPaid] 재시도 후 성공: ${successResults.length}/5`
+        )
+      }
+    }
+
+    // 4.2. 최종 폴백 — 여전히 MIN_SUCCESS_COUNT 미달이면 무료 룰 결과로 인사이트 보충
+    if (
+      successResults.length < DIAGNOSIS_PAID_CONFIG.MIN_SUCCESS_COUNT &&
+      failedAgents.length > 0
+    ) {
+      console.log(
+        `[runDiagnosisPaid] 폴백 적용 — 실패 에이전트의 무료 룰 결과를 인사이트로 변환:`,
+        failedAgents
+      )
+
+      for (const failedId of failedAgents) {
+        const fallbackInsights = convertFreeRulesToInsights(
+          failedId as AnalysisAgentId,
+          freeAnalysis
+        )
+        if (fallbackInsights.length > 0) {
+          const idx = agentResults.findIndex((r) => r.agentId === failedId)
+          if (idx !== -1) {
+            agentResults[idx] = {
+              ...agentResults[idx]!,
+              status: 'completed',
+              insights: fallbackInsights,
+              error: `${agentResults[idx]!.error ?? 'AI 실패'} → 룰 기반 폴백 적용`,
+            }
+          }
+        }
+      }
+
+      // 폴백 후 최종 재집계
+      successResults = agentResults.filter((r) => r.status === 'completed')
+      failedAgents = agentResults
+        .filter((r) => r.status === 'failed' || r.status === 'empty')
+        .map((r) => r.agentId)
+
+      console.log(
+        `[runDiagnosisPaid] 폴백 후 최종 성공: ${successResults.length}/5`
       )
     }
 
@@ -268,6 +367,7 @@ export async function runDiagnosisPaid(
       freeAnalysis,
       agentResults,
       citationResult,
+      competitorUrls: context.competitorUrls,
       totalCostKrw,
       totalDurationMs,
     })
@@ -305,6 +405,246 @@ export async function runDiagnosisPaid(
       error:
         err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.',
     }
+  }
+}
+
+// ─── 재시도 + 폴백 ───
+
+/** 에이전트 ID → 무료 분석 카테고리 매핑 (폴백 변환용) */
+const AGENT_TO_CATEGORIES: Record<AnalysisAgentId, CategoryId[]> = {
+  technical: ['technical', 'performance', 'security', 'mobile'],
+  seo: ['technical'],
+  geo: ['social-ai', 'geo'],
+  content: ['content'],
+  competitors: [],
+}
+
+/**
+ * 실패/빈 에이전트 재시도 — 축소 토큰(1024)으로 1회 재실행
+ * 비용 상한 내에서만 재시도 (MAX_COST_PER_DIAGNOSIS_KRW 체크)
+ */
+async function retryFailedAgents(
+  failedResults: AIAgentResult[],
+  crawlData: CrawlData,
+  url: string,
+  context: SiteContext,
+  currentCostKrw: number
+): Promise<AIAgentResult[]> {
+  if (failedResults.length === 0) return []
+
+  const retryTargets = failedResults.filter((r) => {
+    const agentConfig = DIAGNOSIS_PAID_CONFIG.AGENTS.find(
+      (a) => a.id === r.agentId
+    )
+    return agentConfig !== undefined
+  })
+
+  if (retryTargets.length === 0) return []
+
+  // 비용 상한 체크 — 남은 예산으로 재시도 가능한지 예측
+  const estimatedRetryCost = retryTargets.length * 30 // ~30원/에이전트 (축소 토큰 기준 보수 추정)
+  if (
+    currentCostKrw + estimatedRetryCost >
+    DIAGNOSIS_PAID_CONFIG.MAX_COST_PER_DIAGNOSIS_KRW
+  ) {
+    console.warn(
+      `[retryFailedAgents] 비용 상한 초과 예상 — 재시도 생략 (현재 ${currentCostKrw}원 + 예상 ${estimatedRetryCost}원)`
+    )
+    return []
+  }
+
+  console.log(
+    `[retryFailedAgents] ${retryTargets.length}개 에이전트 재시도 (축소 토큰 ${DIAGNOSIS_PAID_CONFIG.RETRY_MAX_TOKENS}):`,
+    retryTargets.map((r) => r.agentId)
+  )
+
+  const promises = retryTargets.map((r) => {
+    const agentConfig = DIAGNOSIS_PAID_CONFIG.AGENTS.find(
+      (a) => a.id === r.agentId
+    )!
+    return executeAgent({
+      agentId: agentConfig.id as AnalysisAgentId,
+      systemPrompt: agentConfig.systemPrompt,
+      maxTokens: DIAGNOSIS_PAID_CONFIG.RETRY_MAX_TOKENS,
+      crawlData,
+      url,
+      context,
+    })
+  })
+
+  const settled = await Promise.allSettled(promises)
+
+  return settled.map((result, index) => {
+    const target = retryTargets[index]!
+    if (result.status === 'fulfilled') {
+      console.log(
+        `[retryFailedAgents] ${target.agentId} 재시도 ${result.value.status === 'completed' ? '성공' : '여전히 ' + result.value.status}`
+      )
+      return result.value
+    }
+    console.error(
+      `[retryFailedAgents] ${target.agentId} 재시도 실패`,
+      result.reason
+    )
+    return target // 원래 실패 결과 유지
+  })
+}
+
+/**
+ * 무료 분석 룰 결과 → AIInsight 변환 (최종 폴백)
+ * 에이전트가 재시도 후에도 실패한 경우, 해당 카테고리의 무료 룰 결과를 인사이트로 변환
+ */
+function convertFreeRulesToInsights(
+  agentId: AnalysisAgentId,
+  freeAnalysis: FreeAnalysisData
+): AIInsight[] {
+  const targetCategories = AGENT_TO_CATEGORIES[agentId]
+  if (targetCategories.length === 0) return [] // competitors는 무료 룰 없음
+
+  const rules: RuleResult[] = []
+  for (const category of freeAnalysis.overallScore.categories) {
+    if (targetCategories.includes(category.id)) {
+      // 실패한 룰만 인사이트로 변환 (통과 룰은 문제 없으므로 제외)
+      rules.push(...category.rules.filter((r) => !r.passed && !r.skipped))
+    }
+  }
+
+  if (rules.length === 0) return []
+
+  return rules.slice(0, 5).map((rule) => ({
+    title: `[룰 기반] ${rule.name}`,
+    description: rule.message,
+    severity: rule.severity,
+    category: rule.category,
+    actionable: rule.quickWinEligible,
+    evidence: `룰 점수: ${rule.points}/${rule.maxPoints}`,
+    priority:
+      rule.severity === 'critical' ? 1 : rule.severity === 'warning' ? 5 : 8,
+  }))
+}
+
+// ─── G3: 경쟁사 PageSpeed 폴백 ───
+
+/**
+ * competitors 에이전트 실패 시 Google PageSpeed Insights로 경쟁사 기본 분석 생성
+ * 모듈 경계 규칙: features/competitors 직접 import 금지 → 자체 구현
+ */
+async function generateCompetitorsFallback(
+  competitorUrls: string[]
+): Promise<CompetitorAnalysis[]> {
+  const apiKey = process.env.GOOGLE_API_KEY
+  if (!apiKey) {
+    console.warn(
+      '[generateCompetitorsFallback] GOOGLE_API_KEY 미설정 → 폴백 불가'
+    )
+    return []
+  }
+
+  const results = await Promise.allSettled(
+    competitorUrls.map((url) => fetchPageSpeedForFallback(url, apiKey))
+  )
+
+  const competitors: CompetitorAnalysis[] = []
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value) {
+      competitors.push(result.value)
+    }
+  }
+
+  console.log(
+    `[generateCompetitorsFallback] ${competitors.length}/${competitorUrls.length}개 경쟁사 PageSpeed 폴백 완료`
+  )
+  return competitors
+}
+
+/** 단일 경쟁사 URL에 대해 PageSpeed API 호출 → CompetitorAnalysis 변환 */
+async function fetchPageSpeedForFallback(
+  url: string,
+  apiKey: string
+): Promise<CompetitorAnalysis | null> {
+  const categories = ['performance', 'accessibility', 'seo', 'best-practices']
+  const params = new URLSearchParams({
+    url,
+    key: apiKey,
+    strategy: 'mobile',
+  })
+  for (const cat of categories) {
+    params.append('category', cat)
+  }
+
+  const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${params.toString()}`
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000)
+
+    const response = await fetch(endpoint, { signal: controller.signal })
+    clearTimeout(timeout)
+
+    if (!response.ok) {
+      console.warn(
+        `[fetchPageSpeedForFallback] ${url} → HTTP ${response.status}`
+      )
+      return null
+    }
+
+    const data = await response.json()
+    const cats = data?.lighthouseResult?.categories ?? {}
+
+    const scores: Record<string, number | null> = {
+      performance:
+        cats.performance?.score != null
+          ? Math.round(cats.performance.score * 100)
+          : null,
+      accessibility:
+        cats.accessibility?.score != null
+          ? Math.round(cats.accessibility.score * 100)
+          : null,
+      seo: cats.seo?.score != null ? Math.round(cats.seo.score * 100) : null,
+      bestPractices:
+        cats['best-practices']?.score != null
+          ? Math.round(cats['best-practices'].score * 100)
+          : null,
+    }
+
+    const validScores = Object.values(scores).filter(
+      (s): s is number => s !== null
+    )
+    const overallScore =
+      validScores.length > 0
+        ? Math.round(
+            validScores.reduce((a, b) => a + b, 0) / validScores.length
+          )
+        : 0
+
+    const strengths: string[] = []
+    const weaknesses: string[] = []
+    const gaps: string[] = []
+
+    const scoreLabels: Record<string, string> = {
+      performance: '페이지 속도',
+      accessibility: '접근성',
+      seo: 'SEO 기본',
+      bestPractices: '웹 표준',
+    }
+
+    for (const [key, score] of Object.entries(scores)) {
+      const label = scoreLabels[key] ?? key
+      if (score === null) continue
+      if (score >= 80) {
+        strengths.push(`${label} ${score}점 (양호)`)
+      } else if (score >= 50) {
+        gaps.push(`${label} ${score}점 (개선 여지)`)
+      } else {
+        weaknesses.push(`${label} ${score}점 (취약)`)
+      }
+    }
+
+    return { url, overallScore, strengths, weaknesses, gaps }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.warn(`[fetchPageSpeedForFallback] ${url} 실패:`, message)
+    return null
   }
 }
 
@@ -791,6 +1131,7 @@ interface AggregateResultsParams {
   freeAnalysis: FreeAnalysisData
   agentResults: AIAgentResult[]
   citationResult: AICitationTrackingResult
+  competitorUrls: string[]
   totalCostKrw: number
   totalDurationMs: number
 }
@@ -805,6 +1146,7 @@ async function aggregateResults(
     freeAnalysis,
     agentResults,
     citationResult,
+    competitorUrls,
     totalCostKrw,
     totalDurationMs,
   } = params
@@ -823,7 +1165,16 @@ async function aggregateResults(
     (r) => r.agentId === 'competitors'
   )
   const parsed = parseCompetitorsResult(competitorsResult)
-  const { competitors } = parsed
+
+  // G3: competitors 에이전트 실패 시 PageSpeed 기반 폴백
+  let competitors = parsed.competitors
+  if (competitors.length === 0 && competitorUrls.length > 0) {
+    console.warn(
+      '[aggregateResults] competitors 에이전트 결과 없음 → PageSpeed 폴백 시도:',
+      competitorUrls.join(', ')
+    )
+    competitors = await generateCompetitorsFallback(competitorUrls)
+  }
 
   // Task 5.5 — 5개 에이전트 종합 SWOT (rule-based, AI 호출 없음)
   const swot = generateSwotAnalysis({
@@ -1003,7 +1354,35 @@ export async function executeCmoAgent(
     const cmoCostKrw = calculateCostKrw(response.tokenUsage)
 
     if (parsed) {
-      return { cmoSummary: parsed.executive_summary, cmoCostKrw }
+      // G2: 우선순위 보정 적용 — CMO가 제안한 priority를 인사이트에 반영
+      if (parsed.priority_adjustments?.length) {
+        for (const adj of parsed.priority_adjustments) {
+          const target = allInsights.find((i) => i.title === adj.insight_title)
+          if (target) {
+            target.priority = adj.suggested_priority
+          }
+        }
+      }
+
+      // G2: 구체성 플래그를 인사이트 evidence에 보충
+      if (parsed.specificity_flags?.length) {
+        for (const flag of parsed.specificity_flags) {
+          const target = allInsights.find((i) => i.title === flag.insight_title)
+          if (target) {
+            const note = `[CMO 검증] ${flag.issue} → ${flag.suggestion}`
+            target.evidence = target.evidence
+              ? `${target.evidence}\n${note}`
+              : note
+          }
+        }
+      }
+
+      // G2: 한국 시장 맥락을 executive_summary에 병합
+      const summary = parsed.korean_market_notes
+        ? `${parsed.executive_summary}\n\n[한국 시장 맥락] ${parsed.korean_market_notes}`
+        : parsed.executive_summary
+
+      return { cmoSummary: summary, cmoCostKrw }
     }
 
     return { cmoSummary: generateCmoSummaryFallback(allInsights), cmoCostKrw }
@@ -1088,13 +1467,63 @@ export function parseCmoResponse(
     return null
   }
 
-  return {
+  const result: CmoVerificationResponse = {
     executive_summary: parsed.executive_summary,
     quality_score: parsed.quality_score,
     issues_found: Array.isArray(parsed.issues_found)
       ? parsed.issues_found.filter(isValidCmoIssue)
       : [],
   }
+
+  // G2: 우선순위 보정 파싱
+  if (Array.isArray(parsed.priority_adjustments)) {
+    result.priority_adjustments = parsed.priority_adjustments.filter(
+      (
+        item: unknown
+      ): item is CmoVerificationResponse['priority_adjustments'] extends Array<
+        infer T
+      >
+        ? T
+        : never => {
+        if (!item || typeof item !== 'object') return false
+        const a = item as Record<string, unknown>
+        return (
+          typeof a.insight_title === 'string' &&
+          typeof a.current_priority === 'number' &&
+          typeof a.suggested_priority === 'number' &&
+          typeof a.reason === 'string'
+        )
+      }
+    )
+  }
+
+  // G2: 구체성 플래그 파싱
+  if (Array.isArray(parsed.specificity_flags)) {
+    result.specificity_flags = parsed.specificity_flags.filter(
+      (
+        item: unknown
+      ): item is CmoVerificationResponse['specificity_flags'] extends Array<
+        infer T
+      >
+        ? T
+        : never => {
+        if (!item || typeof item !== 'object') return false
+        const f = item as Record<string, unknown>
+        return (
+          typeof f.insight_title === 'string' &&
+          typeof f.issue === 'string' &&
+          typeof f.suggestion === 'string'
+        )
+      }
+    )
+  }
+
+  // G2: 한국 시장 맥락 파싱
+  if (typeof parsed.korean_market_notes === 'string') {
+    result.korean_market_notes = parsed.korean_market_notes
+  }
+
+  return result
 }
 
 /**

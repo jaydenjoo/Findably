@@ -1,4 +1,5 @@
 import type {
+  CategoryId,
   CategoryScore,
   OverallScore,
   QuickWin,
@@ -38,6 +39,13 @@ const QUICK_WIN_PHASE1_FALLBACK_IMPACT = 7
 /** Quick Win Phase 2 폴백 임팩트 (overflow 항목) */
 const QUICK_WIN_PHASE2_FALLBACK_IMPACT = 5
 
+/** 로드맵 생성 시 사용하는 카테고리 ID 상수 */
+const ROADMAP_CATEGORIES = {
+  technical: 'technical' as const satisfies CategoryId,
+  content: 'content' as const satisfies CategoryId,
+  socialAI: 'social-ai' as const satisfies CategoryId,
+} as const
+
 /** 로드맵 생성 입력 파라미터 */
 export interface GenerateRoadmapParams {
   agentResults: AIAgentResult[]
@@ -65,6 +73,7 @@ export interface GenerateRoadmapParams {
  * 8. info+actionable → Phase 3 (week 9–10)
  * 9. 경쟁사 강점 대응 → Phase 3 (week 11–12)
  * 10. 전체 점수 총평 → Phase 3 (week 12)
+ * 11. 한국 시장 전략 → Phase 1–3 (네이버/카카오/한국 생태계)
  */
 export function generateRoadmap(params: GenerateRoadmapParams): RoadmapItem[] {
   const {
@@ -97,6 +106,9 @@ export function generateRoadmap(params: GenerateRoadmapParams): RoadmapItem[] {
   enrichFromInfoInsights(items, completedResults)
   enrichFromCompetitorStrengths(items, competitorAnalyses)
   enrichOverallSummary(items, overallScore)
+
+  // 한국 시장 전략: Phase 1–3에 걸쳐 한국 플랫폼/생태계 항목 추가
+  enrichKoreaMarketItems(items, categoryScores)
 
   // 중복 제거 + 주차별/전체 제한 적용
   return applyLimits(deduplicateItems(items))
@@ -215,7 +227,7 @@ function enrichFromCompetitorGaps(
         week: 7,
         title: `경쟁사 대비 기회: ${gap}`,
         description: `경쟁사(${comp.url}) 대비 개선 가능한 영역`,
-        category: 'seo',
+        category: 'technical',
         priority: 'medium',
         estimatedImpact: 6,
       })
@@ -282,7 +294,7 @@ function enrichFromCompetitorStrengths(
         week: 11,
         title: `경쟁사 강점 대응: ${strength}`,
         description: `경쟁사(${comp.url})의 강점에 대한 장기 대응 전략`,
-        category: 'seo',
+        category: 'technical',
         priority: 'low',
         estimatedImpact: 5,
       })
@@ -299,10 +311,123 @@ function enrichOverallSummary(
     week: 12,
     title: '마케팅 최적화 성과 점검',
     description: `현재 종합 ${overallScore.score}점(${overallScore.gradeLabel}) — 12주 실행 후 재진단으로 개선 효과를 측정하세요`,
-    category: 'technical',
+    category: ROADMAP_CATEGORIES.technical,
     priority: 'low',
     estimatedImpact: 3,
   })
+}
+
+// ─── 한국 시장 전략 (Phase 1–3) ───
+
+/** 한국 시장 전략 항목 — 점수가 낮은 카테고리에 해당하는 항목만 추가 */
+function enrichKoreaMarketItems(
+  items: RoadmapItem[],
+  categoryScores: CategoryScore[]
+): void {
+  const scoreMap = new Map(categoryScores.map((c) => [c.id, c.score]))
+
+  // Phase 1 (week 3–4): 즉시 실행 가능한 한국 플랫폼 등록
+  const seoScore = scoreMap.get(ROADMAP_CATEGORIES.technical) ?? 100
+  const contentScore = scoreMap.get(ROADMAP_CATEGORIES.content) ?? 100
+  const geoScore = scoreMap.get(ROADMAP_CATEGORIES.socialAI) ?? 100
+
+  if (seoScore < MID_SCORE_THRESHOLD) {
+    items.push({
+      week: 3,
+      title: '네이버 서치어드바이저 등록',
+      description:
+        '네이버 검색 노출의 전제 조건. 사이트맵 제출 + 소유 확인으로 네이버 검색 인덱싱 시작',
+      category: ROADMAP_CATEGORIES.technical,
+      priority: 'high',
+      estimatedImpact: 8,
+    })
+  }
+
+  if (seoScore < MID_SCORE_THRESHOLD) {
+    items.push({
+      week: 4,
+      title: 'robots.txt 네이버 봇(Yeti) 허용 확인',
+      description:
+        'Yeti(네이버 크롤러) 차단 시 네이버 검색 노출 불가. User-agent: Yeti Allow: / 확인',
+      category: ROADMAP_CATEGORIES.technical,
+      priority: 'high',
+      estimatedImpact: 8,
+    })
+  }
+
+  if (geoScore < MID_SCORE_THRESHOLD) {
+    items.push({
+      week: 4,
+      title: '카카오톡 채널 개설 및 사이트 연동',
+      description:
+        '한국 메신저 점유율 1위 카카오톡 채널 — 고객 소통 채널 확보 + 사이트 내 채널 추가 버튼 배치',
+      category: ROADMAP_CATEGORIES.socialAI,
+      priority: 'high',
+      estimatedImpact: 7,
+    })
+  }
+
+  // Phase 2 (week 5–8): 중기 한국 시장 최적화
+  if (contentScore < MID_SCORE_THRESHOLD) {
+    items.push({
+      week: 6,
+      title: '한국어 콘텐츠 톤 앤 매너 통일',
+      description:
+        'B2B는 존댓말(격식체), B2C는 해요체로 통일. 타겟에 맞지 않는 문체는 신뢰도 하락 유발',
+      category: ROADMAP_CATEGORIES.content,
+      priority: 'medium',
+      estimatedImpact: 6,
+    })
+  }
+
+  if (seoScore < MID_SCORE_THRESHOLD) {
+    items.push({
+      week: 7,
+      title: '네이버 플레이스/스마트스토어 등록',
+      description:
+        '지역 비즈니스는 네이버 플레이스, 이커머스는 스마트스토어 입점으로 네이버 검색 내 별도 노출 확보',
+      category: ROADMAP_CATEGORIES.technical,
+      priority: 'medium',
+      estimatedImpact: 7,
+    })
+  }
+
+  if (contentScore < MID_SCORE_THRESHOLD) {
+    items.push({
+      week: 8,
+      title: '네이버 블로그/카페 전략 수립',
+      description:
+        '네이버는 자체 콘텐츠(블로그, 카페) 우선 노출 — 자사 사이트 콘텐츠와 연계한 네이버 블로그 운영 계획',
+      category: ROADMAP_CATEGORIES.content,
+      priority: 'medium',
+      estimatedImpact: 6,
+    })
+  }
+
+  // Phase 3 (week 9–12): 장기 한국 생태계 통합
+  if (geoScore < MID_SCORE_THRESHOLD) {
+    items.push({
+      week: 10,
+      title: '한국 AI 플랫폼 대응 (클로바X, 뤼튼)',
+      description:
+        '글로벌 AI(ChatGPT, Claude) 외 한국 자체 AI 서비스에서도 인용되도록 한국어 FAQ/HowTo Schema 강화',
+      category: ROADMAP_CATEGORIES.socialAI,
+      priority: 'low',
+      estimatedImpact: 5,
+    })
+  }
+
+  if (contentScore < MID_SCORE_THRESHOLD) {
+    items.push({
+      week: 11,
+      title: '한국 시장 E-E-A-T 신호 강화',
+      description:
+        '사업자등록번호, 전문자격 표시, 정부 인증 마크, 언론 보도 링크 등 한국에서 통용되는 권위 신호 추가',
+      category: ROADMAP_CATEGORIES.content,
+      priority: 'low',
+      estimatedImpact: 5,
+    })
+  }
 }
 
 // ─── 유틸리티 ───

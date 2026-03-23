@@ -38,6 +38,17 @@ export async function enrichWithCompetitorData(
     )
     .map((r) => r.value)
 
+  // G3: PageSpeed 크롤링 실패 건 로깅 — AI 분석 결과는 buildMatrix에서 독립 보존됨
+  const failedCrawls = crawlResults.filter((r) => r.error !== null)
+  if (failedCrawls.length > 0) {
+    console.warn(
+      `[enrichWithCompetitorData] PageSpeed 크롤링 실패 ${failedCrawls.length}건:`,
+      failedCrawls.map((r) => `${r.url} (${r.error})`).join(', ')
+    )
+  }
+
+  const successfulCrawls = crawlResults.filter((r) => r.error === null)
+
   // Step 3: 비교 매트릭스
   const matrix = buildMatrix({
     originalUrl: params.originalUrl,
@@ -49,7 +60,7 @@ export async function enrichWithCompetitorData(
       geo: params.originalGeoScore,
       overall: params.originalOverallScore,
     },
-    crawlResults,
+    crawlResults: successfulCrawls,
     aiCompetitors: params.aiCompetitors,
   })
 

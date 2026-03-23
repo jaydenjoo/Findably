@@ -46,9 +46,35 @@ export async function executeAIRequest(
       },
     }
   } catch (error: unknown) {
+    let errorCategory = ''
+
+    // Anthropic SDK의 APIError에서 status 코드 확인
+    if (
+      error instanceof Error &&
+      'status' in error &&
+      typeof error.status === 'number'
+    ) {
+      const status = error.status
+      if (status === 429) {
+        errorCategory = '[rate_limit] '
+      } else if (status === 401 || status === 403) {
+        errorCategory = '[auth_error] '
+      } else if (status >= 500) {
+        errorCategory = '[server_error] '
+      }
+    } else if (
+      error instanceof Error &&
+      error.message.toLowerCase().includes('timeout')
+    ) {
+      errorCategory = '[timeout] '
+    }
+
     const message = error instanceof Error ? error.message : 'AI API 호출 실패'
-    console.error('[executeAIRequest] Claude API 오류:', message)
-    throw new Error(`AI 분석 실패: ${message}`)
+    console.error(
+      '[executeAIRequest] Claude API 오류:',
+      errorCategory + message
+    )
+    throw new Error(`AI 분석 실패: ${errorCategory}${message}`)
   }
 }
 
