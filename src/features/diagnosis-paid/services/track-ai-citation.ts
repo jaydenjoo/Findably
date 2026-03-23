@@ -157,14 +157,17 @@ export async function trackAICitation(
     }
   }
 
-  // 사용 가능한 플랫폼이 없으면 빈 결과
+  // 사용 가능한 플랫폼이 없으면 빈 결과 + 플래그 표시
   if (platforms.length === 0) {
-    console.error('[trackAICitation] 사용 가능한 플랫폼이 없습니다.')
+    console.error(
+      '[trackAICitation] 사용 가능한 플랫폼이 없습니다. API 키를 확인하세요.'
+    )
     return {
       keywords,
       results: [],
       platformSummary: [],
       overallMentionRate: 0,
+      platformsUnavailable: true,
       totalCostKrw: 0,
       totalDurationMs: Date.now() - startTime,
     }

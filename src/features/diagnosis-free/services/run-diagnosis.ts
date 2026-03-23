@@ -83,6 +83,11 @@ export async function runDiagnosis(
         `[runDiagnosis] Supabase UPDATE 실패 (diagnosisId=${diagnosisId}):`,
         error.message
       )
+      // DB 저장 실패 시 status를 'failed'로 명시 업데이트 (상태 고착 방지)
+      await supabase
+        .from('diagnoses')
+        .update({ status: DIAGNOSIS_STATUS.FAILED })
+        .eq('id', diagnosisId)
       return { success: false, error: 'DB 저장 실패' }
     }
 
@@ -93,6 +98,16 @@ export async function runDiagnosis(
       `[runDiagnosis] 예외 발생 (diagnosisId=${diagnosisId}):`,
       message
     )
+    // 예외 발생 시 status를 'failed'로 명시 업데이트 (상태 고착 방지)
+    try {
+      const supabase = createAdminClient()
+      await supabase
+        .from('diagnoses')
+        .update({ status: DIAGNOSIS_STATUS.FAILED })
+        .eq('id', diagnosisId)
+    } catch (dbError: unknown) {
+      console.error('[runDiagnosis] 상태 복구 실패:', dbError)
+    }
     return { success: false, error: '진단 처리 중 오류가 발생했습니다' }
   }
 }

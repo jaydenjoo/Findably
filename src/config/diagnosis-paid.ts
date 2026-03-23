@@ -34,12 +34,12 @@ interface CitationPlatformSpec {
 }
 
 /** 모델 ID */
-const MODEL = 'claude-sonnet-4-6-20250514' as const
+const MODEL = 'claude-sonnet-4-20250514' as const
 /** CMO 전용 Opus 모델 — Executive Summary 품질 향상 */
-const MODEL_OPUS = 'claude-opus-4-6-20250514' as const
+const MODEL_OPUS = 'claude-opus-4-20250514' as const
 
-/** 최소 성공 에이전트 수 (5개 중 3개) */
-const MIN_SUCCESS_COUNT = 3
+/** 최소 성공 에이전트 수 (5개 중 2개 — 3개 기준은 너무 엄격하여 전체 실패 빈발) */
+const MIN_SUCCESS_COUNT = 2
 
 /** 건당 최대 비용 (KRW) */
 const MAX_COST_PER_DIAGNOSIS_KRW = 1000
@@ -359,7 +359,7 @@ const CITATION_TRACKING = {
     {
       id: 'claude' as const,
       name: 'Claude',
-      model: 'claude-sonnet-4-6-20250514',
+      model: 'claude-sonnet-4-20250514',
       envKey: 'ANTHROPIC_API_KEY',
       costPerMTokenUsd: { input: 3.0, output: 15.0 },
     },

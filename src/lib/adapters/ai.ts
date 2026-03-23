@@ -27,22 +27,28 @@ export async function executeAIRequest(
 ): Promise<AIAdapterResponse> {
   const model = params.model ?? DIAGNOSIS_PAID_CONFIG.MODEL
 
-  const response = await getClient().messages.create({
-    model,
-    max_tokens: params.maxTokens,
-    system: params.systemPrompt,
-    messages: [{ role: 'user', content: params.userMessage }],
-  })
+  try {
+    const response = await getClient().messages.create({
+      model,
+      max_tokens: params.maxTokens,
+      system: params.systemPrompt,
+      messages: [{ role: 'user', content: params.userMessage }],
+    })
 
-  const textBlock = response.content.find((block) => block.type === 'text')
-  const content = textBlock?.text ?? ''
+    const textBlock = response.content.find((block) => block.type === 'text')
+    const content = textBlock?.text ?? ''
 
-  return {
-    content,
-    tokenUsage: {
-      input: response.usage.input_tokens,
-      output: response.usage.output_tokens,
-    },
+    return {
+      content,
+      tokenUsage: {
+        input: response.usage.input_tokens,
+        output: response.usage.output_tokens,
+      },
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'AI API 호출 실패'
+    console.error('[executeAIRequest] Claude API 오류:', message)
+    throw new Error(`AI 분석 실패: ${message}`)
   }
 }
 

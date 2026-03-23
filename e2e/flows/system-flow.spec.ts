@@ -228,7 +228,7 @@ test.describe('API 간 연계 테스트', () => {
     expect(body.error).toContain('찾을 수 없습니다')
   })
 
-  test('payment/trigger-analysis → 존재하지 않는 진단 → 500', async ({
+  test('payment/trigger-analysis → 존재하지 않는 진단 → 202 (after() 백그라운드 실행)', async ({
     request,
   }) => {
     const secret = process.env.CRAWL_EXECUTE_SECRET
@@ -242,10 +242,11 @@ test.describe('API 간 연계 테스트', () => {
       data: { diagnosisId: FAKE_UUID },
     })
 
-    // runDiagnosisPaid 내부에서 진단 미존재 → 500
-    expect(res.status()).toBe(500)
+    // after() API로 즉시 202 반환 — 실제 분석은 백그라운드에서 실행(실패)
+    expect(res.status()).toBe(202)
     const body = await res.json()
-    expect(body.success).toBe(false)
+    expect(body.success).toBe(true)
+    expect(body.data.status).toBe('accepted')
   })
 
   test('crawl/complete + crawl/webhook — 동일 인증 메커니즘 검증', async ({

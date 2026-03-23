@@ -18,7 +18,7 @@ export function Sidebar(): React.JSX.Element {
   const pathname = usePathname()
 
   return (
-    <aside className="hidden lg:flex lg:w-[220px] lg:flex-col lg:border-r lg:border-slate-200 lg:bg-white">
+    <aside className="hidden lg:flex lg:h-full lg:w-[220px] lg:flex-col lg:border-r lg:border-slate-200 lg:bg-white">
       {/* 로고 */}
       <div className="flex h-14 items-center border-b border-slate-200 px-5">
         <Link
@@ -68,7 +68,7 @@ export function Sidebar(): React.JSX.Element {
       </nav>
 
       {/* 하단 */}
-      <div className="border-t border-slate-200 px-5 py-3">
+      <div className="relative z-10 mt-auto border-t border-slate-200 px-5 py-3">
         <form action={logoutAction}>
           <button
             type="submit"

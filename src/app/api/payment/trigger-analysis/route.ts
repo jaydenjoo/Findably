@@ -3,6 +3,7 @@ import { after } from 'next/server'
 import { z } from 'zod'
 import { successResponse, errorResponse } from '@/lib/api/response'
 import { runDiagnosisPaid } from '@/features/diagnosis-paid'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
  * POST /api/payment/trigger-analysis
@@ -57,6 +58,21 @@ export async function POST(request: NextRequest): Promise<Response> {
         diagnosisId: body.diagnosisId,
         failedAgents: result.failedAgents,
       })
+
+      // DB 상태를 'failed'로 업데이트 (analyzing 무한 대기 방지)
+      try {
+        const supabase = createAdminClient()
+        await supabase
+          .from('diagnoses')
+          .update({ status: 'failed' })
+          .eq('id', body.diagnosisId)
+        console.log(
+          '[trigger-analysis] DB 상태 failed로 업데이트:',
+          body.diagnosisId
+        )
+      } catch (dbError) {
+        console.error('[trigger-analysis] DB 상태 업데이트 실패:', dbError)
+      }
     } else {
       console.log('[trigger-analysis] 유료 진단 완료:', body.diagnosisId)
     }

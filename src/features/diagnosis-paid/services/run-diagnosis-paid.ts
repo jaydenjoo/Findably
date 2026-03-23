@@ -4,9 +4,8 @@ import { DIAGNOSIS_PAID_CONFIG } from '@/config/diagnosis-paid'
 import type { CrawlData } from '@/features/crawling'
 import type {
   OverallScore,
-  CategoryScore,
-  QuickWin,
   AICitationPossibilityScore,
+  AggregatedScores,
 } from '@/features/diagnosis-free'
 import type { Json } from '@/types/database'
 import type {
@@ -34,24 +33,18 @@ const DIAGNOSIS_STATUS: Record<string, DiagnosisStatus> = {
   FAILED: 'failed',
 } as const
 
-/** 기존 무료 분석 데이터 (analysis_data 내부 구조) */
+/** 기존 무료 분석 데이터 (analysis_data 실제 DB 구조) */
 interface FreeAnalysisData {
   overallScore: OverallScore
-  categoryScores: CategoryScore[]
-  quickWins: QuickWin[]
   aiCitation: AICitationPossibilityScore
+  aggregated: AggregatedScores
 }
 
 /** analysis_data JSON을 FreeAnalysisData로 안전하게 파싱 */
 function isValidFreeAnalysis(data: unknown): data is FreeAnalysisData {
   if (!data || typeof data !== 'object') return false
   const obj = data as Record<string, unknown>
-  return (
-    'overallScore' in obj &&
-    'categoryScores' in obj &&
-    'quickWins' in obj &&
-    'aiCitation' in obj
-  )
+  return 'overallScore' in obj && 'aiCitation' in obj
 }
 
 /** 사이트 컨텍스트 (DB에서 조회) */
@@ -80,7 +73,7 @@ interface ExecuteAgentParams {
  */
 async function waitForFreeAnalysis(
   diagnosisId: string,
-  maxAttempts = 3,
+  maxAttempts = 6,
   intervalMs = 10_000
 ): Promise<FreeAnalysisData | null> {
   const supabase = createAdminClient()
@@ -190,22 +183,38 @@ export async function runDiagnosisPaid(
       }),
     ])
 
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         reject(new Error(`글로벌 타임아웃: ${GLOBAL_TIMEOUT_MS / 1000}초 초과`))
       }, GLOBAL_TIMEOUT_MS)
     })
 
-    const [agentResults, citationResult] = await Promise.race([
-      agentsPromise,
-      timeoutPromise,
-    ])
+    let agentResults: Awaited<ReturnType<typeof executeAgentsParallel>>
+    let citationResult: Awaited<ReturnType<typeof trackAICitation>>
 
-    // 4. 성공/실패 집계
+    try {
+      ;[agentResults, citationResult] = await Promise.race([
+        agentsPromise,
+        timeoutPromise,
+      ])
+    } finally {
+      clearTimeout(timeoutId)
+    }
+
+    // 4. 성공/실패 집계 — 'completed'만 진짜 성공 (insights > 0)
     const successResults = agentResults.filter((r) => r.status === 'completed')
+    const emptyResults = agentResults.filter((r) => r.status === 'empty')
     const failedAgents = agentResults
-      .filter((r) => r.status === 'failed')
+      .filter((r) => r.status === 'failed' || r.status === 'empty')
       .map((r) => r.agentId)
+
+    if (emptyResults.length > 0) {
+      console.warn(
+        `[runDiagnosisPaid] ${emptyResults.length}개 에이전트가 API 성공했으나 유효 인사이트 0개:`,
+        emptyResults.map((r) => r.agentId)
+      )
+    }
 
     if (successResults.length < DIAGNOSIS_PAID_CONFIG.MIN_SUCCESS_COUNT) {
       await supabase
@@ -213,9 +222,36 @@ export async function runDiagnosisPaid(
         .update({ status: DIAGNOSIS_STATUS.FAILED })
         .eq('id', diagnosisId)
 
+      const emptyInfo =
+        emptyResults.length > 0
+          ? ` (${emptyResults.length}개 에이전트는 API 성공했으나 유효 데이터 없음)`
+          : ''
+
       return {
         success: false,
-        error: `최소 ${DIAGNOSIS_PAID_CONFIG.MIN_SUCCESS_COUNT}개 에이전트가 성공해야 합니다. (${successResults.length}/5 성공)`,
+        error: `최소 ${DIAGNOSIS_PAID_CONFIG.MIN_SUCCESS_COUNT}개 에이전트가 유효한 인사이트를 반환해야 합니다. (${successResults.length}/5 성공)${emptyInfo}`,
+        failedAgents,
+      }
+    }
+
+    // 4.5. 전체 인사이트 유효성 최종 확인
+    const totalInsights = successResults.reduce(
+      (sum, r) => sum + r.insights.length,
+      0
+    )
+    if (totalInsights === 0) {
+      console.error(
+        '[runDiagnosisPaid] 모든 에이전트의 인사이트가 0개 — 빈 리포트 생성 방지'
+      )
+      await supabase
+        .from('diagnoses')
+        .update({ status: DIAGNOSIS_STATUS.FAILED })
+        .eq('id', diagnosisId)
+
+      return {
+        success: false,
+        error:
+          '모든 에이전트가 유효한 인사이트를 생성하지 못했습니다. AI 응답 파싱을 확인하세요.',
         failedAgents,
       }
     }
@@ -352,9 +388,18 @@ async function executeAgent(
 
   const insights = parseAgentResponse(agentId, response.content)
 
+  // insights가 0개면 API는 성공했지만 유효 데이터가 없는 'empty' 상태
+  const status = insights.length > 0 ? 'completed' : 'empty'
+  if (status === 'empty') {
+    console.warn(
+      `[executeAgent:${agentId}] API 성공했으나 유효 인사이트 0개. response 앞 300자:`,
+      response.content.slice(0, 300)
+    )
+  }
+
   return {
     agentId,
-    status: 'completed',
+    status,
     insights,
     rawResponse: response.content,
     tokenUsage: response.tokenUsage,
@@ -674,19 +719,37 @@ export function parseAgentResponse(
     const parsed = extractJsonFromContent(content)
 
     if (!parsed) {
-      console.error(`[parseAgentResponse:${agentId}] JSON을 찾을 수 없음`)
+      console.error(
+        `[parseAgentResponse:${agentId}] JSON을 찾을 수 없음. content 앞 200자:`,
+        content.slice(0, 200)
+      )
       return []
     }
 
     if (Array.isArray(parsed.insights)) {
-      return (parsed.insights as Record<string, unknown>[])
+      const valid = (parsed.insights as Record<string, unknown>[])
         .filter(isValidInsight)
         .map(normalizeInsight)
+      if (valid.length === 0 && parsed.insights.length > 0) {
+        console.warn(
+          `[parseAgentResponse:${agentId}] insights ${parsed.insights.length}개 중 유효한 것 0개. 첫 항목:`,
+          JSON.stringify(parsed.insights[0]).slice(0, 300)
+        )
+      }
+      return valid
     }
 
+    console.warn(
+      `[parseAgentResponse:${agentId}] parsed.insights가 배열이 아님. keys:`,
+      Object.keys(parsed).join(', ')
+    )
     return []
   } catch (err) {
-    console.error(`[parseAgentResponse:${agentId}] 파싱 실패`, err)
+    console.error(
+      `[parseAgentResponse:${agentId}] 파싱 실패. content 앞 200자:`,
+      content.slice(0, 200),
+      err
+    )
     return []
   }
 }
@@ -747,6 +810,15 @@ async function aggregateResults(
   } = params
   const allInsights = agentResults.flatMap((r) => r.insights)
 
+  if (allInsights.length === 0) {
+    console.warn(
+      '[aggregateResults] 전체 에이전트 인사이트가 0개. 에이전트별 상태:',
+      agentResults
+        .map((r) => `${r.agentId}:${r.status}(insights=${r.insights.length})`)
+        .join(', ')
+    )
+  }
+
   const competitorsResult = agentResults.find(
     (r) => r.agentId === 'competitors'
   )
@@ -767,7 +839,7 @@ async function aggregateResults(
     agentResults,
     categoryScores: freeAnalysis.overallScore.categories,
     overallScore: freeAnalysis.overallScore,
-    quickWins: freeAnalysis.quickWins,
+    quickWins: freeAnalysis.overallScore.quickWins,
     competitorRoadmap: parsed.roadmap,
     competitorAnalyses: competitors,
   })
@@ -784,8 +856,8 @@ async function aggregateResults(
 
   return {
     overallScore: freeAnalysis.overallScore,
-    categoryScores: freeAnalysis.categoryScores,
-    quickWins: freeAnalysis.quickWins,
+    categoryScores: freeAnalysis.overallScore.categories,
+    quickWins: freeAnalysis.overallScore.quickWins,
     aiCitation: freeAnalysis.aiCitation,
     aiInsights: allInsights,
     swot,

@@ -14,7 +14,12 @@ import type { AgentId } from '@/config/diagnosis-paid'
 export type { AgentId } from '@/config/diagnosis-paid'
 
 /** 에이전트 실행 상태 */
-export type AgentStatus = 'pending' | 'running' | 'completed' | 'failed'
+export type AgentStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'empty'
 
 /** 진단 레코드 상태 (DB status 컬럼) */
 export type DiagnosisStatus = 'analyzing' | 'completed' | 'failed'
@@ -132,6 +137,8 @@ export interface AICitationTrackingResult {
   platformSummary: CitationPlatformSummary[]
   /** 전체 인용률 (0~1) */
   overallMentionRate: number
+  /** API 키 미설정 등으로 플랫폼 사용 불가 시 true — 리포트에서 안내 표시용 */
+  platformsUnavailable?: boolean
   totalCostKrw: number
   totalDurationMs: number
 }
