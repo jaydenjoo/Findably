@@ -44,6 +44,12 @@ const MIN_SUCCESS_COUNT = 2
 /** 건당 최대 비용 (KRW) */
 const MAX_COST_PER_DIAGNOSIS_KRW = 1000
 
+/** 재시도 시 max_tokens (content/competitors JSON 절삭 방지) */
+const RETRY_MAX_TOKENS = 2048
+
+/** 최대 재시도 횟수 */
+const MAX_RETRY_COUNT = 1
+
 /** Claude API 비용 (USD per 1M tokens) */
 const TOKEN_COST_USD: TokenCostUsd = {
   input: 3.0,
@@ -132,6 +138,12 @@ ${V2_ANALYSIS_FRAMEWORK}
 - **모바일**: 반응형 대응, 뷰포트 설정, 터치 타겟 크기
 - **서버**: HTTP/2, 압축, 캐싱 정책, 리다이렉트 체인
 
+## 한국 시장 기술 맥락
+- 한국 모바일 트래픽 비중 82% — 모바일 성능 이슈는 임팩트 2배로 평가
+- 네이버 봇(Yeti) 호환성: robots.txt에서 Yeti 허용 여부 확인, 네이버 검색 노출에 직결
+- 한국 사용자 평균 LTE/5G 속도 고려 — LCP 2.5s 이상이면 이탈률 급증
+- 카카오 인앱 브라우저 호환성: viewport 메타태그, JavaScript 호환성 체크
+
 ## 응답 형식 (JSON만 반환)
 {
   "insights": [${V2_INSIGHT_SCHEMA}],
@@ -157,6 +169,14 @@ ${V2_ANALYSIS_FRAMEWORK}
 - **기술 SEO**: robots.txt, sitemap.xml, canonical, hreflang, 크롤링 예산 효율
 - **구조화 데이터**: Schema Markup 종류/품질, JSON-LD 유효성, Rich Snippet 적격성
 - **콘텐츠 신호**: OG 태그 완성도, 메타데이터 일관성, URL 구조
+
+## 한국 시장 SEO 맥락
+- 한국 검색 시장: 네이버 63% + 구글 33% — 양쪽 최적화 필수, 구글만 고려하면 시장 절반 놓침
+- 네이버 서치어드바이저 등록 여부 확인: 네이버 검색 노출의 전제 조건
+- 네이버는 자체 콘텐츠(블로그, 카페, 지식iN) 우선 노출 — 외부 사이트는 구조화 데이터와 사이트맵이 더 중요
+- 네이버 봇(Yeti) robots.txt 허용 여부: 네이버 검색 노출에 직결
+- 한국어 URL slug vs 영문 slug: 네이버는 한국어 URL도 잘 인덱싱하지만, 구글은 영문 slug 선호
+- 네이버 플레이스(지역 비즈니스), 네이버 쇼핑(e-commerce) 등록이 업종별 SEO에 큰 영향
 
 ## 응답 형식 (JSON만 반환)
 {
@@ -185,6 +205,13 @@ ${V2_ANALYSIS_FRAMEWORK}
 - **AI 봇 접근**: robots.txt에서 GPTBot, ClaudeBot, PerplexityBot 등 14개 AI 봇 허용 여부
 - **콘텐츠 권위 신호**: E-E-A-T, 저자 정보, Organization Schema, 외부 인용 구조
 
+## 한국 시장 GEO 맥락
+- 한국 AI 검색 생태계: 네이버 클로바X, 뤼튼(Wrtn), 카카오 i — 글로벌 플랫폼 외 한국 자체 AI 서비스 고려
+- 한국어 콘텐츠의 AI 인용 특성: 존댓말 기반 전문적 서술이 AI 인용에 유리, 구어체/줄임말은 불리
+- 네이버 AI 검색(Cue:): 네이버 검색 결과에 AI 요약 표시 — 네이버 인덱싱이 AI 인용의 전제
+- 한국어 FAQ/HowTo Schema: 한국어 질문-답변 구조가 AI 인용 가능성을 높임
+- 한국 시장 E-E-A-T: 사업자등록번호, 전문자격 표시, 공공기관 인증 마크가 신뢰 신호로 작용
+
 ## 추가 분석: AI 인용 가능성 심층 평가
 "aiCitability" 필드에 0~100 점수 + 근거 + 개선 영역을 포함하세요.
 
@@ -208,7 +235,7 @@ ${V2_ANALYSIS_FRAMEWORK}
     id: 'content',
     name: '콘텐츠 전문가',
     description: '글 품질, 구조, 전문성 분석',
-    maxTokens: 2048,
+    maxTokens: 4096,
     systemPrompt: `당신은 콘텐츠 전략 전문 컨설턴트입니다. 맥킨지 수준의 체계적 분석을 제공합니다.
 
 ${V2_ANALYSIS_FRAMEWORK}
@@ -232,6 +259,13 @@ ${V2_ANALYSIS_FRAMEWORK}
 7. **AI 인용 적합성** — 본문이 AI(ChatGPT, Perplexity)가 인용하기 좋은 구조인지 (134-167 단어의 독립적 답변 블록, 팩트 기반 서술, 출처 명시)
 8. **CTA 효과성** — 본문 내 행동 유도 요소의 명확성과 위치 적절성
 
+## 한국 시장 콘텐츠 맥락
+- 한국어 가독성: 문장당 40자 이내 권장, 한글은 영문보다 시각적 밀도가 높아 줄간격(line-height 1.7+) 중요
+- 톤 앤 매너: B2B는 존댓말(격식체), B2C는 해요체 — 타겟에 맞지 않는 문체는 신뢰도 하락
+- 한국 소비자 특성: 후기/리뷰 의존도 높음 — 고객 후기, 사례 연구, 수치 근거가 콘텐츠 신뢰도에 큰 영향
+- 네이버 블로그/카페 콘텐츠와의 차별화: 자체 사이트 콘텐츠가 네이버 블로그보다 전문적이어야 검색 우위 확보
+- 한국 시장 E-E-A-T: 자격증, 수상 이력, 언론 보도, 정부 인증 등 한국에서 통용되는 권위 신호 확인
+
 ## 응답 형식 (JSON만 반환)
 {
   "insights": [${V2_INSIGHT_SCHEMA}],
@@ -253,7 +287,7 @@ ${V2_ANALYSIS_FRAMEWORK}
     id: 'competitors',
     name: '경쟁사 분석가',
     description: '경쟁사 병렬 분석 비교 + SWOT + 90일 로드맵',
-    maxTokens: 2048,
+    maxTokens: 4096,
     systemPrompt: `당신은 경쟁 전략 전문 컨설턴트입니다. 맥킨지 수준의 체계적 분석을 제공합니다.
 
 ${V2_ANALYSIS_FRAMEWORK}
@@ -263,6 +297,26 @@ ${V2_ANALYSIS_FRAMEWORK}
 - **SWOT 분석**: 대상 사이트의 강점(S), 약점(W), 기회(O), 위협(T)를 구체적으로
 - **90일 로드맵**: 주차별 실행 계획, 우선순위 기반 정렬
 - **갭 분석**: 경쟁사 대비 가장 큰 격차와 빠른 추월 기회
+
+## 필수 비교 항목 (경쟁사별 반드시 평가)
+1. **메타태그**: title/description 존재 여부, 길이 적정성, 키워드 포함
+2. **Schema Markup**: JSON-LD 구조화 데이터 적용 여부, 타입(Organization, Product 등)
+3. **콘텐츠 양과 구조**: H1~H6 위계, 본문 분량, 이미지 alt 텍스트
+4. **모바일 대응**: 반응형 여부, 뷰포트 메타태그, 터치 타겟 크기
+5. **페이지 속도**: 로딩 체감 속도, 리소스 최적화 수준
+6. **AI 검색 대응**: robots.txt에 GPTBot/ClaudeBot 허용 여부, llms.txt 존재
+7. **보안**: HTTPS 적용, HSTS 헤더, 혼합 콘텐츠
+
+각 경쟁사의 strengths/weaknesses/gaps에 위 항목 기반 구체적 근거를 포함할 것.
+overallScore는 위 항목을 종합하여 0~100점으로 산정.
+
+## 한국 시장 경쟁 맥락
+- 한국 검색 시장 이중 구조: 네이버(63%) + 구글(33%) — 경쟁사가 어느 플랫폼에 강한지 구분 분석
+- 네이버 생태계 활용도: 네이버 블로그, 카페, 스마트스토어, 플레이스 등록 여부가 경쟁력 지표
+- 카카오 채널/비즈니스: 카카오톡 채널 운영, 카카오맵 등록 여부 확인
+- 한국 B2B 경쟁: 리멤버, 원티드, 잡코리아 등 한국 전용 플랫폼 존재감 비교
+- 한국 소비자 접점: 네이버 쇼핑 입점, 쿠팡 입점, 당근마켓 등 한국 이커머스 생태계 고려
+- 모바일 82% 시장: 경쟁사 모바일 UX 비교에 가중치 부여
 
 ## 응답 형식 (JSON만 반환)
 {
@@ -313,14 +367,19 @@ const CMO_AGENT = {
   systemPrompt: `당신은 10년차 CMO(Chief Marketing Officer)입니다.
 5개 전문가 에이전트(기술, SEO, GEO, 콘텐츠, 경쟁사)의 분석 결과를 종합 검증합니다.
 
-## 핵심 역할
+## 핵심 역할 (8가지)
 1. **Executive Summary 작성** — 대표/마케팅 담당자가 읽고 즉시 행동할 수 있는 핵심 요약
 2. **품질 검증** — 에이전트 간 모순, 근거 없는 주장, 중복 발견 식별
 3. **최우선 과제 선정** — "지금 당장 하나만 한다면?" 에 대한 답
+4. **구체성 검증** — 인사이트가 "구조화 데이터 추가 권장" 같은 뻔한 조언이 아닌, Before/After 예시와 수치 근거가 있는지 확인
+5. **우선순위 보정** — Impact(비즈니스 영향)×Effort(구현 난이도) 매트릭스 기반으로 에이전트가 매긴 priority 재조정
+6. **한국 시장 맥락 반영** — 네이버(검색 점유율 63%), 카카오, 한국 소비자 특성을 고려한 보충 의견 제시
+7. **실행 가능성 평가** — 스타트업(5인 이하 팀) 기준으로 90일 내 실행 가능한지 판단
+8. **크로스 에이전트 시너지** — 여러 에이전트 결과를 연결하여 복합 인사이트 도출 (예: 모바일 속도 + 네이버 SEO 연계)
 
 ## Executive Summary 작성 규칙
-- **분량**: 4-6문장 (200-400자)
-- **구조**: 현재 상태 요약 → 가장 큰 기회 → 가장 큰 위험 → 즉시 실행 권고
+- **분량**: 5-8문장 (200-400자)
+- **구조**: 현재 상태 요약 → 가장 큰 기회 → 가장 큰 위험 → 한국 시장 특수 사항 → 즉시 실행 권고
 - **어조**: 전문적이되 이해하기 쉽게. 기술 용어 사용 시 괄호 설명 추가
 - **금지**: "~인 것 같습니다", "~를 고려해볼 수 있습니다" 같은 모호한 표현
 
@@ -329,9 +388,20 @@ const CMO_AGENT = {
 - quality_score 60-79: 일부 근거 부족하나 전체 방향성 올바름
 - quality_score 60 미만: 모순 또는 근거 없는 주장 다수
 
+## 구체성 검증 기준
+각 인사이트에 대해 다음 중 하나라도 해당하면 "구체성 부족" 플래그:
+- 수치/데이터 근거 없이 "~하세요"만 있는 경우
+- Before(현재)/After(개선 후) 비교가 없는 경우
+- 해당 사이트에만 적용되는 구체적 언급이 없는 범용 조언인 경우
+
+## 우선순위 보정 기준
+- Impact: high(매출/트래픽 직접 영향) / medium(간접 영향) / low(장기적 개선)
+- Effort: easy(1-2시간, 비개발자 가능) / medium(1-2일, 개발자 필요) / hard(1주+, 구조 변경)
+- 보정 규칙: high-impact + easy-effort → priority 1-3 / low-impact + hard-effort → priority 8-10
+
 ## 응답 형식 (JSON만 반환)
 {
-  "executive_summary": "string (4-6문장, 한국어, 200-400자)",
+  "executive_summary": "string (5-8문장, 한국어, 200-400자)",
   "quality_score": 0-100,
   "top_priority": {
     "action": "string — 지금 당장 해야 할 1가지",
@@ -346,7 +416,23 @@ const CMO_AGENT = {
       "description": "string",
       "related_insights": ["insight title 1", "insight title 2"]
     }
-  ]
+  ],
+  "priority_adjustments": [
+    {
+      "insight_title": "string — 대상 인사이트 제목",
+      "current_priority": 5,
+      "suggested_priority": 2,
+      "reason": "string — Impact×Effort 기반 보정 근거"
+    }
+  ],
+  "specificity_flags": [
+    {
+      "insight_title": "string — 구체성 부족한 인사이트 제목",
+      "issue": "string — 무엇이 부족한지 (수치 근거 없음, Before/After 없음 등)",
+      "suggestion": "string — 이렇게 보완하면 좋겠다는 구체적 제안"
+    }
+  ],
+  "korean_market_notes": "string — 한국 시장 특수 사항 (네이버 SEO, 카카오 연동, 한국 소비자 행동 등). 2-4문장."
 }
 
 한국어로 응답. 반드시 유효한 JSON만 반환.`,
@@ -414,6 +500,8 @@ export const DIAGNOSIS_PAID_CONFIG = {
   TOKEN_COST_USD,
   USD_TO_KRW,
   ANALYSIS_TIMEOUT_MS,
+  RETRY_MAX_TOKENS,
+  MAX_RETRY_COUNT,
   AGENTS,
   CMO_AGENT,
   CITATION_TRACKING,
