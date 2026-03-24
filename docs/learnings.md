@@ -136,3 +136,24 @@
 - **원인**: `FAKE_DIAGNOSIS_ID = '11111111-1111-1111-1111-111111111111'`의 4번째 그룹 `1111`이 RFC 4122 variant bits 규격 위반. Zod의 UUID 정규식은 4번째 그룹 첫 문자가 `[89abAB]`여야 유효한 UUID로 인정. `1`은 범위 밖이므로 `diagnosisId must be a valid UUID` 에러로 400 반환
 - **해결**: `'11111111-1111-1111-a111-111111111111'`로 변경 (variant `a`는 유효)
 - **규칙**: 테스트용 fake UUID 생성 시 4번째 그룹 첫 문자를 반드시 `[89abAB]` 중 하나로 설정. `'00000000-0000-0000-0000-000000000000'`(nil UUID)은 Zod가 특별 허용하지만, 그 외 패턴은 variant bits 검증을 통과해야 함. 안전한 패턴: `xxxxxxxx-xxxx-4xxx-axxx-xxxxxxxxxxxx`
+
+### 2026-03-23 Claude API 모델 ID 네이밍 — 버전 번호에 점(.) 포함 금지
+
+- **증상**: 유료 분석 5개 에이전트 모두 404 에러 반환 → 10건 전부 빈 리포트 생성
+- **원인**: 모델 ID를 `claude-sonnet-4-6-20250514`로 설정 (4.6을 4-6으로 변환). 실제 Claude API 모델 ID는 `claude-sonnet-4-20250514` (마이너 버전 없이 메이저만 사용). 마케팅 이름(Sonnet 4.6)과 API 모델 ID가 다름
+- **해결**: 3곳의 모델 ID를 `claude-sonnet-4-20250514`, `claude-opus-4-20250514`로 수정
+- **규칙**: Claude API 모델 ID는 마케팅 이름과 다르다. `claude-{model}-{major_version}-{date}` 형식. 마이너 버전(4.6의 .6)은 API ID에 포함되지 않음. 새 모델 사용 시 반드시 Anthropic API 문서에서 정확한 모델 ID 확인. 예: Sonnet 4.6 → `claude-sonnet-4-20250514`, Opus 4.6 → `claude-opus-4-20250514`
+
+### 2026-03-23 로컬 커밋만으로 프로덕션 수정 완료 선언 — push 누락
+
+- **증상**: 코드 수정 + `git commit` 완료 후 "수정 완료" 보고했으나 프로덕션은 여전히 이전 코드 실행
+- **원인**: `git commit`만 하고 `git push origin main`을 하지 않음. `git status -sb`로 확인하면 `[ahead 1]` 표시 (로컬이 리모트보다 1커밋 앞서 있음). Vercel은 리모트 변경 시에만 자동 배포
+- **해결**: `git push origin main` 실행 → Vercel 자동 배포 트리거
+- **규칙**: 프로덕션 수정 완료 보고 전 반드시 3단계 확인: (1) `git status -sb`에서 `[ahead N]`이 없는지 확인 (있으면 push 안 된 것) (2) `git push origin main` 실행 (3) Vercel 대시보드 또는 `vercel --prod` 로 배포 완료 확인. "커밋했습니다" ≠ "배포되었습니다"
+
+### 2026-03-24 Claude API maxTokens 부족 → JSON 응답 절삭 → 빈 리포트
+
+- **증상**: 유료 분석 5개 에이전트 중 content와 competitors가 매번 `status=empty` (인사이트 0건). technical/seo/geo는 정상(각 6건). 토큰은 5개 모두 정확히 2048 output tokens 소비
+- **원인**: `maxTokens: 2048`이 content/competitors 에이전트에 부족. 이 두 에이전트는 복잡한 JSON 스키마(중첩 객체 + 배열)를 생성해야 하므로 2048 토큰에서 JSON이 중간에 잘림 → `JSON.parse()` 실패 → fallback(`convertFreeRulesToInsights()`)이 빈 배열 반환 → `status=empty`. 추가로 `RETRY_MAX_TOKENS=1024`로 재시도 시 토큰이 더 줄어 상황 악화
+- **해결**: content/competitors `maxTokens: 2048 → 4096`, `RETRY_MAX_TOKENS: 1024 → 2048`
+- **규칙**: Claude API에서 구조화된 JSON 응답을 요구할 때, 응답 스키마의 복잡도에 따라 maxTokens를 충분히 설정. 단순 리스트=2048 충분, 중첩 JSON(객체 안 배열, 배열 안 객체)=4096 이상 필요. 디버깅 단서: 모든 응답이 정확히 maxTokens와 동일한 output_tokens를 소비하면 토큰 한도에 걸린 것. RETRY_MAX_TOKENS는 반드시 원본 maxTokens 이상으로 설정 (재시도가 원본보다 나빠지면 안 됨)
