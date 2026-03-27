@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'crypto'
-import { type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { successResponse, errorResponse } from '@/lib/api/response'
 import { crawlingConfig } from '@/config/crawling'
@@ -25,12 +25,15 @@ import type {
  * Zod 스키마: 각 layer 타입을 z.record() 또는 z.object().passthrough()로 검증
  * 런타임에는 unknown으로 전달받고, 타입 단언을 통해 CrawlData에 저장
  */
-const layer1Schema = z.record(z.string(), z.any()).nullable().default(null)
-const robotsTxtSchema = z.record(z.string(), z.any()).nullable().default(null)
-const sitemapSchema = z.record(z.string(), z.any()).nullable().default(null)
-const llmsTxtSchema = z.record(z.string(), z.any()).nullable().default(null)
-const cmsSchema = z.record(z.string(), z.any()).nullable().default(null)
-const mobileSchema = z.record(z.string(), z.any()).nullable().default(null)
+const layer1Schema = z.record(z.string(), z.unknown()).nullable().default(null)
+const robotsTxtSchema = z
+  .record(z.string(), z.unknown())
+  .nullable()
+  .default(null)
+const sitemapSchema = z.record(z.string(), z.unknown()).nullable().default(null)
+const llmsTxtSchema = z.record(z.string(), z.unknown()).nullable().default(null)
+const cmsSchema = z.record(z.string(), z.unknown()).nullable().default(null)
+const mobileSchema = z.record(z.string(), z.unknown()).nullable().default(null)
 
 /**
  * 웹훅 페이로드 Zod 스키마
@@ -84,8 +87,11 @@ async function parseWebhookPayload(
     const payload = webhookPayloadSchema.parse(body)
     return { success: true, payload }
   } catch (error) {
-    const message = error instanceof Error ? error.message : '잘못된 요청'
-    return { success: false, response: errorResponse(message, 400) }
+    console.error(
+      '[crawl/webhook] 페이로드 검증 실패:',
+      error instanceof Error ? error.message : error
+    )
+    return { success: false, response: errorResponse('잘못된 요청', 400) }
   }
 }
 
@@ -183,7 +189,7 @@ async function runDiagnosisAndHandle(
  *
  * 인증: 사용자 세션이 아닌 웹훅 시크릿으로 검증 (서버 간 통신)
  */
-export async function POST(request: NextRequest): Promise<Response> {
+async function handleWebhook(request: NextRequest): Promise<Response> {
   const authHeader = request.headers.get('authorization')
   const authResult = await verifyWebhookAuth(authHeader)
 
@@ -247,4 +253,20 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     return errorResponse('크롤링 처리 중 오류가 발생했습니다', 500)
   }
+}
+
+/**
+ * POST — 정상 콜백 (n8n → 크롤링 결과 수신)
+ */
+export const POST = handleWebhook
+
+/**
+ * GET — 상태 조회 전용 (멱등성 보장)
+ * n8n trailing slash 308 리다이렉트 시 POST→GET 변환 방어 포함
+ */
+export async function GET(): Promise<NextResponse> {
+  return NextResponse.json(
+    { status: 'ok', endpoint: '/api/crawl/webhook', method: 'GET' },
+    { status: 200 }
+  )
 }

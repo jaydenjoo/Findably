@@ -38,7 +38,7 @@ export async function triggerCrawl(
       method: 'POST',
       headers,
       body: payload,
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(30_000),
     })
 
     if (!response.ok) {

@@ -36,6 +36,12 @@ export async function executeAIRequest(
     })
 
     const textBlock = response.content.find((block) => block.type === 'text')
+    if (!textBlock) {
+      console.warn(
+        '[askClaude] Claude 응답에 text 블록 없음. content types:',
+        response.content.map((b) => b.type)
+      )
+    }
     const content = textBlock?.text ?? ''
 
     return {
