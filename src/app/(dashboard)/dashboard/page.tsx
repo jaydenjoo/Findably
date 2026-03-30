@@ -16,8 +16,13 @@ export const metadata: Metadata = {
   description: 'SEO + GEO 종합 마케팅 진단 결과를 확인하세요.',
 }
 
-export default async function DashboardPage(): Promise<React.JSX.Element> {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string }>
+}): Promise<React.JSX.Element> {
   const supabase = await createClient()
+  const { id: diagnosisId } = await searchParams
 
   const {
     data: { user },
@@ -27,16 +32,21 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
     redirect('/login')
   }
 
-  // 가장 최근 진단 조회 (완료 우선, 없으면 진행 중)
-  const { data: diagnosis, error } = await supabase
+  // ?id= 쿼리가 있으면 해당 진단 조회, 없으면 최신 진단 조회
+  let query = supabase
     .from('diagnoses')
     .select(
       'id, analysis_data, total_score, grade, status, crawl_data, tier, updated_at'
     )
     .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+
+  if (diagnosisId) {
+    query = query.eq('id', diagnosisId)
+  } else {
+    query = query.order('created_at', { ascending: false })
+  }
+
+  const { data: diagnosis, error } = await query.limit(1).maybeSingle()
 
   // DB 에러
   if (error) {

@@ -24,8 +24,12 @@ export const crawlingConfig = {
   firecrawlTimeoutMs: 30_000,
 } as const
 
-// ─── 환경변수 누락 경고 (서버 시작 시 1회 출력) ───
-if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
+// ─── 환경변수 누락 경고 (서버 시작 시 1회 출력, 클라이언트 제외) ───
+if (
+  typeof process !== 'undefined' &&
+  typeof window === 'undefined' &&
+  process.env.NODE_ENV !== 'test'
+) {
   if (!process.env.N8N_WEBHOOK_URL) {
     console.warn(
       '[config/crawling] ⚠ N8N_WEBHOOK_URL 미설정 — 크롤링 트리거 비활성'
