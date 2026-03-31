@@ -38,14 +38,14 @@ const MODEL = 'claude-sonnet-4-20250514' as const
 /** CMO 전용 Opus 모델 — Executive Summary 품질 향상 */
 const MODEL_OPUS = 'claude-opus-4-20250514' as const
 
-/** 최소 성공 에이전트 수 (5개 중 2개 — 3개 기준은 너무 엄격하여 전체 실패 빈발) */
-const MIN_SUCCESS_COUNT = 2
+/** 최소 성공 에이전트 수 (5개 중 3개) */
+const MIN_SUCCESS_COUNT = 3
 
 /** 건당 최대 비용 (KRW) */
 const MAX_COST_PER_DIAGNOSIS_KRW = 1000
 
 /** 재시도 시 max_tokens (content/competitors JSON 절삭 방지) */
-const RETRY_MAX_TOKENS = 2048
+const RETRY_MAX_TOKENS = 4096
 
 /** 최대 재시도 횟수 */
 const MAX_RETRY_COUNT = 1
@@ -127,7 +127,7 @@ const AGENTS: readonly AgentSpec[] = [
     id: 'technical',
     name: '기술 전문가',
     description: '속도, 보안, 모바일 최적화 분석',
-    maxTokens: 2048,
+    maxTokens: 4096,
     systemPrompt: `당신은 웹사이트 기술 인프라 전문 컨설턴트입니다. 맥킨지 수준의 체계적 분석을 제공합니다.
 
 ${V2_ANALYSIS_FRAMEWORK}
@@ -159,7 +159,7 @@ ${V2_ANALYSIS_FRAMEWORK}
     id: 'seo',
     name: 'SEO 전문가',
     description: '검색 엔진 최적화 분석',
-    maxTokens: 2048,
+    maxTokens: 4096,
     systemPrompt: `당신은 검색 엔진 최적화(SEO) 전문 컨설턴트입니다. 맥킨지 수준의 체계적 분석을 제공합니다.
 
 ${V2_ANALYSIS_FRAMEWORK}
@@ -193,7 +193,7 @@ ${V2_ANALYSIS_FRAMEWORK}
     id: 'geo',
     name: 'GEO 전문가',
     description: 'AI 검색 노출 + 인용 분석',
-    maxTokens: 2048,
+    maxTokens: 4096,
     systemPrompt: `당신은 GEO(Generative Engine Optimization) 전문 컨설턴트입니다. AI 검색 엔진(ChatGPT, Perplexity, Gemini, Claude)에서 웹사이트가 인용되는지 분석합니다.
 
 ${V2_ANALYSIS_FRAMEWORK}
