@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardContent } from './_components/DashboardContent'
+import { PaidAnalyzingState } from './_components/PaidAnalyzingState'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { AlertCircle, BarChart3 } from 'lucide-react'
 import {
@@ -103,20 +104,7 @@ export default async function DashboardPage({
       )
     }
 
-    return (
-      <EmptyState
-        icon={BarChart3}
-        title={
-          isPaid ? '유료 상세 분석이 진행 중입니다' : '분석이 진행 중입니다'
-        }
-        description={
-          isPaid
-            ? '5개 AI 전문가가 심층 분석 중입니다 (약 1분 소요). 잠시 후 새로고침해주세요.'
-            : '잠시 후 자동으로 결과가 표시됩니다. 페이지를 새로고침해보세요.'
-        }
-        action={{ label: '새로고침 →', href: '/dashboard' }}
-      />
-    )
+    return <PaidAnalyzingState diagnosisId={diagnosis.id} isPaid={isPaid} />
   }
 
   // 실패 — 유료/무료 분기
