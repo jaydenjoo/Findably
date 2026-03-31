@@ -43,7 +43,8 @@ export function RoadmapSection({
   roadmap,
   isPaid,
 }: RoadmapSectionProps): React.JSX.Element {
-  const weekGroups = groupByWeek(roadmap)
+  const safeRoadmap = roadmap ?? []
+  const weekGroups = groupByWeek(safeRoadmap)
   const sortedWeeks = [...weekGroups.keys()].sort((a, b) => a - b)
 
   const content = (

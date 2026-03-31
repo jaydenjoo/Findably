@@ -45,6 +45,10 @@ export function SwotSection({
   const content = (
     <section className="flex flex-col gap-4" aria-label="SWOT 분석">
       <h2 className="text-lg font-semibold text-slate-900">SWOT 분석</h2>
+      <p className="text-sm text-slate-500">
+        우리 사이트의 강점·약점·기회·위협을 한눈에 보여줍니다. 약점과 위협은
+        우선 개선 대상입니다.
+      </p>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {SWOT_CONFIG.map((config) => (
           <div
@@ -55,7 +59,7 @@ export function SwotSection({
               {config.label}
             </h3>
             <ul className="flex flex-col gap-2">
-              {swot[config.key].map((item) => (
+              {(swot[config.key] ?? []).map((item) => (
                 <li
                   key={item}
                   className="flex items-start gap-2 text-sm text-slate-700"

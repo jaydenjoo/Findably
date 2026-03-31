@@ -18,7 +18,8 @@ export function CompetitorSection({
     <section className="flex flex-col gap-4" aria-label="경쟁사 비교 분석">
       <h2 className="text-lg font-semibold text-slate-900">경쟁사 비교</h2>
       <p className="text-sm text-slate-500">
-        주요 경쟁사와 비교한 강점·약점·기회 분석입니다.
+        주요 경쟁사와 비교한 강점·약점·기회 분석입니다. 경쟁사의 강점 중
+        우리에게 없는 항목을 먼저 보완하세요.
       </p>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -57,7 +58,7 @@ export function CompetitorSection({
                 강점
               </h4>
               <ul className="space-y-1">
-                {comp.strengths.map((s, i) => (
+                {(comp.strengths ?? []).map((s, i) => (
                   <li
                     key={i}
                     className="flex items-start gap-1.5 text-xs text-slate-600"
@@ -78,7 +79,7 @@ export function CompetitorSection({
                 약점
               </h4>
               <ul className="space-y-1">
-                {comp.weaknesses.map((w, i) => (
+                {(comp.weaknesses ?? []).map((w, i) => (
                   <li
                     key={i}
                     className="flex items-start gap-1.5 text-xs text-slate-600"
@@ -94,13 +95,13 @@ export function CompetitorSection({
             </div>
 
             {/* 갭 */}
-            {comp.gaps.length > 0 && (
+            {(comp.gaps ?? []).length > 0 && (
               <div>
                 <h4 className="mb-1 text-xs font-semibold text-warning-700">
                   우리가 앞선 점
                 </h4>
                 <ul className="space-y-1">
-                  {comp.gaps.map((g, i) => (
+                  {(comp.gaps ?? []).map((g, i) => (
                     <li
                       key={i}
                       className="flex items-start gap-1.5 text-xs text-slate-600"

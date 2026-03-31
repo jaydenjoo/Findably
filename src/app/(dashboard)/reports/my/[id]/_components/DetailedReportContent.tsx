@@ -32,23 +32,35 @@ export function DetailedReportContent({
         isPaid={isPaid}
       />
 
-      <CmoSummarySection summary={analysisData.cmoSummary} isPaid={isPaid} />
+      {analysisData.cmoSummary && (
+        <CmoSummarySection summary={analysisData.cmoSummary} isPaid={isPaid} />
+      )}
 
-      <SwotSection swot={analysisData.swot} isPaid={isPaid} />
+      {analysisData.swot && (
+        <SwotSection swot={analysisData.swot} isPaid={isPaid} />
+      )}
 
-      <RoadmapSection roadmap={analysisData.roadmap} isPaid={isPaid} />
+      {analysisData.roadmap && analysisData.roadmap.length > 0 && (
+        <RoadmapSection roadmap={analysisData.roadmap} isPaid={isPaid} />
+      )}
 
-      <CitationTrackingSection
-        tracking={analysisData.aiCitationTracking}
-        isPaid={isPaid}
-      />
+      {analysisData.aiCitationTracking && (
+        <CitationTrackingSection
+          tracking={analysisData.aiCitationTracking}
+          isPaid={isPaid}
+        />
+      )}
 
-      <CompetitorSection
-        competitors={analysisData.competitors}
-        isPaid={isPaid}
-      />
+      {analysisData.competitors && analysisData.competitors.length > 0 && (
+        <CompetitorSection
+          competitors={analysisData.competitors}
+          isPaid={isPaid}
+        />
+      )}
 
-      <AIInsightsSection insights={analysisData.aiInsights} isPaid={isPaid} />
+      {analysisData.aiInsights && analysisData.aiInsights.length > 0 && (
+        <AIInsightsSection insights={analysisData.aiInsights} isPaid={isPaid} />
+      )}
     </div>
   )
 }

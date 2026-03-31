@@ -38,11 +38,14 @@ export function CitationTrackingSection({
   tracking,
   isPaid,
 }: CitationTrackingSectionProps): React.JSX.Element {
-  const mentionRate = Math.round(tracking.overallMentionRate * 100)
+  const mentionRate = Math.round((tracking.overallMentionRate ?? 0) * 100)
+  const results = tracking.results ?? []
+  const platformSummary = tracking.platformSummary ?? []
+  const keywords = tracking.keywords ?? []
 
   // O(1) 룩업 맵: "keyword::platform" → CitationStatus
   const resultMap = new Map<string, CitationStatus>()
-  for (const r of tracking.results) {
+  for (const r of results) {
     resultMap.set(`${r.keyword}::${r.platform}`, r.status)
   }
 
@@ -55,9 +58,15 @@ export function CitationTrackingSection({
         </span>
       </div>
 
+      <p className="text-sm text-slate-500">
+        타겟 키워드를 AI에 질문했을 때, 우리 사이트가 답변에 언급되는지 확인한
+        결과입니다. 미언급(N) 항목은 콘텐츠 보강이나 구조화 데이터 추가로 개선할
+        수 있습니다.
+      </p>
+
       {/* 플랫폼별 요약 카드 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {tracking.platformSummary.map((platform) => (
+        {platformSummary.map((platform) => (
           <div
             key={platform.platform}
             className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
@@ -83,7 +92,7 @@ export function CitationTrackingSection({
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">
                 키워드
               </th>
-              {tracking.platformSummary.map((p) => (
+              {platformSummary.map((p) => (
                 <th
                   key={p.platform}
                   className="px-4 py-3 text-center text-xs font-semibold text-slate-600"
@@ -94,7 +103,7 @@ export function CitationTrackingSection({
             </tr>
           </thead>
           <tbody>
-            {tracking.keywords.map((keyword) => (
+            {keywords.map((keyword) => (
               <tr
                 key={keyword}
                 className="border-b border-slate-50 last:border-b-0 hover:bg-slate-50"
@@ -102,7 +111,7 @@ export function CitationTrackingSection({
                 <td className="px-4 py-3 font-medium text-slate-700">
                   {keyword}
                 </td>
-                {tracking.platformSummary.map((p) => {
+                {platformSummary.map((p) => {
                   const status =
                     resultMap.get(`${keyword}::${p.platform}`) ??
                     'not_mentioned'

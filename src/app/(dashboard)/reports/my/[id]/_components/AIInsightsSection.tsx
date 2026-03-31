@@ -38,9 +38,10 @@ export function AIInsightsSection({
   insights,
   isPaid,
 }: AIInsightsSectionProps): React.JSX.Element {
-  if (insights.length === 0) return <></>
+  const safeInsights = insights ?? []
+  if (safeInsights.length === 0) return <></>
 
-  const sorted = [...insights].sort(
+  const sorted = [...safeInsights].sort(
     (a, b) =>
       SEVERITY_CONFIG[a.severity].order - SEVERITY_CONFIG[b.severity].order
   )

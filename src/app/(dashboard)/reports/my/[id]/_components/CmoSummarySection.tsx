@@ -16,10 +16,10 @@ export function CmoSummarySection({
   const content = (
     <section
       className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-      aria-label="CMO Executive Summary"
+      aria-label="대표님을 위한 3줄 요약"
     >
       <h2 className="mb-4 text-lg font-semibold text-slate-900">
-        CMO Executive Summary
+        대표님을 위한 3줄 요약
       </h2>
 
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
