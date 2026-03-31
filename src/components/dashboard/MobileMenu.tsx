@@ -74,7 +74,7 @@ export function MobileMenu(): React.JSX.Element {
           <form action={logoutAction}>
             <button
               type="submit"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-slate-600 transition-colors hover:bg-slate-50"
+              className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-slate-600 transition-colors hover:bg-slate-50"
               aria-label="로그아웃"
             >
               <LogOut className="size-4" />
