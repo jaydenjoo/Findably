@@ -1,6 +1,7 @@
 // ─── Public API ───
 
 export { runDiagnosisPaid } from './services/run-diagnosis-paid'
+export { retryPaidAnalysis } from './actions/retry-analysis'
 export { trackAICitation } from './services/track-ai-citation'
 export { generateSwotAnalysis } from './services/generate-swot'
 export { generateRoadmap } from './services/generate-roadmap'

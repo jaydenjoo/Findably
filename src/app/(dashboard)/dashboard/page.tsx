@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardContent } from './_components/DashboardContent'
 import { PaidAnalyzingState } from './_components/PaidAnalyzingState'
+import { AnalysisTimeoutState } from './_components/AnalysisTimeoutState'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { AlertCircle, BarChart3 } from 'lucide-react'
 import {
@@ -94,14 +95,7 @@ export default async function DashboardPage({
         DIAGNOSIS_PAID_CONFIG.ANALYSIS_TIMEOUT_MS
 
     if (isTimedOut) {
-      return (
-        <EmptyState
-          icon={AlertCircle}
-          title="분석이 예상보다 오래 걸리고 있습니다"
-          description="분석 중 일시적 문제가 발생한 것 같습니다. 새로고침을 시도해주세요. 문제가 계속되면 support@findably.co.kr로 문의해주세요."
-          action={{ label: '새로고침 →', href: '/dashboard' }}
-        />
-      )
+      return <AnalysisTimeoutState diagnosisId={diagnosis.id} isPaid={isPaid} />
     }
 
     return <PaidAnalyzingState diagnosisId={diagnosis.id} isPaid={isPaid} />
