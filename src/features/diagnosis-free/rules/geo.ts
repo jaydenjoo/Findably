@@ -15,7 +15,7 @@ export const geoRules: RuleDefinition[] = [
   {
     id: 'geo-01',
     category: 'geo',
-    name: 'llms.txt 존재',
+    name: 'AI 소개 파일 존재',
     maxPoints: 15,
     severity: 'warning',
     quickWinEligible: true,
@@ -25,20 +25,20 @@ export const geoRules: RuleDefinition[] = [
         return {
           passed: true,
           message:
-            'llms.txt가 존재합니다. AI가 사이트를 구조적으로 이해할 수 있습니다.',
+            'AI 소개 파일(llms.txt)이 있어서 ChatGPT, Claude 같은 AI가 사이트를 구조적으로 이해할 수 있습니다.',
         }
       }
       return {
         passed: false,
         message:
-          'llms.txt가 없습니다. AI 크롤러에게 사이트 요약을 제공하면 인용 가능성이 높아집니다.',
+          'AI 소개 파일(llms.txt)이 없습니다. 이 파일은 "우리 사이트는 이런 서비스를 제공해요"라고 AI에게 알려주는 자기소개서 같은 역할을 합니다. 추가하면 AI 검색에서 추천될 가능성이 높아집니다.',
       }
     },
   },
   {
     id: 'geo-02',
     category: 'geo',
-    name: 'llms.txt 충실도',
+    name: 'AI 소개 파일 충실도',
     maxPoints: 10,
     severity: 'info',
     quickWinEligible: true,
@@ -59,24 +59,24 @@ export const geoRules: RuleDefinition[] = [
       ) {
         return {
           passed: true,
-          message: `llms.txt ${length}자, ${sections}개 섹션 — 충분한 구조 정보 제공`,
+          message: `AI 소개 파일이 ${length}자, ${sections}개 섹션으로 충분히 상세합니다.`,
         }
       }
 
       const issues: string[] = []
       if (length < GEO_THRESHOLDS.MIN_LLMS_TXT_LENGTH) {
         issues.push(
-          `내용이 ${length}자로 짧음 (${GEO_THRESHOLDS.MIN_LLMS_TXT_LENGTH}자 이상 권장)`
+          `내용이 ${length}자로 짧습니다(${GEO_THRESHOLDS.MIN_LLMS_TXT_LENGTH}자 이상 권장)`
         )
       }
       if (sections < GEO_THRESHOLDS.MIN_LLMS_TXT_SECTIONS) {
         issues.push(
-          `섹션이 ${sections}개 (${GEO_THRESHOLDS.MIN_LLMS_TXT_SECTIONS}개 이상 권장)`
+          `섹션이 ${sections}개뿐입니다(${GEO_THRESHOLDS.MIN_LLMS_TXT_SECTIONS}개 이상 권장)`
         )
       }
       return {
         passed: false,
-        message: `llms.txt 충실도 부족: ${issues.join(', ')}`,
+        message: `AI 소개 파일의 내용이 부족합니다: ${issues.join(', ')}. 사이트 소개, 주요 서비스, 연락처 등을 추가하면 AI가 더 정확히 이해합니다.`,
       }
     },
   },
@@ -85,7 +85,7 @@ export const geoRules: RuleDefinition[] = [
   {
     id: 'geo-03',
     category: 'geo',
-    name: 'GPTBot 접근 허용',
+    name: 'ChatGPT 접근 허용',
     maxPoints: 15,
     severity: 'critical',
     quickWinEligible: true,
@@ -95,20 +95,21 @@ export const geoRules: RuleDefinition[] = [
       if (status === 'allowed' || status === 'not_mentioned') {
         return {
           passed: true,
-          message: 'GPTBot 접근 허용 — ChatGPT가 사이트를 학습/인용 가능',
+          message:
+            'ChatGPT가 사이트를 방문할 수 있어서, 누군가 ChatGPT에 관련 질문을 하면 우리 사이트가 추천될 수 있습니다.',
         }
       }
       return {
         passed: false,
         message:
-          'GPTBot이 차단되어 있습니다. ChatGPT 검색에서 사이트가 인용되지 않습니다.',
+          'ChatGPT가 사이트에 접근하지 못하도록 막혀 있습니다. 이러면 누군가 ChatGPT에 관련 질문을 해도 우리 사이트는 절대 추천되지 않습니다.',
       }
     },
   },
   {
     id: 'geo-04',
     category: 'geo',
-    name: 'ClaudeBot 접근 허용',
+    name: 'Claude AI 접근 허용',
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
@@ -118,20 +119,21 @@ export const geoRules: RuleDefinition[] = [
       if (status === 'allowed' || status === 'not_mentioned') {
         return {
           passed: true,
-          message: 'ClaudeBot 접근 허용 — Claude가 사이트를 인용 가능',
+          message:
+            'Claude AI가 사이트를 방문할 수 있어서 AI 검색에서 추천될 수 있습니다.',
         }
       }
       return {
         passed: false,
         message:
-          'ClaudeBot이 차단되어 있습니다. Claude 검색에서 사이트가 인용되지 않습니다.',
+          'Claude AI가 사이트에 접근하지 못하도록 막혀 있습니다. Claude를 사용하는 사람들에게 우리 사이트가 추천되지 않습니다.',
       }
     },
   },
   {
     id: 'geo-05',
     category: 'geo',
-    name: 'PerplexityBot 접근 허용',
+    name: 'Perplexity AI 접근 허용',
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
@@ -141,20 +143,20 @@ export const geoRules: RuleDefinition[] = [
       if (status === 'allowed' || status === 'not_mentioned') {
         return {
           passed: true,
-          message: 'PerplexityBot 접근 허용 — Perplexity 검색에서 노출 가능',
+          message: 'Perplexity AI에서 사이트가 검색·추천될 수 있습니다.',
         }
       }
       return {
         passed: false,
         message:
-          'PerplexityBot이 차단되어 있습니다. Perplexity AI 검색에서 노출되지 않습니다.',
+          'Perplexity AI가 사이트에 접근하지 못하도록 막혀 있습니다. Perplexity에서 검색해도 우리 사이트가 나오지 않습니다.',
       }
     },
   },
   {
     id: 'geo-06',
     category: 'geo',
-    name: 'Googlebot 허용 (AI Overview)',
+    name: 'Google AI 검색 접근 허용',
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: false,
@@ -164,13 +166,13 @@ export const geoRules: RuleDefinition[] = [
         return {
           passed: true,
           message:
-            'Googlebot 접근 허용 — Google AI Overview에서 인용될 수 있습니다',
+            'Google AI 요약(AI Overview)에서 사이트 내용이 인용될 수 있습니다.',
         }
       }
       return {
         passed: false,
         message:
-          'Googlebot이 차단되어 있습니다. Google AI Overview에서도 인용되지 않습니다.',
+          'Google이 사이트에 접근하지 못하도록 막혀 있습니다. Google 검색의 AI 요약에서도 우리 사이트가 인용되지 않습니다.',
       }
     },
   },
@@ -179,7 +181,7 @@ export const geoRules: RuleDefinition[] = [
   {
     id: 'geo-07',
     category: 'geo',
-    name: 'Schema Markup 존재',
+    name: '사이트 정보 구조화 코드',
     maxPoints: 15,
     severity: 'warning',
     quickWinEligible: false,
@@ -189,20 +191,20 @@ export const geoRules: RuleDefinition[] = [
       if (schemas.length > 0) {
         return {
           passed: true,
-          message: `Schema Markup ${schemas.length}개 — AI가 콘텐츠 의미를 구조적으로 파악 가능`,
+          message: `Google과 AI에게 사이트 정보를 알려주는 구조화 코드가 ${schemas.length}개 설정되어 있어, AI가 사이트의 종류와 내용을 정확히 파악할 수 있습니다.`,
         }
       }
       return {
         passed: false,
         message:
-          'Schema Markup(JSON-LD)이 없습니다. AI가 콘텐츠 유형과 의미를 파악하기 어렵습니다.',
+          'Google과 AI에게 사이트 정보를 알려주는 구조화 코드가 없습니다. 마치 명함 없이 자기소개하는 것과 같아서, AI가 이 사이트가 어떤 종류의 서비스인지 파악하기 어렵습니다.',
       }
     },
   },
   {
     id: 'geo-08',
     category: 'geo',
-    name: 'Schema 다양성',
+    name: '구조화 코드 다양성',
     maxPoints: 10,
     severity: 'info',
     quickWinEligible: false,
@@ -220,12 +222,12 @@ export const geoRules: RuleDefinition[] = [
       if (types.size >= GEO_THRESHOLDS.MIN_SCHEMA_TYPES) {
         return {
           passed: true,
-          message: `Schema ${types.size}종 사용 (${[...types].join(', ')}) — AI가 다양한 맥락 인식 가능`,
+          message: `구조화 코드가 ${types.size}종류(${[...types].join(', ')})로 다양하여 AI가 사이트를 여러 관점에서 이해할 수 있습니다.`,
         }
       }
       return {
         passed: false,
-        message: `Schema가 ${types.size}종뿐입니다 (${GEO_THRESHOLDS.MIN_SCHEMA_TYPES}종 이상 권장). Organization, WebPage, FAQ 등을 추가하세요.`,
+        message: `구조화 코드가 ${types.size}종류뿐입니다. 회사 정보, FAQ, 서비스 소개 등 다양한 정보를 추가하면 AI가 사이트를 더 잘 이해합니다(${GEO_THRESHOLDS.MIN_SCHEMA_TYPES}종 이상 권장).`,
       }
     },
   },
@@ -234,7 +236,7 @@ export const geoRules: RuleDefinition[] = [
   {
     id: 'geo-09',
     category: 'geo',
-    name: 'H1 명확한 주제 전달',
+    name: '대표 제목으로 주제 전달',
     maxPoints: 5,
     severity: 'warning',
     quickWinEligible: false,
@@ -244,26 +246,27 @@ export const geoRules: RuleDefinition[] = [
       if (h1Count === 1) {
         return {
           passed: true,
-          message: `H1이 명확하게 1개 — AI가 페이지 핵심 주제를 파악할 수 있습니다`,
+          message:
+            '대표 제목(H1)이 1개로 명확하여 AI가 이 페이지의 핵심 주제를 바로 파악할 수 있습니다.',
         }
       }
       if (h1Count === 0) {
         return {
           passed: false,
           message:
-            'H1이 없습니다. AI가 페이지의 핵심 주제를 파악할 수 없습니다.',
+            '페이지의 대표 제목이 없습니다. AI가 이 페이지의 핵심 주제를 파악할 수 없어 AI 검색에서 추천되기 어렵습니다.',
         }
       }
       return {
         passed: false,
-        message: `H1이 ${h1Count}개입니다. AI가 페이지 주제를 혼동할 수 있습니다.`,
+        message: `대표 제목이 ${h1Count}개입니다. 하나만 있어야 AI가 주제를 정확히 파악합니다.`,
       }
     },
   },
   {
     id: 'geo-10',
     category: 'geo',
-    name: 'meta description 존재',
+    name: '검색 결과 설명문 (AI용)',
     maxPoints: 5,
     severity: 'warning',
     quickWinEligible: true,
@@ -274,20 +277,20 @@ export const geoRules: RuleDefinition[] = [
         return {
           passed: true,
           message:
-            'meta description 설정됨 — AI가 페이지 요약으로 활용할 수 있습니다',
+            '검색 결과 설명문이 있어서 AI가 페이지를 요약할 때 참고할 수 있습니다.',
         }
       }
       return {
         passed: false,
         message:
-          'meta description이 없습니다. AI가 페이지를 요약할 참고 정보가 부족합니다.',
+          '검색 결과 설명문이 없습니다. AI가 페이지를 요약할 때 참고할 정보가 부족하여 부정확하게 설명할 수 있습니다.',
       }
     },
   },
   {
     id: 'geo-11',
     category: 'geo',
-    name: '제목 계층 구조',
+    name: '제목 계층 구조 (AI 이해도)',
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: false,
@@ -319,20 +322,20 @@ export const geoRules: RuleDefinition[] = [
         return {
           passed: true,
           message:
-            '제목 계층이 순차적 — AI가 콘텐츠 구조를 정확히 이해할 수 있습니다',
+            '제목이 대제목→소제목→세부제목 순서로 잘 정리되어 있어 AI가 콘텐츠 구조를 정확히 이해합니다.',
         }
       }
       return {
         passed: false,
         message:
-          '제목 레벨이 건너뛰어져 있습니다. AI가 콘텐츠 구조를 잘못 해석할 수 있습니다.',
+          '제목 순서가 뒤섞여 있습니다. 마치 책 목차가 1장→3장으로 건너뛰는 것처럼, AI가 콘텐츠 구조를 잘못 해석할 수 있습니다.',
       }
     },
   },
   {
     id: 'geo-15',
     category: 'geo',
-    name: '이미지 alt 속성',
+    name: '이미지 설명 텍스트 (AI 이해용)',
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: true,
@@ -345,12 +348,12 @@ export const geoRules: RuleDefinition[] = [
       if (without_alt === 0) {
         return {
           passed: true,
-          message: `전체 ${total}개 이미지에 alt 설정 — AI가 이미지 맥락을 이해할 수 있습니다`,
+          message: `전체 ${total}개 이미지에 설명 텍스트가 있어서 AI가 이미지 내용까지 이해할 수 있습니다.`,
         }
       }
       return {
         passed: false,
-        message: `${without_alt}개 이미지에 alt가 없습니다. AI가 이미지의 맥락을 파악할 수 없습니다.`,
+        message: `${without_alt}개 이미지에 설명 텍스트가 없습니다. 설명이 없으면 AI가 이미지의 내용을 전혀 알 수 없어 해당 정보를 활용하지 못합니다.`,
       }
     },
   },
@@ -359,7 +362,7 @@ export const geoRules: RuleDefinition[] = [
   {
     id: 'geo-12',
     category: 'geo',
-    name: 'canonical URL 설정',
+    name: '대표 URL 설정 (AI 혼동 방지)',
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: true,
@@ -370,20 +373,20 @@ export const geoRules: RuleDefinition[] = [
         return {
           passed: true,
           message:
-            'canonical URL 설정됨 — AI가 대표 페이지를 올바르게 인식합니다',
+            '대표 URL이 설정되어 있어 AI가 어떤 페이지가 원본인지 정확히 알 수 있습니다.',
         }
       }
       return {
         passed: false,
         message:
-          'canonical URL이 없습니다. AI가 중복 페이지를 별개로 인식할 수 있습니다.',
+          '대표 URL이 설정되지 않았습니다. 같은 내용이 여러 주소로 접근되면, AI가 중복 페이지를 별개로 인식하여 혼란이 생깁니다.',
       }
     },
   },
   {
     id: 'geo-13',
     category: 'geo',
-    name: 'SSL 유효 (신뢰 신호)',
+    name: '보안 인증서 (AI 신뢰 판단)',
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: false,
@@ -393,13 +396,13 @@ export const geoRules: RuleDefinition[] = [
         return {
           passed: true,
           message:
-            'SSL 유효 — AI가 신뢰할 수 있는 출처로 판단하는 기본 조건 충족',
+            '보안 인증서(SSL)가 유효하여 주소창에 자물쇠가 표시됩니다. AI가 안전한 사이트로 판단하는 기본 조건을 충족합니다.',
         }
       }
       return {
         passed: false,
         message:
-          'SSL이 유효하지 않습니다. AI가 신뢰도 낮은 출처로 판단할 수 있습니다.',
+          '보안 인증서가 유효하지 않아 주소창에 "안전하지 않음"이 표시됩니다. AI가 신뢰도 낮은 사이트로 판단하여 추천을 꺼릴 수 있습니다.',
       }
     },
   },
@@ -408,7 +411,7 @@ export const geoRules: RuleDefinition[] = [
   {
     id: 'geo-14',
     category: 'geo',
-    name: 'Safe Browsing 안전',
+    name: 'Google 안전성 검사',
     maxPoints: 10,
     severity: 'critical',
     quickWinEligible: false,
@@ -417,13 +420,14 @@ export const geoRules: RuleDefinition[] = [
       if (data.layer2!.safe_browsing!.is_safe) {
         return {
           passed: true,
-          message: 'Safe Browsing 안전 — AI가 위험 사이트로 분류하지 않습니다',
+          message:
+            'Google 안전성 검사를 통과했습니다. 위험 사이트로 분류되지 않아 AI가 안심하고 추천할 수 있습니다.',
         }
       }
       return {
         passed: false,
         message:
-          '위험 사이트로 감지되었습니다. AI가 이 사이트를 인용하지 않을 가능성이 높습니다.',
+          'Google에 의해 위험 사이트로 감지되었습니다. 이 상태에서는 AI가 절대 이 사이트를 추천하지 않습니다. 즉시 보안 점검이 필요합니다.',
       }
     },
   },
@@ -464,13 +468,14 @@ export const geoRules: RuleDefinition[] = [
       const result = calculateAICitationPossibility(data)
       const breakdown = result.platforms
         .map(
-          (p) => `${p.platformLabel}: ${p.score}점${p.blocked ? ' (차단)' : ''}`
+          (p) =>
+            `${p.platformLabel}: ${p.score}점${p.blocked ? ' (차단됨)' : ''}`
         )
         .join(' / ')
 
       return {
         passed: result.passed,
-        message: `플랫폼별 AI 인용 가능성 — ${breakdown}. 예상값입니다. 정확한 인용 현황은 유료 진단에서 확인하세요.`,
+        message: `플랫폼별 AI 추천 가능성 — ${breakdown}. 이 점수는 사이트 구조 기반 예상값입니다. 실제 AI가 추천하는지는 유료 진단에서 확인할 수 있습니다.`,
       }
     },
   },
