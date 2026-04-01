@@ -29,6 +29,7 @@ import { generateSwotAnalysis } from './generate-swot'
 import { generateRoadmap } from './generate-roadmap'
 import { extractJsonFromContent } from './extract-json'
 import { parseV2EnhancedData } from './parse-v2-enhanced'
+import { retryFailedAgentsWithFallback } from './retry-failed-agents'
 
 const DIAGNOSIS_STATUS: Record<string, DiagnosisStatus> = {
   ANALYZING: 'analyzing',
@@ -57,7 +58,7 @@ function isValidCrawlData(data: unknown): data is CrawlData {
 }
 
 /** 사이트 컨텍스트 (DB에서 조회) */
-interface SiteContext {
+export interface SiteContext {
   targetKeywords: string[]
   competitorUrls: string[]
   industry: string
@@ -65,7 +66,7 @@ interface SiteContext {
 
 /** executeAgent 파라미터 (6개 → 1 객체) */
 /** 5개 분석 에이전트 ID (CMO 제외) */
-type AnalysisAgentId = Exclude<AgentId, 'cmo'>
+export type AnalysisAgentId = Exclude<AgentId, 'cmo'>
 
 interface ExecuteAgentParams {
   agentId: AnalysisAgentId
@@ -258,17 +259,19 @@ export async function runDiagnosisPaid(
     )
 
     if (retryTargets.length > 0) {
-      const currentCostKrw = agentResults.reduce(
-        (sum, r) => sum + calculateCostKrw(r.tokenUsage),
-        0
-      )
+      const failedAgentIds = retryTargets.map((r) => r.agentId)
 
-      const retryResults = await retryFailedAgents(
-        retryTargets,
+      const retryResults = await retryFailedAgentsWithFallback(
+        diagnosisId,
+        failedAgentIds,
         crawlData,
-        diagnosis.url,
-        context,
-        currentCostKrw
+        {
+          url: diagnosis.url,
+          targetKeywords: context.targetKeywords,
+          competitorUrls: context.competitorUrls,
+          industry: context.industry,
+        },
+        context
       )
 
       // 재시도 성공분을 원본 결과에 병합
@@ -433,77 +436,6 @@ const AGENT_TO_CATEGORIES: Record<AnalysisAgentId, CategoryId[]> = {
   geo: ['social-ai', 'geo'],
   content: ['content'],
   competitors: [],
-}
-
-/**
- * 실패/빈 에이전트 재시도 — 축소 토큰(1024)으로 1회 재실행
- * 비용 상한 내에서만 재시도 (MAX_COST_PER_DIAGNOSIS_KRW 체크)
- */
-async function retryFailedAgents(
-  failedResults: AIAgentResult[],
-  crawlData: CrawlData,
-  url: string,
-  context: SiteContext,
-  currentCostKrw: number
-): Promise<AIAgentResult[]> {
-  if (failedResults.length === 0) return []
-
-  const retryTargets = failedResults.filter((r) => {
-    const agentConfig = DIAGNOSIS_PAID_CONFIG.AGENTS.find(
-      (a) => a.id === r.agentId
-    )
-    return agentConfig !== undefined
-  })
-
-  if (retryTargets.length === 0) return []
-
-  // 비용 상한 체크 — 남은 예산으로 재시도 가능한지 예측
-  const estimatedRetryCost = retryTargets.length * 30 // ~30원/에이전트 (축소 토큰 기준 보수 추정)
-  if (
-    currentCostKrw + estimatedRetryCost >
-    DIAGNOSIS_PAID_CONFIG.MAX_COST_PER_DIAGNOSIS_KRW
-  ) {
-    console.warn(
-      `[retryFailedAgents] 비용 상한 초과 예상 — 재시도 생략 (현재 ${currentCostKrw}원 + 예상 ${estimatedRetryCost}원)`
-    )
-    return []
-  }
-
-  console.log(
-    `[retryFailedAgents] ${retryTargets.length}개 에이전트 재시도 (축소 토큰 ${DIAGNOSIS_PAID_CONFIG.RETRY_MAX_TOKENS}):`,
-    retryTargets.map((r) => r.agentId)
-  )
-
-  const promises = retryTargets.map((r) => {
-    const agentConfig = DIAGNOSIS_PAID_CONFIG.AGENTS.find(
-      (a) => a.id === r.agentId
-    )!
-    return executeAgent({
-      agentId: agentConfig.id as AnalysisAgentId,
-      systemPrompt: agentConfig.systemPrompt,
-      maxTokens: DIAGNOSIS_PAID_CONFIG.RETRY_MAX_TOKENS,
-      crawlData,
-      url,
-      context,
-    })
-  })
-
-  const settled = await Promise.allSettled(promises)
-
-  return settled.map((result, index) => {
-    const target = retryTargets[index]!
-    if (result.status === 'fulfilled') {
-      console.log(
-        `[retryFailedAgents] ${target.agentId} 재시도 ${result.value.status === 'completed' ? '성공' : '여전히 ' + result.value.status}`
-      )
-      return result.value
-    }
-    console.error(
-      `[retryFailedAgents] ${target.agentId} 재시도 실패`,
-      result.reason
-    )
-    return target // 원래 실패 결과 유지
-  })
 }
 
 /**
@@ -765,7 +697,7 @@ async function executeAgent(
 
 // ─── 프롬프트 빌딩 ───
 
-interface BuildUserMessageParams {
+export interface BuildUserMessageParams {
   agentId: Exclude<AgentId, 'cmo'>
   crawlData: CrawlData
   url: string
@@ -775,7 +707,7 @@ interface BuildUserMessageParams {
 /**
  * 에이전트별 사용자 메시지 생성
  */
-function buildUserMessage(params: BuildUserMessageParams): string {
+export function buildUserMessage(params: BuildUserMessageParams): string {
   const { agentId, crawlData, url, context } = params
   const baseInfo = [
     '## 분석 대상',
