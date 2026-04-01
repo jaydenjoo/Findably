@@ -157,3 +157,38 @@
 - **원인**: `maxTokens: 2048`이 부족하여 JSON이 중간에 잘림 → `JSON.parse()` 실패 → fallback이 빈 배열 반환. 1차 수정 시 content/competitors만 4096으로 올리고 **technical/seo/geo는 2048 그대로 방치** → 2차 재발
 - **해결(1차)**: content/competitors `2048 → 4096`. **(2차)**: technical/seo/geo도 `2048 → 4096`. 이제 5개 에이전트 모두 4096
 - **규칙**: Claude API 구조화 JSON 응답 시 **모든 에이전트에 동일 기준(4096)** 적용. 일부만 수정하면 나머지에서 동일 문제 재발. 디버깅 단서: output_tokens가 정확히 maxTokens와 동일하면 한도에 걸린 것. 부분 수정 후 반드시 전체 에이전트 maxTokens 일관성 확인
+
+### 2026-04-01 로컬 tsc 통과 ≠ Vercel 빌드 통과 — Git 미커밋 파일 함정
+
+- **증상**: 로컬에서 `tsc --noEmit` 통과, `next build` 통과. 하지만 Vercel에서 `Property 'priority_adjustments' does not exist on type 'CmoVerificationResponse'` 에러로 빌드 실패. **수일간 모든 배포 실패 상태 지속.**
+- **원인**: `types.ts`에 `priority_adjustments` 등 3개 필드를 추가했지만 Git에 커밋하지 않음. 로컬 `tsc`는 로컬 파일(커밋 안 된 것 포함)을 읽지만, Vercel은 **Git HEAD 코드**만으로 빌드. `git status`로 확인하면 `M src/features/diagnosis-paid/types.ts`가 미커밋 상태
+- **해결**: 미커밋 파일을 모두 커밋 + push
+- **규칙**: 배포 전 반드시 `git stash && npx next build`로 **Git 코드만으로 빌드 테스트**. 통과 확인 후 `git stash pop` → 커밋 → push. 특히 types.ts, config 파일 변경 시 주의. `git diff --stat HEAD`로 미커밋 변경 확인 습관화
+
+### 2026-04-01 Mozilla Observatory v1 API 서비스 종료 — 502 상시 발생
+
+- **증상**: `fetchObservatory()` 호출 시 항상 502 반환. google.com 등 다른 도메인으로 테스트해도 동일 502. 보안 카테고리가 항상 0점
+- **원인**: Mozilla HTTP Observatory가 v1 API(`http-observatory.security.mozilla.org/api/v1/`)를 종료하고 v2 API(`observatory-api.mdn.mozilla.net/api/v2/`)로 이전. 2026년 초부터 v1은 502 반환
+- **해결**: fetcher URL을 v2 엔드포인트로 변경. v2는 단일 POST 요청으로 grade+score+실패수 반환 (v1의 2단계 호출 불필요)
+- **규칙**: 외부 API가 갑자기 실패하면 "일시적 서버 오류"로 넘기지 말고 **API 버전 마이그레이션/서비스 종료 여부**를 확인. 다른 도메인으로도 테스트하여 특정 사이트 문제인지 API 자체 문제인지 구분. Observatory v2: `POST observatory-api.mdn.mozilla.net/api/v2/scan?host={host}` body: `{"host":"domain.com"}`
+
+### 2026-04-01 대시보드 쿼리가 최신 1개만 조회 → failed가 결과를 영구 차단
+
+- **증상**: 유료 분석이 실패(`failed` + `paid`)하면 대시보드에서 "상세 분석에 문제가 발생했습니다" 에러만 표시. 이전 정상 진단 결과를 볼 수 없고 탈출구 없음
+- **원인**: `dashboard/page.tsx`가 `ORDER BY created_at DESC LIMIT 1`로 최신 진단 1개만 조회. 최신이 `failed`면 이전 `completed` 결과에 접근 불가
+- **해결**: 쿼리를 3단계로 분리: (1) 진행 중 진단 → 프로그레스 화면, (2) completed 진단 → 결과 표시, (3) failed만 있으면 → 새 진단 유도
+- **규칙**: SaaS 대시보드의 메인 쿼리는 **사용자가 가장 보고 싶은 상태를 우선** 조회해야 함. 단순 최신순이 아닌 상태 우선순위(진행중 > 완료 > 실패) 적용. 실패 상태가 정상 결과를 가리면 안 됨
+
+### 2026-04-01 Google API 키 제한 — Safe Browsing API "API key not valid"
+
+- **증상**: Safe Browsing API 호출 시 400 "API key not valid". API는 활성화했는데 여전히 실패
+- **원인**: Google Cloud Console에서 API 키의 "API 제한사항"이 "선택된 API가 없습니다"로 설정 → 어떤 API도 이 키로 호출 불가
+- **해결**: API 키 수정 → "키를 제한하지 않음" 선택 또는 필요한 API(Safe Browsing, PageSpeed, Chrome UX Report)를 명시적으로 추가
+- **규칙**: Google API 활성화와 API 키 권한은 **별개**. API를 활성화해도 키에 해당 API 접근 권한이 없으면 호출 불가. 새 Google API 추가 시: (1) API 라이브러리에서 활성화 (2) API 키 설정에서 해당 API 접근 허용 확인. 설정 반영에 최대 5분 소요
+
+### 2026-04-01 n8n 콜백 URL과 로컬 테스트 — localhost 접근 불가
+
+- **증상**: `NEXT_PUBLIC_SITE_URL="http://localhost:3600"`으로 변경 후 URL 제출 → 진단이 영원히 `pending` 상태
+- **원인**: n8n이 외부 서버(Elest.io)에 있어서 `localhost:3600`에 콜백을 보낼 수 없음. 크롤링은 완료되지만 결과를 전달할 경로가 없음
+- **해결**: 로컬 크롤링 테스트는 ngrok(`ngrok http 3600`) 또는 Vercel 배포 후에만 가능
+- **규칙**: 외부 서비스(n8n, Stripe 웹훅 등)가 콜백하는 플로우는 **로컬 단독 테스트 불가**. ngrok 터널 또는 프로덕션 배포 필요. `.env.local`의 `NEXT_PUBLIC_SITE_URL`을 localhost로 변경해도 외부→localhost 접근 안 됨
