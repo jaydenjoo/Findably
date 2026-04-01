@@ -17,7 +17,7 @@ import { buttonVariants } from '@/components/ui/button-variants'
  * 이 페이지는 정적 (Server Component, 폼 없음)
  */
 export const metadata: Metadata = {
-  title: '이메일 확인 | Findably',
+  title: '이메일 확인',
   description: '가입 인증 이메일을 확인해주세요.',
 }
 

@@ -9,7 +9,7 @@ import { Tags, AlertCircle } from 'lucide-react'
 import { MetaTagContent } from './_components/MetaTagContent'
 
 export const metadata: Metadata = {
-  title: '메타태그 최적화 | Findably',
+  title: '메타태그 최적화',
   description: '메타태그 분석 및 최적화 제안을 확인하세요.',
 }
 

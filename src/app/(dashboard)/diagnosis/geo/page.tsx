@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { AlertCircle, BarChart3 } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'GEO 상세 분석 | Findably',
+  title: 'GEO 상세 분석',
   description: 'AI 검색 엔진에서 사이트가 인용될 가능성을 상세 분석합니다.',
 }
 

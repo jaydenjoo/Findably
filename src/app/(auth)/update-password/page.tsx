@@ -18,7 +18,7 @@ import { UpdatePasswordForm } from '@/features/auth/components'
  * UpdatePasswordForm에서 supabase.auth.updateUser()로 비밀번호 변경 가능
  */
 export const metadata: Metadata = {
-  title: '새 비밀번호 설정 | Findably',
+  title: '새 비밀번호 설정',
   description: '새 비밀번호를 설정합니다.',
 }
 

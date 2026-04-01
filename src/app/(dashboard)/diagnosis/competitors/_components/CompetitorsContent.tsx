@@ -21,8 +21,8 @@ export function CompetitorsContent({
 }: CompetitorsContentProps): React.JSX.Element {
   const hasCompetitors = matrix.competitors.length > 0
 
-  // 유료 사용자인데 경쟁사 데이터가 없는 경우 — 빈 상태
-  if (isPaid && !hasCompetitors) {
+  // 경쟁사 데이터가 없는 경우 — 빈 상태
+  if (!hasCompetitors) {
     return (
       <div className="space-y-8">
         <div>
@@ -35,8 +35,16 @@ export function CompetitorsContent({
         </div>
         <EmptyState
           icon={Users}
-          title="경쟁사 데이터가 아직 없습니다"
-          description="상세 분석을 진행하면 경쟁사를 자동으로 탐색하고 비교 분석합니다."
+          title={
+            isPaid
+              ? '경쟁사 데이터가 아직 없습니다'
+              : '경쟁사 URL을 입력하지 않아 비교 분석이 불가능합니다'
+          }
+          description={
+            isPaid
+              ? '상세 분석을 진행하면 경쟁사를 자동으로 탐색하고 비교 분석합니다.'
+              : '경쟁사 URL을 입력하지 않아 비교 분석 결과를 제공할 수 없습니다. 더 정확한 진단을 위해 다음 진단 시 경쟁사 URL을 입력해주세요.'
+          }
           action={{ label: '대시보드로 이동 →', href: '/dashboard' }}
         />
       </div>

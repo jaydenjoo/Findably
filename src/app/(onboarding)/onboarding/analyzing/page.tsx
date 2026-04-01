@@ -11,7 +11,7 @@ import {
 import { AnalyzingScreen } from './_components/AnalyzingScreen'
 
 export const metadata: Metadata = {
-  title: '분석 중 | Findably',
+  title: '분석 중',
   description: 'AI가 사이트를 분석하고 있습니다. 잠시만 기다려주세요.',
 }
 

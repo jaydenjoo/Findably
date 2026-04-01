@@ -16,7 +16,7 @@ import { PasswordResetRequestForm } from '@/features/auth/components'
  * 보안: 이메일 존재 여부와 무관하게 항상 "링크를 보냈습니다" 표시 (NFR-6)
  */
 export const metadata: Metadata = {
-  title: '비밀번호 재설정 | Findably',
+  title: '비밀번호 재설정',
   description: '비밀번호를 재설정합니다.',
 }
 

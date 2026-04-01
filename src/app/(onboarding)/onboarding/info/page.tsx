@@ -16,7 +16,7 @@ import { InfoForm } from './_components/InfoForm'
  * 건너뛰기 가능 (URL만으로도 진단 가능)
  */
 export const metadata: Metadata = {
-  title: '추가 정보 | Findably',
+  title: '추가 정보',
   description:
     '타겟 키워드, 경쟁사, 업종 정보를 입력하면 더 정확한 진단이 가능합니다.',
 }

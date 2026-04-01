@@ -18,7 +18,7 @@ import { LoginForm, GoogleAuthButton } from '@/features/auth/components'
  * searchParams.redirectTo를 LoginForm에 전달 → 로그인 후 원래 페이지로 복귀
  */
 export const metadata: Metadata = {
-  title: '로그인 | Findably',
+  title: '로그인',
   description: 'Findably에 로그인하여 AI 마케팅 진단을 시작하세요.',
 }
 

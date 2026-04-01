@@ -15,7 +15,7 @@ import { UrlForm } from './_components/UrlForm'
  * 진단할 웹사이트 URL 1개를 입력받아 diagnoses 테이블에 저장
  */
 export const metadata: Metadata = {
-  title: 'URL 입력 | Findably',
+  title: 'URL 입력',
   description: '진단할 웹사이트 URL을 입력해주세요.',
 }
 

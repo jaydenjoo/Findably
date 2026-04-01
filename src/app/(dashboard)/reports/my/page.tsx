@@ -8,7 +8,7 @@ import { AlertCircle, FileText, ExternalLink } from 'lucide-react'
 import { SCORING } from '@/config/scoring'
 
 export const metadata: Metadata = {
-  title: '내 리포트 | Findably',
+  title: '내 리포트',
   description: '진단 리포트 목록을 확인하세요.',
 }
 

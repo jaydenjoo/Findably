@@ -18,7 +18,7 @@ import { SignupForm, GoogleAuthButton } from '@/features/auth/components'
  * Google 가입 → OAuth 완료 후 /auth/callback → /onboarding/url
  */
 export const metadata: Metadata = {
-  title: '회원가입 | Findably',
+  title: '회원가입',
   description: 'Findably에 가입하여 무료 AI 마케팅 진단을 받아보세요.',
 }
 

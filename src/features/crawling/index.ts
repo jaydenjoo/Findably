@@ -45,6 +45,8 @@ export {
   markDiagnosisFailed,
 } from './services/save-crawl-result'
 export { buildFallbackCrawlData } from './services/fallback-crawl'
+export { enrichCrawlData } from './services/enrich-crawl-data'
+export { runFallbackCrawl } from './services/fallback-crawl-pipeline'
 
 // ─── 컴포넌트 ───
 export { PartialDataBanner } from './components/partial-data-banner'

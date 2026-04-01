@@ -4,7 +4,7 @@ import { PRICING } from '@/config/pricing'
 import { CheckoutContent } from './_components/CheckoutContent'
 
 export const metadata = {
-  title: '결제하기 | Findably',
+  title: '결제하기',
   description: '상세 마케팅 진단 결제 페이지',
 }
 

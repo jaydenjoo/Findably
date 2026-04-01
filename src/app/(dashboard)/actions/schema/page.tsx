@@ -9,7 +9,7 @@ import { Code2, AlertCircle } from 'lucide-react'
 import { SchemaContent } from './_components/SchemaContent'
 
 export const metadata: Metadata = {
-  title: 'Schema Markup | Findably',
+  title: 'Schema Markup',
   description: 'Schema Markup 코드를 자동 생성합니다.',
 }
 

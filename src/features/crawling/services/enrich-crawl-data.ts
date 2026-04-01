@@ -38,11 +38,15 @@ export async function enrichCrawlData(
   const existingLayer2 = crawlData.layer2
   const existingLayer3 = crawlData.layer3
 
-  // 2. 누락된 데이터 식별
-  const needsPageSpeed = !existingLayer2?.pagespeed
-  const needsSafeBrowsing = !existingLayer2?.safe_browsing
-  const needsSsl = !existingLayer3?.ssl
-  const needsObservatory = !existingLayer3?.observatory
+  // 2. 누락된 데이터 식별 (값의 유효성도 체크)
+  const needsPageSpeed = !existingLayer2?.pagespeed?.performance_score
+  const needsSafeBrowsing =
+    existingLayer2?.safe_browsing?.is_safe === undefined ||
+    existingLayer2?.safe_browsing?.is_safe === null
+  const needsSsl = !existingLayer3?.ssl?.grade
+  const needsObservatory =
+    !existingLayer3?.observatory?.score &&
+    existingLayer3?.observatory?.score !== 0
 
   if (!needsPageSpeed && !needsSafeBrowsing && !needsSsl && !needsObservatory) {
     console.log('[enrichCrawlData] 모든 Layer 2/3 데이터 존재, 스킵')

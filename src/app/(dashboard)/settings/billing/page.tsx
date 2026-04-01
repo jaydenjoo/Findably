@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
-  title: '결제 내역 | Findably',
+  title: '결제 내역',
 }
 
 export default async function SettingsBillingPage(): Promise<React.JSX.Element> {

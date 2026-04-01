@@ -9,7 +9,7 @@ import { buildMatrix, analyzeGaps } from '@/features/competitors'
 import { CompetitorsContent } from './_components/CompetitorsContent'
 
 export const metadata: Metadata = {
-  title: '경쟁사 비교 분석 | Findably',
+  title: '경쟁사 비교 분석',
   description: '경쟁사와 비교한 마케팅 점수를 확인하세요.',
 }
 

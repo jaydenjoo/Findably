@@ -8,7 +8,7 @@ import type { RoadmapItem } from '@/features/diagnosis-paid/types'
 import { parseAnalysisData } from '@/lib/utils/diagnosis-parser'
 
 export const metadata: Metadata = {
-  title: '90일 실행 계획 | Findably',
+  title: '90일 실행 계획',
   description: '90일 SEO/GEO 실행 계획을 확인하세요.',
 }
 

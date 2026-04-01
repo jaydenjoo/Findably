@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '이용약관 | Findably',
+  title: '이용약관',
   description: 'Findably 서비스 이용약관',
 }
 

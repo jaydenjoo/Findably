@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const metadata: Metadata = {
-  title: '요금제 | Findably',
+  title: '요금제',
   description:
     'Findably 무료 진단과 건당 9.9만원 상세 분석 요금제를 비교해보세요.',
 }

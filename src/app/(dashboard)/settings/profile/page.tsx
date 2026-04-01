@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
-  title: '프로필 설정 | Findably',
+  title: '프로필 설정',
 }
 
 export default async function SettingsProfilePage(): Promise<React.JSX.Element> {

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { DetailedReportContent } from './_components/DetailedReportContent'
 
 export const metadata: Metadata = {
-  title: '상세 리포트 | Findably',
+  title: '상세 리포트',
   description: '상세 진단 리포트를 확인하세요.',
 }
 

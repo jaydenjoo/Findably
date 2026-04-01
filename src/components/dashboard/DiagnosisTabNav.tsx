@@ -46,7 +46,7 @@ export function DiagnosisTabNav(): React.JSX.Element {
           const linkContent = (
             <Link
               href={href}
-              className={`relative flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`relative flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors cursor-pointer ${
                 isActive
                   ? 'text-primary-600'
                   : 'text-slate-500 hover:text-slate-700'

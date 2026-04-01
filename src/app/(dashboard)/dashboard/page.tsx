@@ -14,7 +14,7 @@ import type { UserTier } from '@/lib/access-control/get-user-tier'
 import { DIAGNOSIS_PAID_CONFIG } from '@/config/diagnosis-paid'
 
 export const metadata: Metadata = {
-  title: '대시보드 | Findably',
+  title: '대시보드',
   description: 'SEO + GEO 종합 마케팅 진단 결과를 확인하세요.',
 }
 
