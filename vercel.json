@@ -1,0 +1,19 @@
+{
+  "functions": {
+    "src/app/api/crawl/execute/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/crawl/complete/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/diagnoses-watchdog/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/diagnoses-watchdog",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
