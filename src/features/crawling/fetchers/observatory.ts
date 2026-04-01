@@ -5,15 +5,16 @@ type ObservatoryData = NonNullable<Layer3Data['observatory']>
 /** Observatory API 타임아웃 (ms) */
 const OBSERVATORY_TIMEOUT_MS = 15_000
 
-/** Mozilla HTTP Observatory API v1 엔드포인트 */
-const OBSERVATORY_API_URL =
-  'https://http-observatory.security.mozilla.org/api/v1'
+/** Mozilla HTTP Observatory API v2 엔드포인트 (2026년 MDN으로 이전) */
+const OBSERVATORY_API_URL = 'https://observatory-api.mdn.mozilla.net/api/v2'
 
 /**
- * Mozilla Observatory API를 호출하여 보안 헤더 점수를 조회.
+ * Mozilla Observatory API v2를 호출하여 보안 헤더 점수를 조회.
  *
- * 1. POST /analyze — 스캔 시작/캐시 조회
- * 2. GET /getScanResults — 실패한 테스트 항목 (issues) 추출
+ * v1 API(`http-observatory.security.mozilla.org`)는 2026년 초 서비스 종료(502).
+ * v2 API(`observatory-api.mdn.mozilla.net`)로 이전됨.
+ *
+ * v2는 단일 POST 요청으로 grade + score + 실패 수를 반환.
  *
  * @param url - 분석할 URL
  * @returns ObservatoryData | null
@@ -30,36 +31,24 @@ export async function fetchObservatory(
   const timeout = setTimeout(() => controller.abort(), OBSERVATORY_TIMEOUT_MS)
 
   try {
-    // 1단계: 스캔 요청/캐시 조회
-    const analyzeRes = await fetch(
-      `${OBSERVATORY_API_URL}/analyze?host=${encodeURIComponent(host)}`,
+    // v2 API: 단일 POST 요청으로 스캔 + 결과 반환
+    const response = await fetch(
+      `${OBSERVATORY_API_URL}/scan?host=${encodeURIComponent(host)}`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'hidden=true&rescan=false',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host }),
         signal: controller.signal,
       }
     )
 
-    if (!analyzeRes.ok) {
-      console.error(`[fetchObservatory] HTTP ${analyzeRes.status} for ${host}`)
+    if (!response.ok) {
+      console.error(`[fetchObservatory] HTTP ${response.status} for ${host}`)
       return null
     }
 
-    const analyzeJson: unknown = await analyzeRes.json()
-    const scanResult = parseScanResponse(analyzeJson)
-    if (!scanResult) {
-      return null
-    }
-
-    // 2단계: 상세 테스트 결과에서 실패 항목 추출
-    const issues = await fetchScanIssues(scanResult.scanId, controller.signal)
-
-    return {
-      grade: scanResult.grade,
-      score: scanResult.score,
-      issues,
-    }
+    const json: unknown = await response.json()
+    return parseV2Response(json)
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       console.error(
@@ -83,83 +72,51 @@ function extractHost(url: string): string | null {
   }
 }
 
-interface ScanResult {
-  grade: string | null
-  score: number | null
-  scanId: number
-}
-
-/** analyze 응답 파싱 — state=FINISHED인 경우만 */
-function parseScanResponse(json: unknown): ScanResult | null {
+/**
+ * v2 API 응답 파싱.
+ *
+ * 응답 예시:
+ * {
+ *   "id": 90218733,
+ *   "grade": "D",
+ *   "score": 30,
+ *   "status_code": 200,
+ *   "tests_failed": 4,
+ *   "tests_passed": 6,
+ *   "tests_quantity": 10,
+ *   "error": null
+ * }
+ */
+function parseV2Response(json: unknown): ObservatoryData | null {
   if (typeof json !== 'object' || json === null) {
     return null
   }
 
   const scan = json as Record<string, unknown>
 
-  // 완료된 스캔만 사용
-  if (scan['state'] !== 'FINISHED') {
-    return null
-  }
-
-  const scanId = scan['scan_id']
-  if (typeof scanId !== 'number') {
+  // 에러 체크
+  if (scan['error'] !== null && scan['error'] !== undefined) {
+    console.error('[fetchObservatory] API error:', scan['error'])
     return null
   }
 
   const grade = typeof scan['grade'] === 'string' ? scan['grade'] : null
   const score = typeof scan['score'] === 'number' ? scan['score'] : null
 
-  return { grade, score, scanId }
-}
-
-/**
- * getScanResults에서 실패한 테스트 이름 추출.
- * 실패 시 빈 배열 반환 (grade/score만으로도 유용).
- */
-async function fetchScanIssues(
-  scanId: number,
-  signal: AbortSignal
-): Promise<string[]> {
-  try {
-    const response = await fetch(
-      `${OBSERVATORY_API_URL}/getScanResults?scan=${scanId}`,
-      { signal }
-    )
-
-    if (!response.ok) {
-      return []
-    }
-
-    const json: unknown = await response.json()
-    return parseIssues(json)
-  } catch {
-    return []
-  }
-}
-
-/** 테스트 결과에서 pass=false인 항목의 score_description 추출 */
-function parseIssues(json: unknown): string[] {
-  if (typeof json !== 'object' || json === null) {
-    return []
-  }
-
-  const tests = json as Record<string, unknown>
+  // 실패한 테스트 수 기반 issues 생성
+  const testsFailed =
+    typeof scan['tests_failed'] === 'number' ? scan['tests_failed'] : 0
+  const testsPassed =
+    typeof scan['tests_passed'] === 'number' ? scan['tests_passed'] : 0
   const issues: string[] = []
 
-  for (const value of Object.values(tests)) {
-    if (typeof value !== 'object' || value === null) {
-      continue
-    }
-
-    const test = value as Record<string, unknown>
-    if (test['pass'] === false) {
-      const desc = test['score_description']
-      if (typeof desc === 'string' && desc.length > 0) {
-        issues.push(desc)
-      }
-    }
+  if (testsFailed > 0) {
+    issues.push(`${testsFailed}개 보안 테스트 실패 (${testsPassed}개 통과)`)
   }
 
-  return issues
+  if (score !== null && score < 50) {
+    issues.push('보안 헤더 점수가 50점 미만으로 개선이 필요합니다')
+  }
+
+  return { grade, score, issues }
 }
