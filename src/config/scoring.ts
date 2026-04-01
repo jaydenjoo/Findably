@@ -26,28 +26,28 @@ const GRADE_COLORS: Record<
   { text: string; bg: string; stroke: string; border: string; bar: string }
 > = {
   excellent: {
-    text: 'text-success-600',
+    text: 'text-success-700',
     bg: 'bg-success-50',
     stroke: 'stroke-success-500',
     border: 'border-success-500',
     bar: 'bg-success-500',
   },
   good: {
-    text: 'text-primary-600',
+    text: 'text-primary-700',
     bg: 'bg-primary-50',
     stroke: 'stroke-primary-500',
     border: 'border-primary-500',
     bar: 'bg-primary-500',
   },
   warning: {
-    text: 'text-warning-600',
+    text: 'text-warning-700',
     bg: 'bg-warning-50',
     stroke: 'stroke-warning-500',
     border: 'border-warning-500',
     bar: 'bg-warning-500',
   },
   critical: {
-    text: 'text-danger-600',
+    text: 'text-danger-700',
     bg: 'bg-danger-50',
     stroke: 'stroke-danger-500',
     border: 'border-danger-500',
@@ -83,9 +83,9 @@ const SEVERITY_STYLES: Record<
   RuleSeverity,
   { bg: string; text: string; label: string }
 > = {
-  critical: { bg: 'bg-danger-50', text: 'text-danger-600', label: '심각' },
-  warning: { bg: 'bg-warning-50', text: 'text-warning-600', label: '주의' },
-  info: { bg: 'bg-primary-50', text: 'text-primary-600', label: '참고' },
+  critical: { bg: 'bg-danger-50', text: 'text-danger-700', label: '심각' },
+  warning: { bg: 'bg-warning-50', text: 'text-warning-700', label: '주의' },
+  info: { bg: 'bg-primary-50', text: 'text-primary-700', label: '참고' },
 } as const
 
 /** 심각도 → impact 바 색상 */

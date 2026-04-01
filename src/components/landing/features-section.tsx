@@ -115,15 +115,15 @@ const FeatureTabs = () => {
                     </div>
                     <div className="space-y-4">
                       <div className="p-6 bg-red-50 border border-red-100 rounded-xl relative overflow-hidden">
-                        <span className="absolute top-0 right-0 bg-red-100 text-red-600 text-[10px] font-bold px-3 py-1 rounded-bl-xl">
+                        <span className="absolute top-0 right-0 bg-red-100 text-red-800 text-[10px] font-bold px-3 py-1 rounded-bl-xl">
                           기존 방식
                         </span>
-                        <p className="text-red-900/40 font-mono text-sm line-through">
+                        <p className="text-red-300 font-mono text-sm line-through">
                           {tab.before}
                         </p>
                       </div>
                       <div className="p-6 bg-cyan-50 border border-cyan-100 rounded-2xl relative shadow-sm">
-                        <span className="absolute top-0 right-0 bg-findably-cyan text-findably-cyan-foreground text-[10px] font-bold px-3 py-1 rounded-bl-xl">
+                        <span className="absolute top-0 right-0 bg-findably-cyan text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl">
                           Findably 방식
                         </span>
                         <p className="text-cyan-900 font-bold whitespace-pre-line leading-relaxed">

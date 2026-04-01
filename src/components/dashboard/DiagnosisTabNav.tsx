@@ -50,7 +50,7 @@ export function DiagnosisTabNav(): React.JSX.Element {
                 isActive
                   ? 'text-primary-600'
                   : 'text-slate-500 hover:text-slate-700'
-              } ${isLocked ? 'opacity-70' : ''}`}
+              } ${isLocked ? 'text-slate-400' : ''}`}
               {...(isActive ? { 'aria-current': 'page' as const } : {})}
               aria-label={isLocked ? `${tab.label} — 유료 전용` : tab.label}
             >

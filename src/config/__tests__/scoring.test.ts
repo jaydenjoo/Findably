@@ -76,7 +76,7 @@ describe('SCORING.getScoreLabel', () => {
 describe('SCORING.getScoreColor', () => {
   it('should return success colors for excellent scores', () => {
     const color = SCORING.getScoreColor(85)
-    expect(color.text).toBe('text-success-600')
+    expect(color.text).toBe('text-success-700')
     expect(color.bg).toBe('bg-success-50')
     expect(color.stroke).toBe('stroke-success-500')
     expect(color.border).toBe('border-success-500')
@@ -85,19 +85,19 @@ describe('SCORING.getScoreColor', () => {
 
   it('should return primary colors for good scores', () => {
     const color = SCORING.getScoreColor(65)
-    expect(color.text).toBe('text-primary-600')
+    expect(color.text).toBe('text-primary-700')
     expect(color.bg).toBe('bg-primary-50')
   })
 
   it('should return warning colors for warning scores', () => {
     const color = SCORING.getScoreColor(45)
-    expect(color.text).toBe('text-warning-600')
+    expect(color.text).toBe('text-warning-700')
     expect(color.bg).toBe('bg-warning-50')
   })
 
   it('should return danger colors for critical scores', () => {
     const color = SCORING.getScoreColor(15)
-    expect(color.text).toBe('text-danger-600')
+    expect(color.text).toBe('text-danger-700')
     expect(color.bg).toBe('bg-danger-50')
   })
 

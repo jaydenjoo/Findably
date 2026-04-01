@@ -36,7 +36,7 @@ export function QuickWinCard({
           >
             {severity.label}
           </span>
-          <span className="text-xs text-slate-400">{categoryName}</span>
+          <span className="text-xs text-slate-500">{categoryName}</span>
         </div>
 
         {/* 중앙: 룰 이름 + 메시지 */}
@@ -52,7 +52,7 @@ export function QuickWinCard({
         {/* 하단: impact 바 */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">영향도</span>
+            <span className="text-xs text-slate-500">영향도</span>
             <span className="text-xs font-semibold text-slate-600">
               {quickWin.impact}점
             </span>

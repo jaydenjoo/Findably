@@ -28,7 +28,7 @@ export function CategoryScoreCard({
             className={`text-lg font-bold font-display tabular-nums ${color.text}`}
           >
             {category.score}
-            <span className="text-xs font-normal text-slate-400">/100</span>
+            <span className="text-xs font-normal text-slate-500">/100</span>
           </span>
         </div>
 
@@ -53,7 +53,7 @@ export function CategoryScoreCard({
             통과 {category.passedCount}/{category.totalCount}
           </span>
           {category.skippedCount > 0 && (
-            <span className="text-slate-400">
+            <span className="text-slate-500">
               ({category.skippedCount}개 스킵)
             </span>
           )}

@@ -29,7 +29,7 @@ function PlatformRow({
           <span className="rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold text-danger-600">
             차단됨
           </span>
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-slate-500">
             robots.txt에서 봇 차단 중
           </span>
         </div>

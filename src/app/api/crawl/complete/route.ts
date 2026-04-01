@@ -67,8 +67,11 @@ async function handleCallback(request: NextRequest): Promise<Response> {
     const body = (await request.json()) as Record<string, unknown>
     payload = completePayloadSchema.parse(body)
   } catch (error) {
-    const message = error instanceof Error ? error.message : '잘못된 요청'
-    return errorResponse(message, 400)
+    console.error(
+      '[crawl/complete] 페이로드 검증 실패:',
+      error instanceof Error ? error.message : error
+    )
+    return errorResponse('잘못된 요청', 400)
   }
 
   const startTime = Date.now()

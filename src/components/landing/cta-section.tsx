@@ -72,7 +72,7 @@ const BottomCTA = () => {
           </div>
           <button
             onClick={handleSubmit}
-            className="bg-findably-cyan text-findably-cyan-foreground px-8 py-3 rounded-full font-bold text-sm min-h-[44px] w-full md:w-auto transition-all duration-200 hover:-translate-y-px hover:[box-shadow:0_8px_25px_rgba(6,182,212,0.3)]"
+            className="bg-findably-cyan text-white px-8 py-3 rounded-full font-bold text-sm min-h-[44px] w-full md:w-auto transition-all duration-200 hover:-translate-y-px hover:[box-shadow:0_8px_25px_rgba(6,182,212,0.3)]"
           >
             무료 진단 시작
           </button>

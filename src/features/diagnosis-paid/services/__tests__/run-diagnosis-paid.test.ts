@@ -85,7 +85,8 @@ describe('normalizeInsight', () => {
       severity: 'info',
     })
 
-    expect(result.category).toBe('technical')
+    expect(result).not.toBeNull()
+    expect(result!.category).toBe('technical')
   })
 
   it('should default actionable to false when not true', () => {
@@ -96,7 +97,8 @@ describe('normalizeInsight', () => {
       actionable: 'yes',
     })
 
-    expect(result.actionable).toBe(false)
+    expect(result).not.toBeNull()
+    expect(result!.actionable).toBe(false)
   })
 
   it('should omit suggestedFix when not a string', () => {
@@ -107,7 +109,8 @@ describe('normalizeInsight', () => {
       suggestedFix: 123,
     })
 
-    expect(result.suggestedFix).toBeUndefined()
+    expect(result).not.toBeNull()
+    expect(result!.suggestedFix).toBeUndefined()
   })
 })
 
