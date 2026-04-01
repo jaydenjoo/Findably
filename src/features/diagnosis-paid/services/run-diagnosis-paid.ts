@@ -83,32 +83,48 @@ interface ExecuteAgentParams {
 async function waitForFreeAnalysis(
   diagnosisId: string,
   maxAttempts = 6,
-  intervalMs = 10_000
+  intervalMs = 10_000,
+  absoluteTimeoutMs = 65_000
 ): Promise<FreeAnalysisData | null> {
-  const supabase = createAdminClient()
+  const poll = async (): Promise<FreeAnalysisData | null> => {
+    const supabase = createAdminClient()
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const { data } = await supabase
-      .from('diagnoses')
-      .select('analysis_data')
-      .eq('id', diagnosisId)
-      .single()
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const { data } = await supabase
+        .from('diagnoses')
+        .select('analysis_data')
+        .eq('id', diagnosisId)
+        .single()
 
-    const raw = data?.analysis_data
-    if (isValidFreeAnalysis(raw)) {
-      console.log(`[runDiagnosisPaid] analysis_data 확인 (${attempt}번째 시도)`)
-      return raw
+      const raw = data?.analysis_data
+      if (isValidFreeAnalysis(raw)) {
+        console.log(
+          `[runDiagnosisPaid] analysis_data 확인 (${attempt}번째 시도)`
+        )
+        return raw
+      }
+
+      if (attempt < maxAttempts) {
+        console.log(
+          `[runDiagnosisPaid] analysis_data 대기 중... (${attempt}/${maxAttempts})`
+        )
+        await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      }
     }
 
-    if (attempt < maxAttempts) {
-      console.log(
-        `[runDiagnosisPaid] analysis_data 대기 중... (${attempt}/${maxAttempts})`
-      )
-      await new Promise((resolve) => setTimeout(resolve, intervalMs))
-    }
+    return null
   }
 
-  return null
+  const timeout = new Promise<null>((resolve) => {
+    setTimeout(() => {
+      console.warn(
+        `[runDiagnosisPaid] waitForFreeAnalysis 절대 타임아웃 (${absoluteTimeoutMs}ms)`
+      )
+      resolve(null)
+    }, absoluteTimeoutMs)
+  })
+
+  return Promise.race([poll(), timeout])
 }
 
 /**
@@ -1070,6 +1086,7 @@ export function parseAgentResponse(
       const valid = (parsed.insights as Record<string, unknown>[])
         .filter(isValidInsight)
         .map(normalizeInsight)
+        .filter((v): v is AIInsight => v !== null)
       if (valid.length === 0 && parsed.insights.length > 0) {
         console.warn(
           `[parseAgentResponse:${agentId}] insights ${parsed.insights.length}개 중 유효한 것 0개. 첫 항목:`,
@@ -1105,7 +1122,10 @@ export function isValidInsight(item: Record<string, unknown>): boolean {
 }
 
 /** 인사이트 정규화 */
-export function normalizeInsight(item: Record<string, unknown>): AIInsight {
+export function normalizeInsight(
+  item: Record<string, unknown>
+): AIInsight | null {
+  if (!isValidInsight(item)) return null
   return {
     title: item.title as string,
     description: item.description as string,

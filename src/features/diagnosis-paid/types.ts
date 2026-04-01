@@ -154,6 +154,21 @@ export interface CmoVerificationResponse {
     description: string
     related_insights: string[]
   }>
+  /** G2: Impact×Effort 매트릭스 기반 우선순위 보정 */
+  priority_adjustments?: Array<{
+    insight_title: string
+    current_priority: number
+    suggested_priority: number
+    reason: string
+  }>
+  /** G2: 구체성 부족 인사이트 플래그 */
+  specificity_flags?: Array<{
+    insight_title: string
+    issue: string
+    suggestion: string
+  }>
+  /** G2: 한국 시장 맥락 보충 의견 (네이버/카카오/한국 소비자) */
+  korean_market_notes?: string
 }
 
 // ─── 에이전트 결과 ───
