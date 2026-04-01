@@ -10,7 +10,8 @@ import {
 import { runDiagnosis } from '@/features/diagnosis-free/services/run-diagnosis'
 import type { CrawlData } from '@/features/crawling'
 import { parseCrawlV2Result } from '@/features/crawling/services/parse-crawl-v2'
-import { fetchSslLabs } from '@/features/crawling/fetchers/ssl-labs'
+import { enrichCrawlData } from '@/features/crawling/services/enrich-crawl-data'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
  * n8n v2 콜백 페이로드 스키마
@@ -85,29 +86,28 @@ async function handleCallback(request: NextRequest): Promise<Response> {
       failedSources: payload.failedSources,
     })
 
-    // 3.5. SSL Labs 보충 — n8n에서 실패/미수집 시 Next.js에서 직접 호출
-    let crawlData = parsedCrawlData
-    if (!parsedCrawlData.layer3?.ssl) {
-      const ssl = await fetchSslLabs(payload.url)
-      if (ssl) {
-        const layer3 = parsedCrawlData.layer3
-          ? { ...parsedCrawlData.layer3, ssl }
-          : { ssl, observatory: null }
-        crawlData = { ...parsedCrawlData, layer3 }
-        console.log('[crawl/complete] SSL Labs 보충 성공:', ssl.grade)
-      }
-    }
-
-    // 4. Supabase 저장
+    // 4. Supabase 저장 (먼저 저장 후 보강)
     const result = await saveCrawlResult({
       diagnosisId: payload.diagnosisId,
-      crawlData,
+      crawlData: parsedCrawlData,
     })
 
     if (!result.success) {
       console.error('[crawl/complete] 저장 실패:', result.error)
       return errorResponse('크롤링 결과 저장에 실패했습니다', 500)
     }
+
+    // 4.5. Layer 2/3 데이터 보강 (PageSpeed, SSL, Observatory, SafeBrowsing)
+    await enrichCrawlData(payload.diagnosisId, payload.url)
+
+    // 4.6. 보강된 crawl_data 재조회 (진단 엔진에 전달)
+    const { data: enrichedDiag } = await createAdminClient()
+      .from('diagnoses')
+      .select('crawl_data')
+      .eq('id', payload.diagnosisId)
+      .single()
+    const crawlData =
+      (enrichedDiag?.crawl_data as unknown as CrawlData) ?? parsedCrawlData
 
     // 5. 진단 엔진 실행
     const diagnosisResult = await runDiagnosis({
