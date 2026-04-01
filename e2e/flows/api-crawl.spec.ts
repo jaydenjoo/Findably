@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+import { login } from '../helpers/login'
+import { FAKE_UUID } from '../helpers/constants'
 
 /**
  * 크롤링 API 엔드포인트 테스트
@@ -13,8 +15,6 @@ import { test, expect } from '@playwright/test'
  * - 인증 실패 / 페이로드 검증 실패 → 외부 의존성 없이 테스트 가능
  * - Happy path → 시스템 플로우 테스트에서 통합 검증
  */
-
-const FAKE_UUID = '00000000-0000-0000-0000-000000000000'
 
 test.describe('POST /api/crawl/complete — n8n v2 콜백', () => {
   test('Bearer 인증 없음 → 401', async ({ request }) => {
@@ -222,12 +222,7 @@ test.describe('POST /api/crawl/trigger — 사용자 크롤 트리거', () => {
   })
 
   test('로그인 + diagnosisId 누락 → 400', async ({ page }) => {
-    // 로그인
-    await page.goto('/login')
-    await page.getByLabel('이메일').fill('e2etest-0316@findably.dev')
-    await page.getByLabel('비밀번호').fill('TestPass1234!')
-    await page.getByRole('button', { name: '로그인 →' }).click()
-    await page.waitForURL('**/dashboard**', { timeout: 15_000 })
+    await login(page)
 
     // diagnosisId 없이 요청
     const result = await page.evaluate(async () => {
@@ -246,11 +241,7 @@ test.describe('POST /api/crawl/trigger — 사용자 크롤 트리거', () => {
   test('로그인 + 존재하지 않는 진단 → 403 (소유권 불일치)', async ({
     page,
   }) => {
-    await page.goto('/login')
-    await page.getByLabel('이메일').fill('e2etest-0316@findably.dev')
-    await page.getByLabel('비밀번호').fill('TestPass1234!')
-    await page.getByRole('button', { name: '로그인 →' }).click()
-    await page.waitForURL('**/dashboard**', { timeout: 15_000 })
+    await login(page)
 
     const result = await page.evaluate(async (uuid: string) => {
       const res = await fetch('/api/crawl/trigger', {

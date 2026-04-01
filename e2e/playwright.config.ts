@@ -25,7 +25,7 @@ try {
 export default defineConfig({
   testDir: './flows',
   use: {
-    baseURL: 'http://localhost:3600',
+    baseURL: process.env.E2E_BASE_URL || 'http://localhost:3600',
     trace: 'on-first-retry',
   },
   webServer: {

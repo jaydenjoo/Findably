@@ -151,9 +151,9 @@
 - **해결**: `git push origin main` 실행 → Vercel 자동 배포 트리거
 - **규칙**: 프로덕션 수정 완료 보고 전 반드시 3단계 확인: (1) `git status -sb`에서 `[ahead N]`이 없는지 확인 (있으면 push 안 된 것) (2) `git push origin main` 실행 (3) Vercel 대시보드 또는 `vercel --prod` 로 배포 완료 확인. "커밋했습니다" ≠ "배포되었습니다"
 
-### 2026-03-24 Claude API maxTokens 부족 → JSON 응답 절삭 → 빈 리포트
+### 2026-03-24 Claude API maxTokens 부족 → JSON 응답 절삭 → 빈 리포트 (2회 재발)
 
-- **증상**: 유료 분석 5개 에이전트 중 content와 competitors가 매번 `status=empty` (인사이트 0건). technical/seo/geo는 정상(각 6건). 토큰은 5개 모두 정확히 2048 output tokens 소비
-- **원인**: `maxTokens: 2048`이 content/competitors 에이전트에 부족. 이 두 에이전트는 복잡한 JSON 스키마(중첩 객체 + 배열)를 생성해야 하므로 2048 토큰에서 JSON이 중간에 잘림 → `JSON.parse()` 실패 → fallback(`convertFreeRulesToInsights()`)이 빈 배열 반환 → `status=empty`. 추가로 `RETRY_MAX_TOKENS=1024`로 재시도 시 토큰이 더 줄어 상황 악화
-- **해결**: content/competitors `maxTokens: 2048 → 4096`, `RETRY_MAX_TOKENS: 1024 → 2048`
-- **규칙**: Claude API에서 구조화된 JSON 응답을 요구할 때, 응답 스키마의 복잡도에 따라 maxTokens를 충분히 설정. 단순 리스트=2048 충분, 중첩 JSON(객체 안 배열, 배열 안 객체)=4096 이상 필요. 디버깅 단서: 모든 응답이 정확히 maxTokens와 동일한 output_tokens를 소비하면 토큰 한도에 걸린 것. RETRY_MAX_TOKENS는 반드시 원본 maxTokens 이상으로 설정 (재시도가 원본보다 나빠지면 안 됨)
+- **증상(1차 03-24)**: content/competitors가 `status=empty`. **(2차 03-31)**: technical/seo/competitors가 `status=empty`. 공통: output_tokens가 정확히 maxTokens와 동일
+- **원인**: `maxTokens: 2048`이 부족하여 JSON이 중간에 잘림 → `JSON.parse()` 실패 → fallback이 빈 배열 반환. 1차 수정 시 content/competitors만 4096으로 올리고 **technical/seo/geo는 2048 그대로 방치** → 2차 재발
+- **해결(1차)**: content/competitors `2048 → 4096`. **(2차)**: technical/seo/geo도 `2048 → 4096`. 이제 5개 에이전트 모두 4096
+- **규칙**: Claude API 구조화 JSON 응답 시 **모든 에이전트에 동일 기준(4096)** 적용. 일부만 수정하면 나머지에서 동일 문제 재발. 디버깅 단서: output_tokens가 정확히 maxTokens와 동일하면 한도에 걸린 것. 부분 수정 후 반드시 전체 에이전트 maxTokens 일관성 확인

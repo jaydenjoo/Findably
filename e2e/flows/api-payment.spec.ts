@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+import { login } from '../helpers/login'
+import { FAKE_UUID } from '../helpers/constants'
 
 /**
  * 결제 API 엔드포인트 테스트
@@ -12,10 +14,6 @@ import { test, expect } from '@playwright/test'
  * - 페이로드 검증 + Rate limit + Happy path → 단일 로그인 세션에서 순차 실행
  *   (Rate limit: 3회/60초이므로 모든 checkout 호출을 1세션에서 관리)
  */
-
-const FAKE_UUID = '00000000-0000-0000-0000-000000000000'
-const TEST_EMAIL = 'e2etest-0316@findably.dev'
-const TEST_PASSWORD = 'TestPass1234!'
 
 test.describe('POST /api/payment/checkout — 결제 처리', () => {
   test('비로그인 → 401', async ({ request }) => {
@@ -32,11 +30,7 @@ test.describe('POST /api/payment/checkout — 결제 처리', () => {
     // 단일 로그인 세션에서 모든 checkout 호출을 순차 실행
     // Rate limit: 3회/60초 (payment:${user.id} 키)
     // 주의: in-memory rate limit은 dev 서버 프로세스 단위 → 이전 테스트 실행 잔여 quota 영향
-    await page.goto('/login')
-    await page.getByLabel('이메일').fill(TEST_EMAIL)
-    await page.getByLabel('비밀번호').fill(TEST_PASSWORD)
-    await page.getByRole('button', { name: '로그인 →' }).click()
-    await page.waitForURL('**/dashboard**', { timeout: 15_000 })
+    await login(page)
 
     // ─── Call 1: diagnosisId 누락 → 400 또는 429 (잔여 rate limit) ───
     const result1 = await page.evaluate(async () => {

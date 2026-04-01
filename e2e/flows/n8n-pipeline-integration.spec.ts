@@ -1,4 +1,8 @@
 import { test, expect } from '@playwright/test'
+import { FAKE_UUID_VARIANT } from '../helpers/constants'
+
+/** 테스트용 가짜 진단 ID — RFC 4122 variant 규격 통과 */
+const FAKE_DIAGNOSIS_ID = FAKE_UUID_VARIANT
 
 /**
  * n8n 콜백 → 파이프라인 통합 테스트
@@ -16,7 +20,6 @@ import { test, expect } from '@playwright/test'
  */
 
 const BASE = '/api/crawl/complete'
-const FAKE_DIAGNOSIS_ID = '11111111-1111-1111-a111-111111111111'
 
 // ─── 현실적인 n8n v2 crawlResult mock ───
 

@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+import { login } from '../helpers/login'
+import { expectDashboardState } from '../helpers/dashboard'
 
 /**
  * 전체 플로우 E2E 테스트
@@ -14,54 +16,16 @@ import { test, expect } from '@playwright/test'
  * 비용: ~600원/회 (Claude API 5에이전트 + CMO)
  */
 
-const TEST_EMAIL = 'e2etest-0316@findably.dev'
-const TEST_PASSWORD = 'TestPass1234!'
-
 test.describe('Full Flow — 무료 → 유료 → 리포트 → 로그아웃', () => {
   test.setTimeout(180_000) // 3분 (AI 분석 포함)
 
   test('전체 사용자 여정을 완료한다', async ({ page }) => {
     // ─── Step 1: 로그인 ───
-    await page.goto('/login')
-    await page.getByLabel('이메일').fill(TEST_EMAIL)
-    await page.getByLabel('비밀번호').fill(TEST_PASSWORD)
-    await page.getByRole('button', { name: '로그인 →' }).click()
-
-    // 대시보드 도착 대기 (URL 변경 + Server Component 렌더링 완료)
-    await page.waitForURL('**/dashboard**', { timeout: 15_000 })
-    await page.waitForLoadState('networkidle')
-    await expect(page).toHaveURL(/\/dashboard/)
+    await login(page)
 
     // ─── Step 2: 대시보드 — 무료 리포트 확인 ───
-    // 대시보드에 올 수 있는 모든 유효 상태를 확인
+    await expectDashboardState(page)
     const hasScore = await page.locator('[role="meter"]').count()
-    const hasEmptyState = await page
-      .getByText('아직 진단 결과가 없어요')
-      .count()
-    const hasAnalyzing = await page.getByText(/분석이 진행 중입니다/).count()
-    const hasTimedOut = await page
-      .getByText('분석이 예상보다 오래 걸리고 있습니다')
-      .count()
-    const hasFailedPaid = await page
-      .getByText('상세 분석에 일시적 문제가 발생했습니다')
-      .count()
-    const hasFailedFree = await page.getByText('진단에 실패했습니다').count()
-    const hasParseError = await page
-      .getByText('진단 데이터를 읽을 수 없습니다')
-      .count()
-    const hasDbError = await page
-      .getByText('데이터를 불러올 수 없습니다')
-      .count()
-    const dashboardStateCount =
-      hasScore +
-      hasEmptyState +
-      hasAnalyzing +
-      hasTimedOut +
-      hasFailedPaid +
-      hasFailedFree +
-      hasParseError +
-      hasDbError
-    expect(dashboardStateCount).toBeGreaterThan(0)
 
     // ─── Step 3: 샘플 리포트 열람 ───
     await page.goto('/reports/sample')
