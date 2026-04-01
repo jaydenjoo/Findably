@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { CrawlData } from '@/features/crawling'
+import { parseAnalysisData } from '@/lib/utils/diagnosis-parser'
 import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Tags, AlertCircle } from 'lucide-react'
@@ -21,7 +22,7 @@ export default async function ActionsMetaTagsPage(): Promise<React.JSX.Element> 
 
   const { data: diagnosis, error } = await supabase
     .from('diagnoses')
-    .select('id, url, tier, crawl_data')
+    .select('id, url, tier, crawl_data, analysis_data')
     .eq('user_id', user.id)
     .eq('status', 'completed')
     .order('created_at', { ascending: false })
@@ -106,6 +107,8 @@ export default async function ActionsMetaTagsPage(): Promise<React.JSX.Element> 
 
   const crawlData = diagnosis.crawl_data as CrawlData | null
   const cmsDetected = crawlData?.cms?.detected ?? null
+  const analysisData = parseAnalysisData(diagnosis.analysis_data)
+  const failedRules = analysisData?.overallScore.quickWins ?? []
 
   return (
     <MetaTagContent
@@ -113,6 +116,7 @@ export default async function ActionsMetaTagsPage(): Promise<React.JSX.Element> 
       url={diagnosis.url}
       isPaid={isPaid}
       cmsDetected={cmsDetected}
+      failedItems={failedRules}
     />
   )
 }

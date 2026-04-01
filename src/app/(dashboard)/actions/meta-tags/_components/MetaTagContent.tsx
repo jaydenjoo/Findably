@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { CrawlData } from '@/features/crawling'
+import type { QuickWin } from '@/features/diagnosis-free/types'
+import { AlertTriangle } from 'lucide-react'
 import { CMS_META_GUIDES, DEFAULT_CMS_META_GUIDE } from '@/features/actions'
 import { CmsGuideSection } from '@/components/shared/CmsGuideSection'
 import {
@@ -22,6 +24,7 @@ interface MetaTagContentProps {
   url: string
   isPaid: boolean
   cmsDetected: string | null
+  failedItems?: QuickWin[]
 }
 
 export function MetaTagContent({
@@ -29,6 +32,7 @@ export function MetaTagContent({
   url,
   isPaid,
   cmsDetected,
+  failedItems = [],
 }: MetaTagContentProps): React.JSX.Element {
   const [copyState, setCopyState] = useState<CopyState | null>(null)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -169,6 +173,51 @@ export function MetaTagContent({
           </p>
         </div>
       </div>
+
+      {/* 진단에서 발견된 메타태그 문제 */}
+      {failedItems.length > 0 &&
+        (() => {
+          const metaRelated = failedItems.filter(
+            (item) =>
+              item.ruleName.toLowerCase().includes('title') ||
+              item.ruleName.toLowerCase().includes('description') ||
+              item.ruleName.toLowerCase().includes('og') ||
+              item.ruleName.toLowerCase().includes('meta') ||
+              item.ruleName.toLowerCase().includes('canonical') ||
+              item.ruleName.toLowerCase().includes('twitter') ||
+              item.category === 'content' ||
+              item.category === 'social-ai'
+          )
+          if (metaRelated.length === 0) return null
+          return (
+            <div className="rounded-xl border border-warning-200 bg-warning-50/50 p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <AlertTriangle className="size-4 text-warning-600" />
+                <h2 className="text-sm font-semibold text-slate-900">
+                  진단에서 발견된 메타태그 문제 ({metaRelated.length}건)
+                </h2>
+              </div>
+              <div className="space-y-2">
+                {metaRelated.map((item) => (
+                  <div
+                    key={item.ruleId}
+                    className="flex items-start gap-3 rounded-lg bg-white p-3 text-sm"
+                  >
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-warning-100 text-[10px] font-bold text-warning-700">
+                      !
+                    </span>
+                    <div>
+                      <p className="font-medium text-slate-900">
+                        {item.ruleName}
+                      </p>
+                      <p className="mt-0.5 text-slate-500">{item.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
 
       {/* Current meta tags — always visible */}
       <CurrentMetaTagsSection items={items} />

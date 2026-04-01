@@ -3,8 +3,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { AlertCircle, Calendar, ArrowUpRight } from 'lucide-react'
+import { AlertCircle, Calendar, ArrowUpRight, Zap } from 'lucide-react'
 import type { RoadmapItem } from '@/features/diagnosis-paid/types'
+import { parseAnalysisData } from '@/lib/utils/diagnosis-parser'
 
 export const metadata: Metadata = {
   title: '90일 실행 계획 | Findably',
@@ -157,6 +158,10 @@ export default async function ActionsRoadmapPage(): Promise<React.JSX.Element> {
   const roadmap = rawRoadmap as RoadmapItem[]
   const phases = groupByPhase(roadmap)
 
+  // Quick Win 항목 추출 (즉시 실행 가능한 항목)
+  const parsedAnalysis = parseAnalysisData(diagnosis.analysis_data)
+  const quickWins = parsedAnalysis?.overallScore.quickWins ?? []
+
   return (
     <div className="flex flex-col gap-8">
       {/* Header */}
@@ -167,6 +172,47 @@ export default async function ActionsRoadmapPage(): Promise<React.JSX.Element> {
           진행하세요.
         </p>
       </div>
+
+      {/* 즉시 실행 섹션 — Quick Win 기반 */}
+      {quickWins.length > 0 && (
+        <div className="rounded-xl border-2 border-primary-200 bg-primary-50/50 shadow-sm">
+          <div className="flex items-center gap-3 border-b border-primary-100 px-6 py-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-500 text-white">
+              <Zap className="size-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                즉시 실행 — Quick Win
+              </p>
+              <p className="text-xs text-slate-500">
+                지금 바로 개선할 수 있는 {quickWins.length}개 항목
+              </p>
+            </div>
+          </div>
+          <div className="divide-y divide-primary-50">
+            {quickWins.map((qw) => (
+              <div key={qw.ruleId} className="flex items-start gap-4 px-6 py-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100">
+                  <Zap className="size-4 text-primary-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {qw.ruleName}
+                    </p>
+                    <span className="inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold text-primary-700">
+                      영향도 {qw.impact}점
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+                    {qw.message}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Phases */}
       <div className="space-y-6">
