@@ -34,30 +34,82 @@ export default async function DashboardPage({
     redirect('/login')
   }
 
-  // ?id= 쿼리가 있으면 해당 진단 조회, 없으면 최신 진단 조회
-  let query = supabase
+  // ?id= 쿼리가 있으면 해당 진단 직접 조회
+  if (diagnosisId) {
+    const { data: diagnosis, error } = await supabase
+      .from('diagnoses')
+      .select(
+        'id, analysis_data, total_score, grade, status, crawl_data, tier, updated_at'
+      )
+      .eq('id', diagnosisId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (error || !diagnosis) {
+      return (
+        <EmptyState
+          icon={AlertCircle}
+          title="진단을 찾을 수 없습니다"
+          description="잘못된 링크이거나 삭제된 진단입니다."
+          action={{ label: '대시보드로 →', href: '/dashboard' }}
+        />
+      )
+    }
+
+    return renderDiagnosis(supabase, user.id, diagnosis)
+  }
+
+  // 1순위: 진행 중인 진단 (pending/crawling/analyzing) — 있으면 진행 화면 표시
+  const { data: activeDiagnosis } = await supabase
     .from('diagnoses')
     .select(
       'id, analysis_data, total_score, grade, status, crawl_data, tier, updated_at'
     )
     .eq('user_id', user.id)
+    .in('status', ['pending', 'crawling', 'analyzing'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  if (diagnosisId) {
-    query = query.eq('id', diagnosisId)
-  } else {
-    query = query.order('created_at', { ascending: false })
+  if (activeDiagnosis) {
+    const isPaid = activeDiagnosis.tier === 'paid'
+    const updatedAt = activeDiagnosis.updated_at
+      ? new Date(activeDiagnosis.updated_at as string)
+      : null
+    const now = new Date()
+    const isTimedOut =
+      updatedAt !== null &&
+      now.getTime() - updatedAt.getTime() >
+        DIAGNOSIS_PAID_CONFIG.ANALYSIS_TIMEOUT_MS
+
+    if (isTimedOut) {
+      return (
+        <AnalysisTimeoutState
+          diagnosisId={activeDiagnosis.id}
+          isPaid={isPaid}
+        />
+      )
+    }
+
+    return (
+      <PaidAnalyzingState diagnosisId={activeDiagnosis.id} isPaid={isPaid} />
+    )
   }
 
-  const { data: diagnosis, error } = await query.limit(1).maybeSingle()
-
-  // DB 에러
-  if (error) {
-    console.error(
-      '[dashboard] DB error:',
-      error.message,
-      error.code,
-      error.hint
+  // 2순위: 최신 completed 진단 — 메인 결과 표시
+  const { data: completedDiagnosis, error } = await supabase
+    .from('diagnoses')
+    .select(
+      'id, analysis_data, total_score, grade, status, crawl_data, tier, updated_at'
     )
+    .eq('user_id', user.id)
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[dashboard] DB error:', error.message, error.code)
     return (
       <EmptyState
         icon={AlertCircle}
@@ -68,62 +120,82 @@ export default async function DashboardPage({
     )
   }
 
-  // 진단 없음
-  if (!diagnosis) {
-    return (
-      <EmptyState
-        icon={BarChart3}
-        title="아직 진단 결과가 없어요"
-        description="URL을 입력하고 무료 진단을 시작해보세요."
-        action={{ label: '진단 시작 →', href: '/onboarding/url' }}
-      />
-    )
+  if (completedDiagnosis) {
+    return renderDiagnosis(supabase, user.id, completedDiagnosis)
   }
 
-  const isPaid = diagnosis.tier === 'paid'
+  // 3순위: failed만 있는 경우 — 새 진단 유도
+  const { data: failedDiagnosis } = await supabase
+    .from('diagnoses')
+    .select('id, tier')
+    .eq('user_id', user.id)
+    .eq('status', 'failed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  // 진행 중 (pending / crawling / analyzing)
-  if (diagnosis.status !== 'completed' && diagnosis.status !== 'failed') {
-    // 타임아웃 감지: updated_at이 5분 이상 지났으면 분석 실패로 간주
-    const updatedAt = diagnosis.updated_at
-      ? new Date(diagnosis.updated_at as string)
-      : null
-    const now = new Date()
-    const isTimedOut =
-      updatedAt !== null &&
-      now.getTime() - updatedAt.getTime() >
-        DIAGNOSIS_PAID_CONFIG.ANALYSIS_TIMEOUT_MS
-
-    if (isTimedOut) {
-      return <AnalysisTimeoutState diagnosisId={diagnosis.id} isPaid={isPaid} />
-    }
-
-    return <PaidAnalyzingState diagnosisId={diagnosis.id} isPaid={isPaid} />
-  }
-
-  // 실패 — 유료/무료 분기
-  if (diagnosis.status === 'failed') {
-    if (isPaid) {
-      return (
-        <EmptyState
-          icon={AlertCircle}
-          title="상세 분석에 일시적 문제가 발생했습니다"
-          description="결제는 정상 처리되었습니다. 새로고침하면 분석이 재시도됩니다. 문제가 계속되면 support@findably.co.kr로 문의해주세요."
-          action={{ label: '새로고침 →', href: '/dashboard' }}
-        />
-      )
-    }
+  if (failedDiagnosis) {
+    const isPaidFailed = failedDiagnosis.tier === 'paid'
     return (
       <EmptyState
         icon={AlertCircle}
-        title="진단에 실패했습니다"
-        description="다시 진단을 시작해보세요. 문제가 계속되면 support@findably.co.kr로 문의해주세요."
-        action={{ label: '다시 진단하기 →', href: '/onboarding/url' }}
+        title={
+          isPaidFailed
+            ? '상세 분석에 문제가 발생했습니다'
+            : '이전 진단에 실패했습니다'
+        }
+        description={
+          isPaidFailed
+            ? '결제는 정상 처리되었습니다. 새 진단을 시작하거나, support@findably.co.kr로 문의해주세요.'
+            : '새 URL로 다시 진단을 시작해보세요.'
+        }
+        action={{ label: '새 진단 시작 →', href: '/onboarding/url' }}
       />
     )
   }
 
-  // 완료 — analysis_data 파싱
+  // 진단 없음
+  return (
+    <EmptyState
+      icon={BarChart3}
+      title="아직 진단 결과가 없어요"
+      description="URL을 입력하고 무료 진단을 시작해보세요."
+      action={{ label: '진단 시작 →', href: '/onboarding/url' }}
+    />
+  )
+}
+
+/** 진단 데이터 렌더링 (completed 상태) */
+async function renderDiagnosis(
+  _supabase: Awaited<ReturnType<typeof createClient>>,
+  _userId: string,
+  diagnosis: {
+    id: string
+    analysis_data: unknown
+    status: string
+    crawl_data: unknown
+    tier: string | null
+    updated_at: unknown
+  }
+): Promise<React.JSX.Element> {
+  // 진행 중이면 분석 화면
+  if (diagnosis.status !== 'completed' && diagnosis.status !== 'failed') {
+    const isPaid = diagnosis.tier === 'paid'
+    return <PaidAnalyzingState diagnosisId={diagnosis.id} isPaid={isPaid} />
+  }
+
+  // 실패면 에러
+  if (diagnosis.status === 'failed') {
+    return (
+      <EmptyState
+        icon={AlertCircle}
+        title="이 진단은 실패했습니다"
+        description="새 URL로 다시 진단을 시작해보세요."
+        action={{ label: '새 진단 시작 →', href: '/onboarding/url' }}
+      />
+    )
+  }
+
   const analysisData = parseAnalysisData(diagnosis.analysis_data)
 
   if (!analysisData) {
