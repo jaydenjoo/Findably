@@ -75,8 +75,9 @@ export async function runDiagnosis(
       .eq('id', diagnosisId)
       .single()
 
-    const isPaidFlow =
-      currentDiag?.tier === 'paid' || currentDiag?.status === 'analyzing'
+    // tier='paid'일 때만 유료 플로우로 판단
+    // (status='analyzing'은 무료 크롤링 완료 후에도 설정되므로 조건에서 제외)
+    const isPaidFlow = currentDiag?.tier === 'paid'
 
     const updatePayload: Record<string, unknown> = {
       analysis_data: analysisData as unknown as Json,
