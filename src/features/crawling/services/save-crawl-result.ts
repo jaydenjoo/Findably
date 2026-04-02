@@ -1,14 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { transitionStatus } from '@/lib/diagnosis/transition-status'
 import { crawlDataSchema } from '../schemas'
 import type { CrawlData } from '../types'
 import type { Json } from '@/types/database'
-
-/** 진단 상태 상수 */
-const DIAGNOSIS_STATUS = {
-  CRAWLING: 'crawling',
-  ANALYZING: 'analyzing',
-  FAILED: 'failed',
-} as const
 
 interface SaveCrawlResultParams {
   diagnosisId: string
@@ -52,11 +46,11 @@ export async function saveCrawlResult(
   try {
     const supabase = createAdminClient()
 
+    // crawl_data만 저장 (status는 transitionStatus로 분리)
     const { error } = await supabase
       .from('diagnoses')
       .update({
         crawl_data: parseResult.data as unknown as Json,
-        status: DIAGNOSIS_STATUS.ANALYZING,
       })
       .eq('id', diagnosisId)
 
@@ -67,6 +61,11 @@ export async function saveCrawlResult(
       )
       return { success: false, error: 'DB 저장 실패' }
     }
+
+    // status 전이: pending/crawling → analyzing
+    await transitionStatus(diagnosisId, 'analyzing', {
+      caller: 'saveCrawlResult',
+    })
 
     return { success: true }
   } catch (error) {
@@ -91,10 +90,13 @@ export async function markDiagnosisFailed(
   try {
     const supabase = createAdminClient()
 
+    await transitionStatus(diagnosisId, 'failed', {
+      caller: 'markDiagnosisFailed',
+    })
+
     const { error } = await supabase
       .from('diagnoses')
       .update({
-        status: DIAGNOSIS_STATUS.FAILED,
         crawl_data: {
           crawled_at: new Date().toISOString(),
           duration_ms: 0,

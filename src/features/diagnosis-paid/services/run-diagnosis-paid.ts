@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { transitionStatus } from '@/lib/diagnosis/transition-status'
 import { executeAIRequest, calculateCostKrw } from '@/lib/adapters/ai'
 import { DIAGNOSIS_PAID_CONFIG } from '@/config/diagnosis-paid'
 import type { CrawlData } from '@/features/crawling'
@@ -18,7 +19,6 @@ import type {
   AIInsight,
   CmoVerificationResponse,
   CompetitorAnalysis,
-  DiagnosisStatus,
   SwotAnalysis,
   RoadmapItem,
   PaidAnalysisData,
@@ -31,11 +31,7 @@ import { extractJsonFromContent } from './extract-json'
 import { parseV2EnhancedData } from './parse-v2-enhanced'
 import { retryFailedAgentsWithFallback } from './retry-failed-agents'
 
-const DIAGNOSIS_STATUS: Record<string, DiagnosisStatus> = {
-  ANALYZING: 'analyzing',
-  COMPLETED: 'completed',
-  FAILED: 'failed',
-} as const
+// status 전이는 transitionStatus()로 일원화됨 — 직접 상수 불필요
 
 /** 기존 무료 분석 데이터 (analysis_data 실제 DB 구조) */
 interface FreeAnalysisData {
@@ -197,11 +193,10 @@ export async function runDiagnosisPaid(
       }
     }
 
-    // 2. 상태를 'analyzing'으로 업데이트
-    await supabase
-      .from('diagnoses')
-      .update({ status: DIAGNOSIS_STATUS.ANALYZING })
-      .eq('id', diagnosisId)
+    // 2. 상태를 'analyzing'으로 확인 (이미 analyzing이면 스킵)
+    await transitionStatus(diagnosisId, 'analyzing', {
+      caller: 'runDiagnosisPaid',
+    })
 
     // 3. Phase 1 — 5개 에이전트 병렬 실행 (글로벌 2분 타임아웃)
     const context: SiteContext = {
@@ -335,10 +330,9 @@ export async function runDiagnosisPaid(
     }
 
     if (successResults.length < DIAGNOSIS_PAID_CONFIG.MIN_SUCCESS_COUNT) {
-      await supabase
-        .from('diagnoses')
-        .update({ status: DIAGNOSIS_STATUS.FAILED })
-        .eq('id', diagnosisId)
+      await transitionStatus(diagnosisId, 'failed', {
+        caller: 'runDiagnosisPaid:minSuccess',
+      })
 
       const emptyInfo =
         emptyResults.length > 0
@@ -361,10 +355,9 @@ export async function runDiagnosisPaid(
       console.error(
         '[runDiagnosisPaid] 모든 에이전트의 인사이트가 0개 — 빈 리포트 생성 방지'
       )
-      await supabase
-        .from('diagnoses')
-        .update({ status: DIAGNOSIS_STATUS.FAILED })
-        .eq('id', diagnosisId)
+      await transitionStatus(diagnosisId, 'failed', {
+        caller: 'runDiagnosisPaid:zeroInsights',
+      })
 
       return {
         success: false,
@@ -391,13 +384,11 @@ export async function runDiagnosisPaid(
       totalDurationMs,
     })
 
-    // 6. DB 저장
+    // 6. DB 저장 (analysis_data만, status는 transitionStatus에 위임)
     const { error: updateError } = await supabase
       .from('diagnoses')
       .update({
         analysis_data: paidAnalysisData as unknown as Json,
-        status: DIAGNOSIS_STATUS.COMPLETED,
-        completed_at: new Date().toISOString(),
         tier: 'paid',
       })
       .eq('id', diagnosisId)
@@ -407,6 +398,11 @@ export async function runDiagnosisPaid(
       return { success: false, error: 'DB 업데이트에 실패했습니다.' }
     }
 
+    // status 전이: analyzing → completed
+    await transitionStatus(diagnosisId, 'completed', {
+      caller: 'runDiagnosisPaid',
+    })
+
     return {
       success: true,
       ...(failedAgents.length > 0 ? { failedAgents } : {}),
@@ -414,10 +410,9 @@ export async function runDiagnosisPaid(
   } catch (err) {
     console.error('[runDiagnosisPaid]', err)
 
-    await supabase
-      .from('diagnoses')
-      .update({ status: DIAGNOSIS_STATUS.FAILED })
-      .eq('id', diagnosisId)
+    await transitionStatus(diagnosisId, 'failed', {
+      caller: 'runDiagnosisPaid:catch',
+    })
 
     return {
       success: false,

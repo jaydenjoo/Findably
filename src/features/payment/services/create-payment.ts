@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { transitionStatus } from '@/lib/diagnosis/transition-status'
 import { PRICING } from '@/config/pricing'
 import type { CreatePaymentParams, PaymentServiceResult } from '../types'
 
@@ -50,16 +51,24 @@ export async function createPayment(
     return { success: false, error: '결제 레코드 생성에 실패했습니다' }
   }
 
-  // 3. 진단 tier → 'paid' + status → 'analyzing' 업데이트
-  //    결제 완료 즉시 분석 대기 상태로 전환 → 대시보드에서 "분석 진행 중" 표시
-  const { error: updateError } = await supabase
+  // 3. 진단 tier → 'paid' 업데이트 + status 전이
+  const { error: tierError } = await supabase
     .from('diagnoses')
-    .update({ tier: 'paid', status: 'analyzing' })
+    .update({ tier: 'paid' })
     .eq('id', params.diagnosisId)
 
-  if (updateError) {
-    console.error('[createPayment] payment_status 업데이트 실패:', updateError)
-    // 결제 레코드는 이미 생성됨 — 롤백하지 않고 로그만
+  if (tierError) {
+    console.error('[createPayment] tier 업데이트 실패:', tierError)
+  }
+
+  // status 전이: completed → analyzing (유료 분석 시작)
+  // transitionStatus가 tier='paid' 체크하므로 안전
+  const transition = await transitionStatus(params.diagnosisId, 'analyzing', {
+    caller: 'createPayment',
+  })
+
+  if (!transition.success) {
+    console.error('[createPayment] status 전이 실패:', transition.error)
   }
 
   return { success: true, paymentId: payment.id }

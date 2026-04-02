@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { transitionStatus } from '@/lib/diagnosis/transition-status'
 
 interface RetryResult {
   success: boolean
@@ -54,14 +55,13 @@ export async function retryPaidAnalysis(
     return { success: false, error: '재시도할 수 없는 상태입니다.' }
   }
 
-  // 3. DB 상태 리셋
-  const { error: updateError } = await supabase
-    .from('diagnoses')
-    .update({ status: 'analyzing', updated_at: new Date().toISOString() })
-    .eq('id', diagnosisId)
+  // 3. status 전이: completed/failed → analyzing
+  const transition = await transitionStatus(diagnosisId, 'analyzing', {
+    caller: 'retryPaidAnalysis',
+  })
 
-  if (updateError) {
-    console.error('[retryPaidAnalysis] DB 업데이트 실패:', updateError)
+  if (!transition.success) {
+    console.error('[retryPaidAnalysis] 전이 실패:', transition.error)
     return { success: false, error: '상태 업데이트에 실패했습니다.' }
   }
 
