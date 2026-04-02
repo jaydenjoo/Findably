@@ -58,6 +58,36 @@ function parseFirecrawlScrape(raw: unknown): {
   if (metadata.ogImage) og.image = String(metadata.ogImage)
   if (metadata.ogUrl) og.url = String(metadata.ogUrl)
 
+  // Firecrawl metadata에서 headings/links/images 추출
+  let headings = {
+    h1: toStringArray(metadata.h1),
+    h2: toStringArray(metadata.h2),
+    h3: toStringArray(metadata.h3),
+    h4: [] as string[],
+    h5: [] as string[],
+    h6: [] as string[],
+  }
+  let internalLinks = toNumber(metadata.internalLinks, 0)
+  let externalLinks = toNumber(metadata.externalLinks, 0)
+  let imageTotal = toNumber(metadata.imageCount, 0)
+  let imageNoAlt = toNumber(metadata.imagesWithoutAlt, 0)
+
+  // Firecrawl metadata가 비어있으면 markdown에서 추출 (폴백)
+  const metadataEmpty =
+    headings.h1.length === 0 &&
+    headings.h2.length === 0 &&
+    internalLinks === 0 &&
+    imageTotal === 0
+
+  if (metadataEmpty && markdownContent) {
+    const extracted = extractFromMarkdown(markdownContent)
+    headings = extracted.headings
+    internalLinks = extracted.linkCount.internal
+    externalLinks = extracted.linkCount.external
+    imageTotal = extracted.imageCount.total
+    imageNoAlt = extracted.imageCount.withoutAlt
+  }
+
   const layer1: Layer1Data = {
     meta: {
       title: toStringOrNull(metadata.title),
@@ -68,23 +98,16 @@ function parseFirecrawlScrape(raw: unknown): {
       og,
       robots_meta: toStringOrNull(metadata.robots),
     },
-    headings: {
-      h1: toStringArray(metadata.h1),
-      h2: toStringArray(metadata.h2),
-      h3: toStringArray(metadata.h3),
-      h4: [],
-      h5: [],
-      h6: [],
-    },
+    headings,
     schema_markup: Array.isArray(metadata.jsonLd) ? metadata.jsonLd : [],
     links: {
-      internal: toNumber(metadata.internalLinks, 0),
-      external: toNumber(metadata.externalLinks, 0),
+      internal: internalLinks,
+      external: externalLinks,
       broken: [],
     },
     images: {
-      total: toNumber(metadata.imageCount, 0),
-      without_alt: toNumber(metadata.imagesWithoutAlt, 0),
+      total: imageTotal,
+      without_alt: imageNoAlt,
       large_images: [],
     },
     page_size_bytes: toNumber(metadata.pageSize, 0),
@@ -101,6 +124,59 @@ function toStringArray(val: unknown): string[] {
   }
   if (typeof val === 'string' && val.length > 0) return [val]
   return []
+}
+
+// ─── Markdown → Layer1 폴백 (Firecrawl metadata가 비어있을 때) ───
+
+/**
+ * Markdown 본문에서 headings, links, images를 추출하는 폴백 파서
+ * Firecrawl metadata가 headings/links/images를 반환하지 않는 경우 사용
+ */
+function extractFromMarkdown(markdown: string): {
+  headings: Layer1Data['headings']
+  linkCount: { internal: number; external: number }
+  imageCount: { total: number; withoutAlt: number }
+} {
+  const h1: string[] = []
+  const h2: string[] = []
+  const h3: string[] = []
+  const h4: string[] = []
+
+  // Heading 추출: # ~ ####
+  for (const match of markdown.matchAll(/^(#{1,4})\s+(.+)$/gm)) {
+    const level = match[1]!.length
+    const text = match[2]!.trim()
+    if (level === 1) h1.push(text)
+    else if (level === 2) h2.push(text)
+    else if (level === 3) h3.push(text)
+    else if (level === 4) h4.push(text)
+  }
+
+  // Link 추출: [text](url)  — 이미지 링크 제외
+  const linkMatches = [...markdown.matchAll(/(?<!!)\[([^\]]*)\]\(([^)]+)\)/g)]
+  let internal = 0
+  let external = 0
+  for (const match of linkMatches) {
+    const url = match[2] ?? ''
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      external++
+    } else {
+      internal++
+    }
+  }
+
+  // Image 추출: ![alt](url)
+  const imageMatches = [...markdown.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)]
+  const total = imageMatches.length
+  const withoutAlt = imageMatches.filter(
+    (m) => !m[1] || m[1].trim() === ''
+  ).length
+
+  return {
+    headings: { h1, h2, h3, h4, h5: [], h6: [] },
+    linkCount: { internal, external },
+    imageCount: { total, withoutAlt },
+  }
 }
 
 // ─── Firecrawl Map → siteUrls ───

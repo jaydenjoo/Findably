@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { transitionStatus } from '@/lib/diagnosis/transition-status'
 import { executeAIRequest, calculateCostKrw } from '@/lib/adapters/ai'
+import { enrichCrawlData } from '@/features/crawling/services/enrich-crawl-data'
 import { DIAGNOSIS_PAID_CONFIG } from '@/config/diagnosis-paid'
 import type { CrawlData } from '@/features/crawling'
 import { crawlDataSchema } from '@/features/crawling/schemas'
@@ -104,8 +105,31 @@ export async function runDiagnosisPaid(
       return { success: false, error: '진단 데이터를 찾을 수 없습니다.' }
     }
 
-    // 무료/유료 분리 아키텍처: 유료 레코드는 생성 시 crawl_data + analysis_data가 이미 복사됨
-    // 폴링 대기 불필요
+    // 무료/유료 분리 아키텍처: 유료 레코드는 생성 시 crawl_data가 복사됨
+    // Layer2/3이 빈 경우 보강 실행 (무료 레코드에서 enrich 전에 복사된 경우)
+    if (diagnosis.crawl_data) {
+      const cd = diagnosis.crawl_data as Record<string, unknown>
+      const needsEnrich =
+        !cd.layer2 ||
+        !cd.layer3 ||
+        !(cd.layer2 as Record<string, unknown>)?.pagespeed
+
+      if (needsEnrich) {
+        console.log('[runDiagnosisPaid] Layer2/3 보강 실행')
+        await enrichCrawlData(diagnosisId, diagnosis.url)
+
+        // 보강된 데이터 재조회
+        const { data: refreshed } = await supabase
+          .from('diagnoses')
+          .select('crawl_data')
+          .eq('id', diagnosisId)
+          .single()
+
+        if (refreshed?.crawl_data) {
+          diagnosis.crawl_data = refreshed.crawl_data
+        }
+      }
+    }
 
     if (!isValidCrawlData(diagnosis.crawl_data)) {
       return {
