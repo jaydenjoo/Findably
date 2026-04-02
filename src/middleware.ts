@@ -22,6 +22,7 @@ const PROTECTED_PATHS = [
   '/reports/my',
   '/actions',
   '/settings',
+  '/admin',
 ]
 
 /** 이미 로그인한 사용자를 /dashboard로 보내는 인증 라우트 */
