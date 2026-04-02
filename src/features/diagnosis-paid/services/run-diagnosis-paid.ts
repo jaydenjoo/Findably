@@ -125,6 +125,55 @@ async function waitForFreeAnalysis(
 }
 
 /**
+ * crawl_data가 저장될 때까지 폴링 대기
+ * 결제가 크롤링 완료 전에 트리거되는 타이밍 이슈 대응
+ */
+async function waitForCrawlData(
+  diagnosisId: string,
+  maxAttempts = 12,
+  intervalMs = 10_000,
+  absoluteTimeoutMs = 130_000
+): Promise<CrawlData | null> {
+  const poll = async (): Promise<CrawlData | null> => {
+    const supabase = createAdminClient()
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const { data } = await supabase
+        .from('diagnoses')
+        .select('crawl_data')
+        .eq('id', diagnosisId)
+        .single()
+
+      const raw = data?.crawl_data
+      if (raw && isValidCrawlData(raw)) {
+        console.log(`[runDiagnosisPaid] crawl_data 확인 (${attempt}번째 시도)`)
+        return raw
+      }
+
+      if (attempt < maxAttempts) {
+        console.log(
+          `[runDiagnosisPaid] crawl_data 대기 중... (${attempt}/${maxAttempts})`
+        )
+        await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      }
+    }
+
+    return null
+  }
+
+  const timeout = new Promise<null>((resolve) => {
+    setTimeout(() => {
+      console.warn(
+        `[runDiagnosisPaid] waitForCrawlData 절대 타임아웃 (${absoluteTimeoutMs}ms)`
+      )
+      resolve(null)
+    }, absoluteTimeoutMs)
+  })
+
+  return Promise.race([poll(), timeout])
+}
+
+/**
  * 유료 5-Agent 병렬 분석 실행
  *
  * Phase 1: 5개 에이전트 병렬 실행 (~30초)
@@ -152,25 +201,23 @@ export async function runDiagnosisPaid(
       return { success: false, error: '진단 데이터를 찾을 수 없습니다.' }
     }
 
-    if (!diagnosis.crawl_data) {
-      return {
-        success: false,
-        error: '크롤링 데이터가 없습니다. 먼저 URL 분석을 완료해주세요.',
-      }
+    // crawl_data 확인 — 없으면 폴링 대기 (결제가 크롤링 전에 발생한 경우)
+    let crawlData: CrawlData | null = isValidCrawlData(diagnosis.crawl_data)
+      ? diagnosis.crawl_data
+      : null
+
+    if (!crawlData) {
+      console.log('[runDiagnosisPaid] crawl_data 없음 — 폴링 시작')
+      crawlData = await waitForCrawlData(diagnosisId)
     }
 
-    if (!isValidCrawlData(diagnosis.crawl_data)) {
-      console.error(
-        '[runDiagnosisPaid] 크롤링 데이터 검증 실패',
-        diagnosis.crawl_data
-      )
+    if (!crawlData) {
       return {
         success: false,
-        error: '크롤링 데이터 형식이 올바르지 않습니다.',
+        error:
+          '크롤링 데이터가 준비되지 않았습니다. 잠시 후 다시 시도해주세요.',
       }
     }
-
-    const crawlData = diagnosis.crawl_data
 
     // analysis_data 확인 — 없으면 폴링 대기 (무료 분석 완료 대기)
     let freeAnalysis: FreeAnalysisData | null = isValidFreeAnalysis(
