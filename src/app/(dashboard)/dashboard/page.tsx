@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardContent } from './_components/DashboardContent'
 import { PaidAnalyzingState } from './_components/PaidAnalyzingState'
+import { PaidRecoveryState } from './_components/PaidRecoveryState'
 import { AnalysisTimeoutState } from './_components/AnalysisTimeoutState'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { AlertCircle, BarChart3 } from 'lucide-react'
@@ -209,8 +210,19 @@ async function renderDiagnosis(
     )
   }
 
+  // 유료 데이터 누락 감지: tier='paid' + status='completed'인데 AI 분석 결과 없음
+  // 레이스 컨디션(결제 ↔ 크롤링 콜백 겹침)으로 유료 분석이 실행되지 않은 경우
+  const isPaid = diagnosis.tier === 'paid'
+  const rawData = diagnosis.analysis_data as Record<string, unknown> | null
+  const hasPaidInsights =
+    rawData !== null && 'aiInsights' in rawData && rawData.aiInsights !== null
+
+  if (isPaid && !hasPaidInsights) {
+    return <PaidRecoveryState diagnosisId={diagnosis.id} />
+  }
+
   const partialInfo = parsePartialInfo(diagnosis.crawl_data)
-  const tier: UserTier = diagnosis.tier === 'paid' ? 'paid' : 'free'
+  const tier: UserTier = isPaid ? 'paid' : 'free'
 
   return (
     <DashboardContent

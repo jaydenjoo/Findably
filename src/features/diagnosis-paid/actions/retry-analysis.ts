@@ -47,7 +47,10 @@ export async function retryPaidAnalysis(
     return { success: false, error: '유료 진단만 재시도할 수 있습니다.' }
   }
 
-  if (diagnosis.status !== 'analyzing' && diagnosis.status !== 'failed') {
+  // analyzing, failed: 일반 재시도
+  // completed: 유료 데이터 누락 시 자동 복구 (레이스 컨디션 대응)
+  const retryableStatuses = ['analyzing', 'failed', 'completed']
+  if (!retryableStatuses.includes(diagnosis.status)) {
     return { success: false, error: '재시도할 수 없는 상태입니다.' }
   }
 
