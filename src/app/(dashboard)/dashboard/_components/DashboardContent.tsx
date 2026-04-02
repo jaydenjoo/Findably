@@ -104,15 +104,23 @@ export function DashboardContent({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 헤더: 제목 + 샘플 보기 링크 */}
+      {/* 헤더: 제목 + 새 진단 + 샘플 보기 */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">진단 결과</h1>
-        <Link
-          href="/reports/sample"
-          className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
-        >
-          샘플 보기 →
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/onboarding/url"
+            className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-100 cursor-pointer"
+          >
+            새 URL 진단하기 →
+          </Link>
+          <Link
+            href="/reports/sample"
+            className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+          >
+            샘플 보기 →
+          </Link>
+        </div>
       </div>
 
       {/* robots.txt 차단 경고 배너 */}
