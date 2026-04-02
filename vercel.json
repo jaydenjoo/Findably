@@ -10,10 +10,5 @@
       "maxDuration": 60
     }
   },
-  "crons": [
-    {
-      "path": "/api/cron/diagnoses-watchdog",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  "crons": []
 }
