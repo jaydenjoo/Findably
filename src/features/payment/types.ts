@@ -37,5 +37,7 @@ export interface CompletePaymentParams {
 export interface PaymentServiceResult {
   success: boolean
   paymentId?: string
+  /** 새로 생성된 유료 진단 ID (무료/유료 분리 아키텍처) */
+  paidDiagnosisId?: string
   error?: string
 }

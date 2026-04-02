@@ -48,14 +48,14 @@ export async function retryPaidAnalysis(
     return { success: false, error: '유료 진단만 재시도할 수 있습니다.' }
   }
 
-  // analyzing, failed: 일반 재시도
-  // completed: 유료 데이터 누락 시 자동 복구 (레이스 컨디션 대응)
-  const retryableStatuses = ['analyzing', 'failed', 'completed']
+  // 유료 레코드: analyzing 또는 failed만 재시도 가능
+  // (무료/유료 분리 아키텍처: completed→analyzing 전이 불필요)
+  const retryableStatuses = ['analyzing', 'failed']
   if (!retryableStatuses.includes(diagnosis.status)) {
     return { success: false, error: '재시도할 수 없는 상태입니다.' }
   }
 
-  // 3. status 전이: completed/failed → analyzing
+  // 3. status를 analyzing으로 리셋 (failed → analyzing)
   const transition = await transitionStatus(diagnosisId, 'analyzing', {
     caller: 'retryPaidAnalysis',
   })

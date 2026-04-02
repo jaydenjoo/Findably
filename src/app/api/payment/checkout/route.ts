@@ -112,8 +112,9 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     // 5. 유료 분석 트리거 (after() — Vercel Lambda 수명 연장)
-    //    createPayment에서 이미 status='analyzing'으로 설정됨
-    //    분석 실패 시 status='failed'로 변경되어 대시보드에서 재시도 안내
+    //    createPayment이 별도 paid 레코드를 생성했으므로 해당 ID로 트리거
+    const paidDiagId = paymentResult.paidDiagnosisId ?? body.diagnosisId
+
     after(async () => {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
       const internalSecret = process.env.CRAWL_EXECUTE_SECRET
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest): Promise<Response> {
           siteUrl: !!baseUrl,
           secret: !!internalSecret,
         })
-        await updateStatusWithRetry(body.diagnosisId, 'failed')
+        await updateStatusWithRetry(paidDiagId, 'failed')
         return
       }
 
@@ -134,17 +135,17 @@ export async function POST(request: NextRequest): Promise<Response> {
             'Content-Type': 'application/json',
             'x-internal-secret': internalSecret,
           },
-          body: JSON.stringify({ diagnosisId: body.diagnosisId }),
+          body: JSON.stringify({ diagnosisId: paidDiagId }),
         })
       } catch (triggerError: unknown) {
         console.error('[checkout] 유료 분석 트리거 실패:', triggerError)
-        await updateStatusWithRetry(body.diagnosisId, 'failed')
+        await updateStatusWithRetry(paidDiagId, 'failed')
       }
     })
 
     return successResponse({
       paymentId: paymentResult.paymentId,
-      diagnosisId: body.diagnosisId,
+      diagnosisId: paidDiagId,
       amount: PRICING.DIAGNOSIS_AMOUNT,
     })
   })

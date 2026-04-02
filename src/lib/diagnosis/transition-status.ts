@@ -14,20 +14,21 @@ export type DiagnosisStatus =
   | 'completed'
   | 'failed'
 
-/** 허용된 상태 전이 맵 — from → to[] */
+/**
+ * 허용된 상태 전이 맵 — from → to[]
+ *
+ * 무료/유료 분리 아키텍처:
+ * - 무료 레코드: pending → crawling → analyzing → completed
+ * - 유료 레코드: analyzing → completed (생성 시 analyzing으로 시작)
+ * - completed → analyzing 전이 불필요 (유료는 별도 레코드)
+ */
 const VALID_TRANSITIONS: Record<DiagnosisStatus, DiagnosisStatus[]> = {
   pending: ['crawling', 'analyzing', 'failed'],
   crawling: ['analyzing', 'failed'],
   analyzing: ['completed', 'failed'],
-  completed: ['analyzing'], // 유료 결제 시에만 (tier 체크 필수)
+  completed: [], // 완료 후 상태 변경 없음
   failed: ['analyzing'], // 재시도 시에만
 }
-
-/** completed → analyzing 전이는 tier='paid'일 때만 허용 */
-const PAID_ONLY_TRANSITIONS: Array<{
-  from: DiagnosisStatus
-  to: DiagnosisStatus
-}> = [{ from: 'completed', to: 'analyzing' }]
 
 interface TransitionOptions {
   /** 호출자 식별 (로그용) */
@@ -99,15 +100,7 @@ export async function transitionStatus(
       return { success: false, error: msg, previousStatus: currentStatus }
     }
 
-    // paid-only 전이 체크
-    const isPaidOnly = PAID_ONLY_TRANSITIONS.some(
-      (t) => t.from === currentStatus && t.to === targetStatus
-    )
-    if (isPaidOnly && tier !== 'paid') {
-      const msg = `[transitionStatus] 차단 (${caller}): ${currentStatus} → ${targetStatus} 는 paid 전용 전이 (현재 tier=${tier})`
-      console.error(msg, { diagnosisId: diagnosisId.slice(0, 8) })
-      return { success: false, error: msg, previousStatus: currentStatus }
-    }
+    // (무료/유료 분리 아키텍처: paid-only 전이 규칙 불필요 — 유료는 별도 레코드)
   }
 
   // 4. 업데이트 실행
