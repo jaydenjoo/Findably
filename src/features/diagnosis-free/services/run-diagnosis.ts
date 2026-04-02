@@ -65,17 +65,34 @@ export async function runDiagnosis(
     }
 
     // 5. Supabase 업데이트 (service_role)
+    //    tier='paid'이면 유료 분석이 진행 중(analyzing)일 수 있으므로
+    //    status를 'completed'로 덮어쓰지 않고 analysis_data + 점수만 저장
     const supabase = createAdminClient()
+
+    const { data: currentDiag } = await supabase
+      .from('diagnoses')
+      .select('tier, status')
+      .eq('id', diagnosisId)
+      .single()
+
+    const isPaidFlow =
+      currentDiag?.tier === 'paid' || currentDiag?.status === 'analyzing'
+
+    const updatePayload: Record<string, unknown> = {
+      analysis_data: analysisData as unknown as Json,
+      total_score: aggregated.totalScore,
+      grade: aggregated.totalGrade,
+    }
+
+    // 유료 플로우가 아닐 때만 status를 completed로 변경
+    if (!isPaidFlow) {
+      updatePayload.status = DIAGNOSIS_STATUS.COMPLETED
+      updatePayload.completed_at = new Date().toISOString()
+    }
 
     const { error } = await supabase
       .from('diagnoses')
-      .update({
-        analysis_data: analysisData as unknown as Json,
-        total_score: aggregated.totalScore,
-        grade: aggregated.totalGrade,
-        status: DIAGNOSIS_STATUS.COMPLETED,
-        completed_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', diagnosisId)
 
     if (error) {
