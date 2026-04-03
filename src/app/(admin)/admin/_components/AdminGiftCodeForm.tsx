@@ -54,6 +54,15 @@ export function AdminGiftCodeForm(): React.JSX.Element {
     }
   }
 
+  function generateRandomCode(): void {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    let random = ''
+    for (let i = 0; i < 6; i++) {
+      random += chars[Math.floor(Math.random() * chars.length)]
+    }
+    setCode(`FDB-${random}`)
+  }
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
       <h3 className="text-sm font-semibold text-slate-700">새 코드 생성</h3>
@@ -65,14 +74,24 @@ export function AdminGiftCodeForm(): React.JSX.Element {
           >
             코드
           </label>
-          <input
-            id="gc-code"
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="FRIEND-2026"
-            className="w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-mono"
-          />
+          <div className="flex gap-1.5">
+            <input
+              id="gc-code"
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="FDB-A3K7X2"
+              className="w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-mono"
+            />
+            <button
+              type="button"
+              onClick={generateRandomCode}
+              className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+              title="자동 생성"
+            >
+              🎲
+            </button>
+          </div>
         </div>
         <div>
           <label htmlFor="gc-max" className="block text-xs text-slate-500 mb-1">
