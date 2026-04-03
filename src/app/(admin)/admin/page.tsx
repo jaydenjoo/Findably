@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AdminActions } from './_components/AdminActions'
+import { AdminGiftCodeForm } from './_components/AdminGiftCodeForm'
 
 export const metadata: Metadata = {
   title: '관리자',
@@ -39,6 +40,20 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminPage(): Promise<React.JSX.Element> {
   const supabase = createAdminClient()
+
+  // 선물 코드 목록
+  const { data: giftCodes } = await supabase
+    .from('gift_codes')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  // 선물 코드 사용 이력
+  const giftCodeIds = (giftCodes ?? []).map((c) => c.id)
+  const { data: giftCodeUses } = await supabase
+    .from('gift_code_uses')
+    .select('gift_code_id, user_id, diagnosis_id, used_at')
+    .in('gift_code_id', giftCodeIds.length > 0 ? giftCodeIds : ['none'])
 
   // 진단 목록 + 결제 정보 (최근 30건)
   const { data: diagnoses } = await supabase
@@ -257,6 +272,90 @@ export default async function AdminPage(): Promise<React.JSX.Element> {
             </div>
           )
         })}
+      </section>
+
+      {/* ─── 선물 코드 관리 ─── */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold text-slate-900">선물 코드 관리</h2>
+
+        {/* 코드 생성 폼 (AdminActions에서 처리) */}
+        <AdminGiftCodeForm />
+
+        {/* 코드 목록 */}
+        <div className="space-y-2">
+          {(giftCodes ?? []).length === 0 ? (
+            <p className="text-sm text-slate-400">생성된 코드가 없습니다</p>
+          ) : (
+            (giftCodes ?? []).map((gc) => {
+              const uses = (giftCodeUses ?? []).filter(
+                (u) => u.gift_code_id === gc.id
+              )
+              const isExpired =
+                gc.expires_at && new Date(gc.expires_at as string) < new Date()
+              const isExhausted =
+                (gc.used_count as number) >= (gc.max_uses as number)
+
+              return (
+                <div
+                  key={gc.id}
+                  className={`rounded-lg border p-3 ${
+                    !gc.is_active || isExpired || isExhausted
+                      ? 'border-slate-200 bg-slate-50 opacity-60'
+                      : 'border-primary-200 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <code className="rounded bg-slate-100 px-2 py-0.5 font-mono text-sm font-bold text-slate-800">
+                        {gc.code}
+                      </code>
+                      <span className="text-xs text-slate-500">
+                        {gc.used_count}/{gc.max_uses}회 사용
+                      </span>
+                      {isExpired && (
+                        <span className="text-xs text-danger-500">만료</span>
+                      )}
+                      {isExhausted && (
+                        <span className="text-xs text-warning-500">소진</span>
+                      )}
+                      {!gc.is_active && (
+                        <span className="text-xs text-slate-400">비활성</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-slate-400">
+                      {gc.expires_at
+                        ? `만료: ${new Date(gc.expires_at as string).toLocaleDateString('ko-KR')}`
+                        : '무기한'}
+                    </span>
+                  </div>
+                  {gc.description && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      {gc.description}
+                    </p>
+                  )}
+                  {uses.length > 0 && (
+                    <div className="mt-2 space-y-0.5">
+                      {uses.map((u) => (
+                        <p
+                          key={`${u.gift_code_id}-${u.user_id}`}
+                          className="text-xs text-slate-400"
+                        >
+                          사용: {(u.user_id as string).slice(0, 8)}… /{' '}
+                          {new Date(u.used_at as string).toLocaleString(
+                            'ko-KR',
+                            {
+                              timeZone: 'Asia/Seoul',
+                            }
+                          )}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
       </section>
     </div>
   )

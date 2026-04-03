@@ -1,7 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import Link from 'next/link'
 import type {
   AICitationPossibilityScore,
@@ -15,12 +14,13 @@ import { ScoreGauge } from '@/components/shared/ScoreGauge'
 import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import { AICitationCard } from '@/components/dashboard/AICitationCard'
 import { QuickWinCard } from '@/components/dashboard/QuickWinCard'
-import { Download, Loader2 } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { CategoryScoreCard } from './CategoryScoreCard'
 import { ImpactMatrix } from './ImpactMatrix'
 import { RiskHeatmap } from './RiskHeatmap'
 import { ScoreTrend } from './ScoreTrend'
 import { PartialDataBanner } from '@/features/crawling'
+import { GiftCodeModal } from './GiftCodeModal'
 
 interface DashboardContentProps {
   overallScore: OverallScore
@@ -33,12 +33,6 @@ interface DashboardContentProps {
   previousScore?: number
   /** 이전 진단 날짜 */
   previousDate?: string
-}
-
-/** 결제 API 응답 타입 */
-interface CheckoutApiResponse {
-  success: boolean
-  error?: string
 }
 
 const SCORE_MESSAGES: Record<ScoreGrade, string> = {
@@ -88,40 +82,10 @@ export function DashboardContent({
   previousScore,
   previousDate,
 }: DashboardContentProps): React.JSX.Element {
-  const router = useRouter()
   const scoreColor = SCORING.getScoreColor(overallScore.score)
   const isFree = tier === 'free'
 
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [checkoutError, setCheckoutError] = useState<string | null>(null)
-
-  // 즉시 결제 처리 (Mock — 별도 결제 프로세스 없이 바로 유료 전환)
-  const handleInstantCheckout = useCallback(async () => {
-    if (isProcessing) return
-    setIsProcessing(true)
-    setCheckoutError(null)
-
-    try {
-      const response = await fetch('/api/payment/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diagnosisId }),
-      })
-      const result = (await response.json()) as CheckoutApiResponse
-
-      if (!response.ok || !result.success) {
-        setCheckoutError(result.error ?? '처리에 실패했습니다.')
-        setIsProcessing(false)
-        return
-      }
-
-      // 성공 → 페이지 새로고침으로 tier='paid' 반영
-      router.refresh()
-    } catch {
-      setCheckoutError('네트워크 오류가 발생했습니다. 다시 시도해주세요.')
-      setIsProcessing(false)
-    }
-  }, [diagnosisId, isProcessing, router])
+  const [showGiftModal, setShowGiftModal] = useState(false)
 
   // DB에 저장된 구버전 데이터에 이 필드가 null일 수 있으므로 방어 처리
   const passedRules = overallScore.passedRules ?? 0
@@ -172,15 +136,12 @@ export function DashboardContent({
       {/* robots.txt 차단 경고 배너 */}
       {isPartial && <PartialDataBanner blockedReason={blockedReason} />}
 
-      {/* 결제 에러 표시 */}
-      {checkoutError && (
-        <div
-          className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700"
-          role="alert"
-          aria-live="polite"
-        >
-          {checkoutError}
-        </div>
+      {/* 선물 코드 모달 */}
+      {showGiftModal && (
+        <GiftCodeModal
+          diagnosisId={diagnosisId}
+          onClose={() => setShowGiftModal(false)}
+        />
       )}
 
       {/* 1행: 종합 점수 + AI 인용 가능성 */}
@@ -272,8 +233,7 @@ export function DashboardContent({
           {isFree && hiddenQuickWins.length > 0 && (
             <BlurOverlay
               visiblePercent={15}
-              onCtaClick={handleInstantCheckout}
-              ctaDisabled={isProcessing}
+              onCtaClick={() => setShowGiftModal(true)}
             >
               <div className="flex gap-4 overflow-hidden pb-2">
                 {hiddenQuickWins.map((qw) => (
@@ -315,18 +275,10 @@ export function DashboardContent({
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <button
               type="button"
-              onClick={handleInstantCheckout}
-              disabled={isProcessing}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setShowGiftModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600 cursor-pointer"
             >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  처리 중...
-                </>
-              ) : (
-                '상세 분석 받기 — 9.9만원'
-              )}
+              상세 분석 받기 →
             </button>
             <Link
               href="/reports/sample"

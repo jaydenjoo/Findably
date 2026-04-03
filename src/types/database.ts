@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      gift_codes: {
+        Row: {
+          id: string
+          code: string
+          description: string | null
+          max_uses: number
+          used_count: number
+          expires_at: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          code: string
+          description?: string | null
+          max_uses?: number
+          used_count?: number
+          expires_at?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          code?: string
+          description?: string | null
+          max_uses?: number
+          used_count?: number
+          expires_at?: string | null
+          is_active?: boolean
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      gift_code_uses: {
+        Row: {
+          id: string
+          gift_code_id: string
+          user_id: string
+          diagnosis_id: string | null
+          used_at: string
+        }
+        Insert: {
+          id?: string
+          gift_code_id: string
+          user_id: string
+          diagnosis_id?: string | null
+          used_at?: string
+        }
+        Update: {
+          id?: string
+          gift_code_id?: string
+          user_id?: string
+          diagnosis_id?: string | null
+          used_at?: string
+        }
+        Relationships: []
+      }
       diagnoses: {
         Row: {
           analysis_data: Json | null
