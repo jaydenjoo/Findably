@@ -88,6 +88,41 @@ const MATRIX: MatrixCell[][] = [
 const EFFORT_LABELS = ['쉬움', '보통', '어려움']
 const IMPACT_LABELS = ['효과 높음', '효과 보통']
 
+function MatrixCell({ cell }: { cell: MatrixCell }): React.JSX.Element {
+  return (
+    <div
+      className={`rounded-lg border ${cell.border} ${cell.bg} p-3 min-h-[60px] md:min-h-[80px]`}
+    >
+      <p className={`text-xs font-semibold ${cell.text} mb-1`}>
+        {cell.label}
+        <span className="font-normal text-slate-400 ml-1">
+          {cell.description}
+        </span>
+      </p>
+      {cell.items.length > 0 ? (
+        <ul className="space-y-1">
+          {cell.items.slice(0, 3).map((qw) => (
+            <li
+              key={qw.ruleId}
+              className="text-xs text-slate-700 truncate"
+              title={qw.ruleName}
+            >
+              • {qw.ruleName}
+            </li>
+          ))}
+          {cell.items.length > 3 && (
+            <li className="text-xs text-slate-400">
+              +{cell.items.length - 3}건 더
+            </li>
+          )}
+        </ul>
+      ) : (
+        <p className="text-xs text-slate-300">—</p>
+      )}
+    </div>
+  )
+}
+
 /**
  * Quick Win을 Impact(높/보통) × Effort(쉬움/보통/어려움) 매트릭스로 시각화
  * 고객이 "뭘 먼저 해야 하나?" 즉시 판단 가능
@@ -119,7 +154,8 @@ export function ImpactMatrix({
         효과가 크고 쉬운 항목(좌상단)부터 시작하세요.
       </p>
 
-      <div className="overflow-x-auto">
+      {/* 데스크톱: 테이블 매트릭스 */}
+      <div className="hidden md:block">
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr>
@@ -142,39 +178,23 @@ export function ImpactMatrix({
                 </td>
                 {row.map((cell, colIdx) => (
                   <td key={colIdx} className="p-1">
-                    <div
-                      className={`rounded-lg border ${cell.border} ${cell.bg} p-3 min-h-[80px]`}
-                    >
-                      <p className={`text-xs font-semibold ${cell.text} mb-1`}>
-                        {cell.label}
-                      </p>
-                      {cell.items.length > 0 ? (
-                        <ul className="space-y-1">
-                          {cell.items.slice(0, 3).map((qw) => (
-                            <li
-                              key={qw.ruleId}
-                              className="text-xs text-slate-700 truncate"
-                              title={qw.ruleName}
-                            >
-                              • {qw.ruleName}
-                            </li>
-                          ))}
-                          {cell.items.length > 3 && (
-                            <li className="text-xs text-slate-400">
-                              +{cell.items.length - 3}건 더
-                            </li>
-                          )}
-                        </ul>
-                      ) : (
-                        <p className="text-xs text-slate-300">—</p>
-                      )}
-                    </div>
+                    <MatrixCell cell={cell} />
                   </td>
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* 모바일: 카드형 리스트 (비어있지 않은 셀만) */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {matrix
+          .flat()
+          .filter((cell) => cell.items.length > 0)
+          .map((cell, idx) => (
+            <MatrixCell key={idx} cell={cell} />
+          ))}
       </div>
     </section>
   )

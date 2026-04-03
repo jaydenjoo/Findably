@@ -102,5 +102,5 @@ export async function submitUrlAction(
     console.error('[submitUrlAction] 크롤링 트리거 실패:', triggerError)
   }
 
-  redirect(`/onboarding/info?id=${data.id}`)
+  redirect(`/onboarding/analyzing?id=${data.id}`)
 }

@@ -250,12 +250,14 @@ export function DashboardContent({
         </section>
       )}
 
-      {/* 2.5행: 리스크 히트맵 — 카테고리 건강 상태 한눈에 */}
+      {/* 2.5행: 리스크 히트맵 — 항상 표시 (핵심 요약) */}
       {categories.length > 0 && <RiskHeatmap categories={categories} />}
 
-      {/* 2.6행: 영향도 매트릭스 (유료만) — 뭘 먼저 할까? */}
+      {/* 2.6행: 상세 분석 (접기/펼치기) — 매트릭스 + 카테고리 */}
       {!isFree && quickWins.length > 0 && (
-        <ImpactMatrix quickWins={quickWins} />
+        <DetailSection title="상세 분석 더 보기">
+          <ImpactMatrix quickWins={quickWins} />
+        </DetailSection>
       )}
 
       {/* Free 사용자 업그레이드 CTA — Quick Win이 부족해도 항상 표시 */}
@@ -290,11 +292,8 @@ export function DashboardContent({
         </section>
       )}
 
-      {/* 3행: 카테고리별 점수 */}
-      <section className="flex flex-col gap-3" aria-label="카테고리별 점수">
-        <h2 className="text-lg font-semibold text-slate-900">
-          카테고리별 점수
-        </h2>
+      {/* 3행: 카테고리별 점수 (접기) */}
+      <DetailSection title="카테고리별 상세 점수">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {categories.map((cat) => (
             <CategoryScoreCard
@@ -304,7 +303,33 @@ export function DashboardContent({
             />
           ))}
         </div>
-      </section>
+      </DetailSection>
     </div>
+  )
+}
+
+/** 접기/펼치기 섹션 */
+function DetailSection({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-left cursor-pointer group"
+      >
+        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <span className="text-sm text-primary-500 group-hover:text-primary-600">
+          {open ? '접기 ▲' : '펼치기 ▼'}
+        </span>
+      </button>
+      {open && <div className="flex flex-col gap-4">{children}</div>}
+    </section>
   )
 }
