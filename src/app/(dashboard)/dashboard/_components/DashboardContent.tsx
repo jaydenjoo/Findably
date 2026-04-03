@@ -18,6 +18,7 @@ import { QuickWinCard } from '@/components/dashboard/QuickWinCard'
 import { CategoryScoreCard } from './CategoryScoreCard'
 import { ImpactMatrix } from './ImpactMatrix'
 import { RiskHeatmap } from './RiskHeatmap'
+import { ScoreTrend } from './ScoreTrend'
 import { PartialDataBanner } from '@/features/crawling'
 
 interface DashboardContentProps {
@@ -27,6 +28,10 @@ interface DashboardContentProps {
   blockedReason?: string
   diagnosisId: string
   tier: UserTier
+  /** 이전 진단 점수 (변화 트렌드 표시용) */
+  previousScore?: number
+  /** 이전 진단 날짜 */
+  previousDate?: string
 }
 
 /** 결제 API 응답 타입 */
@@ -53,6 +58,8 @@ export function DashboardContent({
   blockedReason,
   diagnosisId,
   tier,
+  previousScore,
+  previousDate,
 }: DashboardContentProps): React.JSX.Element {
   const router = useRouter()
   const scoreColor = SCORING.getScoreColor(overallScore.score)
@@ -155,6 +162,15 @@ export function DashboardContent({
           >
             {overallScore.gradeLabel} 등급
           </span>
+          {/* 점수 변화 트렌드 */}
+          {previousScore !== undefined && previousDate && (
+            <ScoreTrend
+              currentScore={overallScore.score}
+              previousScore={previousScore}
+              previousDate={previousDate}
+            />
+          )}
+
           <p className="text-center text-sm text-slate-500 leading-relaxed max-w-xs">
             {getScoreMessage(overallScore.score)}
           </p>

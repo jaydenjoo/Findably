@@ -168,8 +168,8 @@ export default async function DashboardPage({
 
 /** 진단 데이터 렌더링 (completed 상태) */
 async function renderDiagnosis(
-  _supabase: Awaited<ReturnType<typeof createClient>>,
-  _userId: string,
+  supabaseClient: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
   diagnosis: {
     id: string
     analysis_data: unknown
@@ -224,6 +224,25 @@ async function renderDiagnosis(
   const partialInfo = parsePartialInfo(diagnosis.crawl_data)
   const tier: UserTier = isPaid ? 'paid' : 'free'
 
+  // 이전 진단 점수 조회 (현재 진단보다 이전의 completed 진단)
+  let previousScore: number | undefined
+  let previousDate: string | undefined
+
+  const { data: prevDiag } = await supabaseClient
+    .from('diagnoses')
+    .select('total_score, created_at')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .neq('id', diagnosis.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (prevDiag?.total_score !== null && prevDiag?.total_score !== undefined) {
+    previousScore = prevDiag.total_score
+    previousDate = prevDiag.created_at
+  }
+
   return (
     <DashboardContent
       overallScore={analysisData.overallScore}
@@ -232,6 +251,8 @@ async function renderDiagnosis(
       blockedReason={partialInfo.blockedReason}
       diagnosisId={diagnosis.id}
       tier={tier}
+      previousScore={previousScore}
+      previousDate={previousDate}
     />
   )
 }
