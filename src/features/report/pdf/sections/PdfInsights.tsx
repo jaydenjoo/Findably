@@ -92,6 +92,31 @@ export function PdfInsights({ insights }: PdfInsightsProps): React.JSX.Element {
               )}
             </View>
 
+            {/* 영향도 */}
+            {insight.impact && (
+              <View style={{ marginTop: 6 }}>
+                <Text
+                  style={{
+                    fontSize: 8,
+                    fontWeight: 600,
+                    color: colors.warning700,
+                    marginBottom: 2,
+                  }}
+                >
+                  영향도
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 9,
+                    color: colors.slate700,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {insight.impact}
+                </Text>
+              </View>
+            )}
+
             {/* 개선 방법 */}
             {insight.suggestedFix && (
               <View
@@ -99,18 +124,18 @@ export function PdfInsights({ insights }: PdfInsightsProps): React.JSX.Element {
                   backgroundColor: colors.slate50,
                   borderRadius: 4,
                   padding: 8,
-                  marginTop: 8,
+                  marginTop: 6,
                 }}
               >
                 <Text
                   style={{
                     fontSize: 8,
                     fontWeight: 600,
-                    color: colors.slate900,
+                    color: colors.primary500,
                     marginBottom: 2,
                   }}
                 >
-                  개선 방법
+                  이렇게 고치세요
                 </Text>
                 <Text
                   style={{
@@ -120,6 +145,21 @@ export function PdfInsights({ insights }: PdfInsightsProps): React.JSX.Element {
                   }}
                 >
                   {insight.suggestedFix}
+                </Text>
+              </View>
+            )}
+
+            {/* 분석 근거 */}
+            {insight.evidence && (
+              <View style={{ marginTop: 4 }}>
+                <Text
+                  style={{
+                    fontSize: 8,
+                    color: colors.slate500,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  근거: {insight.evidence}
                 </Text>
               </View>
             )}

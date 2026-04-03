@@ -24,7 +24,7 @@ export async function GET(
   // 2. diagnosis 조회 (RLS가 user_id 자동 필터)
   const { data: diagnosis, error } = await supabase
     .from('diagnoses')
-    .select('id, url, tier, analysis_data, created_at')
+    .select('id, url, tier, analysis_data, total_score, grade, created_at')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -64,11 +64,21 @@ export async function GET(
   const fileName = `findably-report-${domain}-${dateStr}.pdf`
 
   try {
+    const gradeLabels: Record<string, string> = {
+      excellent: '양호',
+      good: '보통',
+      warning: '주의',
+      critical: '심각',
+    }
     const document = (
       <ReportDocument
         data={diagnosis.analysis_data}
         url={diagnosis.url}
         createdAt={diagnosis.created_at}
+        totalScore={diagnosis.total_score ?? 0}
+        gradeLabel={
+          gradeLabels[diagnosis.grade ?? ''] ?? diagnosis.grade ?? '—'
+        }
       />
     )
     const buffer = await generatePdfBuffer(document)

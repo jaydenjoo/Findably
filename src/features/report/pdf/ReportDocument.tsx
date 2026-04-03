@@ -1,42 +1,96 @@
-import { Document, Page } from '@react-pdf/renderer'
+import { Document, Page, Text, View } from '@react-pdf/renderer'
 
 import type { PaidAnalysisData } from '@/features/diagnosis-paid'
 
+import { PdfCoverPage } from './sections/PdfCoverPage'
 import { PdfCitationTracking } from './sections/PdfCitationTracking'
-import { PdfCmoSummary } from './sections/PdfCmoSummary'
 import { PdfCompetitors } from './sections/PdfCompetitors'
-import { PdfHeader } from './sections/PdfHeader'
 import { PdfInsights } from './sections/PdfInsights'
 import { PdfRoadmap } from './sections/PdfRoadmap'
 import { PdfSwot } from './sections/PdfSwot'
-import { styles } from './styles'
+import { PdfChecklist } from './sections/PdfChecklist'
+import { colors, styles } from './styles'
 
 interface ReportDocumentProps {
   data: PaidAnalysisData
   url: string
   createdAt: string
+  totalScore?: number
+  gradeLabel?: string
 }
 
 export function ReportDocument({
   data,
   url,
   createdAt,
+  totalScore = 0,
+  gradeLabel = '—',
 }: ReportDocumentProps): React.JSX.Element {
   return (
     <Document
-      title={`Findably 분석 리포트`}
+      title="Findably AI 마케팅 분석 리포트"
       author="Findably"
       subject="AI 마케팅 종합 분석 리포트"
     >
+      {/* 1페이지: 커버 (종합 점수 + 경영진 요약) */}
+      <Page size="A4" style={styles.page}>
+        <PdfCoverPage
+          url={url}
+          createdAt={createdAt}
+          totalScore={totalScore}
+          gradeLabel={gradeLabel}
+          cmoSummary={data.cmoSummary}
+        />
+      </Page>
+
+      {/* 2페이지~: SWOT + 로드맵 */}
       <Page size="A4" style={styles.page} wrap>
-        <PdfHeader url={url} createdAt={createdAt} />
-        <PdfCmoSummary summary={data.cmoSummary} />
+        <PageHeader />
         <PdfSwot swot={data.swot} />
         <PdfRoadmap roadmap={data.roadmap} />
+      </Page>
+
+      {/* AI 인용 + 경쟁사 */}
+      <Page size="A4" style={styles.page} wrap>
+        <PageHeader />
         <PdfCitationTracking tracking={data.aiCitationTracking} />
         <PdfCompetitors competitors={data.competitors} />
+      </Page>
+
+      {/* AI 인사이트 상세 */}
+      <Page size="A4" style={styles.page} wrap>
+        <PageHeader />
         <PdfInsights insights={data.aiInsights} />
       </Page>
+
+      {/* 마지막: 실행 체크리스트 */}
+      <Page size="A4" style={styles.page} wrap>
+        <PageHeader />
+        <PdfChecklist insights={data.aiInsights} />
+      </Page>
     </Document>
+  )
+}
+
+/** 각 페이지 상단 미니 헤더 */
+function PageHeader(): React.JSX.Element {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+        paddingBottom: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.slate200,
+      }}
+    >
+      <Text style={{ fontSize: 9, fontWeight: 600, color: colors.primary500 }}>
+        Findably
+      </Text>
+      <Text style={{ fontSize: 8, color: colors.slate500 }}>
+        AI 마케팅 분석 리포트
+      </Text>
+    </View>
   )
 }
