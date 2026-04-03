@@ -9,10 +9,25 @@ import type {
 } from '@/features/diagnosis-free/types'
 import { SCORING } from '@/config/scoring'
 
+/** AI 인사이트 (유료 분석 결과) */
+export interface ParsedAIInsight {
+  title: string
+  description: string
+  severity: 'critical' | 'warning' | 'info'
+  category: string
+  suggestedFix?: string
+  impact?: string
+  evidence?: string
+  actionable?: boolean
+  priority?: number
+}
+
 /** analysis_data JSON 구조 */
 export interface AnalysisData {
   overallScore: OverallScore
   aiCitation: AICitationPossibilityScore
+  /** 유료 AI 인사이트 (paid tier만) */
+  aiInsights?: ParsedAIInsight[]
 }
 
 /** crawl_data → partial 정보 */
@@ -270,9 +285,38 @@ export function parseAnalysisData(raw: unknown): AnalysisData | null {
         : new Date().toISOString(),
   }
 
+  // aiInsights 파싱 (유료 분석 데이터)
+  const rawInsights = data.aiInsights
+  const aiInsights: ParsedAIInsight[] | undefined = Array.isArray(rawInsights)
+    ? rawInsights
+        .filter(
+          (item: unknown): item is Record<string, unknown> =>
+            typeof item === 'object' && item !== null && 'title' in item
+        )
+        .map((item) => ({
+          title: String(item.title ?? ''),
+          description: String(item.description ?? ''),
+          severity: (['critical', 'warning', 'info'].includes(
+            String(item.severity)
+          )
+            ? String(item.severity)
+            : 'info') as ParsedAIInsight['severity'],
+          category: String(item.category ?? 'technical'),
+          suggestedFix: item.suggestedFix
+            ? String(item.suggestedFix)
+            : undefined,
+          impact: item.impact ? String(item.impact) : undefined,
+          evidence: item.evidence ? String(item.evidence) : undefined,
+          actionable: item.actionable === true,
+          priority:
+            typeof item.priority === 'number' ? item.priority : undefined,
+        }))
+    : undefined
+
   return {
     overallScore,
     aiCitation: normalizeAICitation(rawCitation),
+    ...(aiInsights && aiInsights.length > 0 ? { aiInsights } : {}),
   }
 }
 

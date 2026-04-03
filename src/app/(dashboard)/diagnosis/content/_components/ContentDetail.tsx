@@ -7,10 +7,12 @@ import { ScoreGauge } from '@/components/shared/ScoreGauge'
 import { RuleListItem } from '@/components/dashboard/RuleListItem'
 import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import type { UserTier } from '@/lib/access-control/get-user-tier'
+import type { ParsedAIInsight } from '@/lib/utils/diagnosis-parser'
 
 interface ContentDetailProps {
   contentCategory: CategoryScore
   tier: UserTier
+  aiInsights?: ParsedAIInsight[]
 }
 
 /** 룰을 서브그룹으로 분류 */
@@ -61,6 +63,7 @@ function groupRules(rules: RuleResult[]): {
 export function ContentDetail({
   contentCategory,
   tier,
+  aiInsights = [],
 }: ContentDetailProps): React.JSX.Element {
   const color = SCORING.getScoreColor(contentCategory.score)
   const isFree = tier === 'free'
@@ -145,9 +148,14 @@ export function ContentDetail({
       <section className="flex flex-col gap-3" aria-label="콘텐츠 룰 상세">
         <h2 className="text-lg font-semibold text-slate-900">상세 항목</h2>
         <div className="flex flex-col gap-2">
-          {visibleRules.map((rule) => (
-            <RuleListItem key={rule.id} rule={rule} />
-          ))}
+          {visibleRules.map((rule) => {
+            const matched = aiInsights.find(
+              (ins) =>
+                ins.category === rule.category &&
+                (ins.title.includes(rule.name) || rule.name.includes(ins.title))
+            )
+            return <RuleListItem key={rule.id} rule={rule} insight={matched} />
+          })}
         </div>
 
         {isFree && hiddenRules.length > 0 && (

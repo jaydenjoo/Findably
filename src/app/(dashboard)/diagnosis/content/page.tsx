@@ -58,5 +58,13 @@ export default async function DiagnosisContentPage(
     )
   }
 
-  return <ContentDetail contentCategory={contentCategory} tier={data.tier} />
+  return (
+    <ContentDetail
+      contentCategory={contentCategory}
+      tier={data.tier}
+      aiInsights={data.analysisData.aiInsights?.filter(
+        (ins) => ins.category === 'content'
+      )}
+    />
+  )
 }

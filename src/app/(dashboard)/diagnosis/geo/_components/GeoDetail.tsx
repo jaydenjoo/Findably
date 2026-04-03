@@ -12,6 +12,7 @@ import { AICitationCard } from '@/components/dashboard/AICitationCard'
 import { RuleListItem } from '@/components/dashboard/RuleListItem'
 import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import type { UserTier } from '@/lib/access-control/get-user-tier'
+import type { ParsedAIInsight } from '@/lib/utils/diagnosis-parser'
 
 /** GEO 상세 = geo + social-ai 카테고리 */
 const GEO_CATEGORY_IDS = ['geo', 'social-ai'] as const
@@ -20,16 +21,19 @@ interface GeoDetailProps {
   categories: CategoryScore[]
   citation: AICitationPossibilityScore
   tier: UserTier
+  aiInsights?: ParsedAIInsight[]
 }
 
 function CategoryRules({
   category,
   rules,
   tier,
+  insights = [],
 }: {
   category: CategoryScore
   rules: RuleResult[]
   tier: UserTier
+  insights?: ParsedAIInsight[]
 }): React.JSX.Element {
   const color = SCORING.getScoreColor(category.score)
   const isFree = tier === 'free'
@@ -70,9 +74,14 @@ function CategoryRules({
       </div>
 
       <div className="flex flex-col gap-2">
-        {visibleRules.map((rule) => (
-          <RuleListItem key={rule.id} rule={rule} />
-        ))}
+        {visibleRules.map((rule) => {
+          const matched = insights.find(
+            (ins) =>
+              ins.category === rule.category &&
+              (ins.title.includes(rule.name) || rule.name.includes(ins.title))
+          )
+          return <RuleListItem key={rule.id} rule={rule} insight={matched} />
+        })}
       </div>
 
       {isFree && hiddenRules.length > 0 && (
@@ -92,6 +101,7 @@ export function GeoDetail({
   categories,
   citation,
   tier,
+  aiInsights = [],
 }: GeoDetailProps): React.JSX.Element {
   const geoCategories = categories.filter((c) =>
     (GEO_CATEGORY_IDS as readonly string[]).includes(c.id)
@@ -198,6 +208,9 @@ export function GeoDetail({
           category={category}
           rules={category.rules}
           tier={tier}
+          insights={aiInsights.filter((ins) =>
+            (GEO_CATEGORY_IDS as readonly string[]).includes(ins.category)
+          )}
         />
       ))}
     </div>

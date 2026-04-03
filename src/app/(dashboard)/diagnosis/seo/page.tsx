@@ -48,6 +48,7 @@ export default async function DiagnosisSeoPage(
     <SeoRuleList
       categories={data.analysisData.overallScore.categories}
       tier={data.tier}
+      aiInsights={data.analysisData.aiInsights}
     />
   )
 }

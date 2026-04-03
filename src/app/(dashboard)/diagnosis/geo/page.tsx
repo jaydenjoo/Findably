@@ -48,6 +48,7 @@ export default async function DiagnosisGeoPage(
       categories={data.analysisData.overallScore.categories}
       citation={data.analysisData.aiCitation}
       tier={data.tier}
+      aiInsights={data.analysisData.aiInsights}
     />
   )
 }

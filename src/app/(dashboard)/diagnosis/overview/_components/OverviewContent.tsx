@@ -75,6 +75,18 @@ function CategoryCard({
           </span>
         )}
       </div>
+
+      {/* 가장 시급한 항목 하이라이트 */}
+      {(() => {
+        const urgent = category.rules
+          .filter((r) => !r.passed && !r.skipped && r.severity === 'critical')
+          .sort((a, b) => b.maxPoints - a.maxPoints)[0]
+        return urgent ? (
+          <p className="text-xs text-danger-600 truncate">
+            시급: {urgent.name}
+          </p>
+        ) : null
+      })()}
     </Link>
   )
 }
