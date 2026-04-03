@@ -192,3 +192,17 @@
 - **원인**: n8n이 외부 서버(Elest.io)에 있어서 `localhost:3600`에 콜백을 보낼 수 없음. 크롤링은 완료되지만 결과를 전달할 경로가 없음
 - **해결**: 로컬 크롤링 테스트는 ngrok(`ngrok http 3600`) 또는 Vercel 배포 후에만 가능
 - **규칙**: 외부 서비스(n8n, Stripe 웹훅 등)가 콜백하는 플로우는 **로컬 단독 테스트 불가**. ngrok 터널 또는 프로덕션 배포 필요. `.env.local`의 `NEXT_PUBLIC_SITE_URL`을 localhost로 변경해도 외부→localhost 접근 안 됨
+
+### 2026-04-03 Vercel Hobby `after()` Lambda 타임아웃 → 유료 분석 영구 고착 (analyzing)
+
+- **증상**: 유료 분석 트리거 후 admin에서 AI 에이전트 5개 + CMO 모두 ✗. status가 `analyzing`에서 30분 넘게 멈춤. Anthropic 로그에 `"client disconnected"` (code 499, latency 12.255s)
+- **원인**: `trigger-analysis` API 라우트에 `maxDuration` 미설정. Vercel Hobby 기본 Lambda 타임아웃 **10초**. `after()` 콜백에서 AI 에이전트 5개(~30초) + CMO Opus(~12초)를 실행하는데 10초 만에 Lambda가 강제 종료. catch 블록도 실행 안 되어 status가 `analyzing`에 영구 고착
+- **해결**: 3개 API 라우트(`trigger-analysis`, `checkout`, `crawl/complete`)에 `export const maxDuration = 60` 추가 (Hobby 최대치)
+- **규칙**: Vercel에서 `after()` 또는 오래 걸리는 작업이 있는 API Route에는 반드시 `export const maxDuration = 60` 명시. 미설정 시 Hobby 기본 10초로 잘림. `after()`도 같은 Lambda 안에서 실행되므로 동일 타임아웃 적용. Anthropic 로그에서 code 499 + "client disconnected"가 보이면 서버 측 타임아웃 의심. **Pro 플랜은 최대 300초, Hobby는 최대 60초**
+
+### 2026-04-03 "가입 불필요" 히어로 문구 — 실제 플로우와 불일치
+
+- **증상**: 랜딩 히어로에 "가입 불필요"라고 표시되지만, 실제로는 회원가입이 필수 (URL 입력 전 /signup 거침)
+- **원인**: 초기 기획 시 비로그인 진단을 고려했으나 실제 구현은 로그인 필수. 문구가 업데이트되지 않음
+- **해결**: "가입 불필요" → "URL만 입력"으로 변경
+- **규칙**: 랜딩 페이지의 신뢰 지표 문구는 실제 유저 플로우와 반드시 일치해야 함. 기능 변경 시 마케팅 문구도 함께 점검. 거짓 약속은 이탈률 증가 + 신뢰 하락
