@@ -49,7 +49,11 @@ export function QuickWinCard({
           </p>
         </div>
 
-        {/* 하단: impact 바 */}
+        {/* 하단: 예상 임팩트 + impact 바 */}
+        <div className="rounded-md bg-primary-50 px-2.5 py-1.5 text-xs font-medium text-primary-700">
+          이 항목 수정 시{' '}
+          <span className="font-bold">+{quickWin.impact}점</span> 예상
+        </div>
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-500">영향도</span>

@@ -45,7 +45,6 @@ export const PAGE_TITLES: Record<string, string> = {
   '/diagnosis/seo': 'SEO 상세',
   '/diagnosis/geo': 'GEO 상세',
   '/diagnosis/content': '콘텐츠 상세',
-  '/diagnosis/competitors': '경쟁사 비교',
   '/reports/my': '내 리포트',
   '/reports/sample': '샘플 리포트',
   '/actions/schema': 'Schema Markup',

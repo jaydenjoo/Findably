@@ -22,7 +22,6 @@ const DIAGNOSIS_TABS: DiagnosisTab[] = [
   { label: 'SEO', segment: 'seo' },
   { label: 'GEO', segment: 'geo' },
   { label: '콘텐츠', segment: 'content' },
-  { label: '경쟁사', segment: 'competitors', locked: true },
 ]
 
 export function DiagnosisTabNav(): React.JSX.Element {

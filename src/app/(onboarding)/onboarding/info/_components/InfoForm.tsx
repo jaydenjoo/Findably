@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 
 const FIELD_LABELS: Record<string, string> = {
   targetKeywords: '타겟 키워드',
-  competitorUrls: '경쟁사 URL',
   industry: '업종',
 }
 
@@ -112,22 +111,6 @@ export function InfoForm({
         <p id="keywords-hint" className="text-sm text-slate-500">
           쉼표로 구분해서 입력해주세요. 검색에 노출되고 싶은 키워드를
           적어주세요.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="competitor-urls">경쟁사 URL</Label>
-        <Input
-          id="competitor-urls"
-          name="competitorUrls"
-          type="text"
-          placeholder="https://competitor1.com, https://competitor2.com"
-          aria-label="경쟁사 URL"
-          aria-describedby="competitors-hint"
-          disabled={isPending}
-        />
-        <p id="competitors-hint" className="text-sm text-slate-500">
-          쉼표로 구분해서 입력해주세요. 비교 분석에 활용됩니다.
         </p>
       </div>
 

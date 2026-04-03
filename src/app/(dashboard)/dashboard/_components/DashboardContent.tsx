@@ -15,7 +15,7 @@ import { ScoreGauge } from '@/components/shared/ScoreGauge'
 import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import { AICitationCard } from '@/components/dashboard/AICitationCard'
 import { QuickWinCard } from '@/components/dashboard/QuickWinCard'
-import { Download } from 'lucide-react'
+import { Download, Loader2 } from 'lucide-react'
 import { CategoryScoreCard } from './CategoryScoreCard'
 import { ImpactMatrix } from './ImpactMatrix'
 import { RiskHeatmap } from './RiskHeatmap'
@@ -50,6 +50,32 @@ const SCORE_MESSAGES: Record<ScoreGrade, string> = {
 
 function getScoreMessage(score: number): string {
   return SCORE_MESSAGES[SCORING.getScoreGrade(score)]
+}
+
+/** 업종 평균 벤치마크 (추후 DB 기반으로 교체 가능) */
+const INDUSTRY_AVG_SCORE = 48
+
+function getBenchmarkText(score: number): string {
+  const diff = score - INDUSTRY_AVG_SCORE
+  if (diff > 0) return `업종 평균(${INDUSTRY_AVG_SCORE}점)보다 +${diff}점 높음`
+  if (diff < 0) return `업종 평균(${INDUSTRY_AVG_SCORE}점)보다 ${diff}점 낮음`
+  return `업종 평균(${INDUSTRY_AVG_SCORE}점)과 동일`
+}
+
+/** 게이미피케이션 뱃지 */
+const SCORE_BADGES: { min: number; label: string; emoji: string }[] = [
+  { min: 90, label: '마케팅 마스터', emoji: '👑' },
+  { min: 70, label: '성장 궤도 진입', emoji: '🚀' },
+  { min: 50, label: 'SEO 초보 탈출', emoji: '💪' },
+  { min: 30, label: '첫 걸음 시작', emoji: '🌱' },
+  { min: 0, label: '진단 완료', emoji: '✅' },
+]
+
+function getScoreBadge(score: number): { label: string; emoji: string } {
+  return (
+    SCORE_BADGES.find((b) => score >= b.min) ??
+    SCORE_BADGES[SCORE_BADGES.length - 1]!
+  )
 }
 
 export function DashboardContent({
@@ -173,6 +199,15 @@ export function DashboardContent({
           >
             {overallScore.gradeLabel} 등급
           </span>
+          {/* 게이미피케이션 뱃지 */}
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
+            <span>{getScoreBadge(overallScore.score).emoji}</span>
+            {getScoreBadge(overallScore.score).label}
+          </span>
+          {/* 업종 평균 벤치마크 */}
+          <p className="text-xs text-slate-400">
+            {getBenchmarkText(overallScore.score)}
+          </p>
           {/* 점수 변화 트렌드 */}
           {previousScore !== undefined && previousDate && (
             <ScoreTrend
@@ -219,14 +254,18 @@ export function DashboardContent({
           </h2>
 
           {/* 무료로 볼 수 있는 Quick Win */}
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {visibleQuickWins.map((qw) => (
-              <QuickWinCard
-                key={qw.ruleId}
-                quickWin={qw}
-                diagnosisId={diagnosisId}
-              />
-            ))}
+          <div className="relative">
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+              {visibleQuickWins.map((qw) => (
+                <QuickWinCard
+                  key={qw.ruleId}
+                  quickWin={qw}
+                  diagnosisId={diagnosisId}
+                />
+              ))}
+            </div>
+            {/* 모바일 스크롤 힌트 그라데이션 */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-white to-transparent md:hidden" />
           </div>
 
           {/* Free 사용자: 나머지 Quick Win은 BlurOverlay */}
@@ -280,7 +319,14 @@ export function DashboardContent({
               disabled={isProcessing}
               className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isProcessing ? '처리 중...' : '상세 분석 받기 — 9.9만원'}
+              {isProcessing ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  처리 중...
+                </>
+              ) : (
+                '상세 분석 받기 — 9.9만원'
+              )}
             </button>
             <Link
               href="/reports/sample"
