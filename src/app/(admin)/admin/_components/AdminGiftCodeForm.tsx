@@ -1,12 +1,22 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useRef } from 'react'
 import { createGiftCodeAction } from '../_actions/create-gift-code'
+
+function generateCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let random = ''
+  for (let i = 0; i < 6; i++) {
+    random += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return `FDB-${random}`
+}
 
 export function AdminGiftCodeForm(): React.JSX.Element {
   const [state, formAction, isPending] = useActionState(createGiftCodeAction, {
     message: '',
   })
+  const codeRef = useRef<HTMLInputElement>(null)
 
   return (
     <form
@@ -22,14 +32,27 @@ export function AdminGiftCodeForm(): React.JSX.Element {
           >
             코드
           </label>
-          <input
-            id="gc-code"
-            name="code"
-            type="text"
-            placeholder="FRIEND-2026"
-            required
-            className="w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-mono uppercase"
-          />
+          <div className="flex gap-1.5">
+            <input
+              ref={codeRef}
+              id="gc-code"
+              name="code"
+              type="text"
+              placeholder="FRIEND-2026"
+              required
+              className="w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-mono uppercase"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (codeRef.current) codeRef.current.value = generateCode()
+              }}
+              className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+              title="자동 생성"
+            >
+              🎲
+            </button>
+          </div>
         </div>
         <div>
           <label htmlFor="gc-max" className="block text-xs text-slate-500 mb-1">
