@@ -6,7 +6,6 @@ import { createPayment } from '@/features/payment'
 import { getPaymentAdapter } from '@/lib/adapters/payment'
 import { PRICING } from '@/config/pricing'
 import { checkRateLimit } from '@/lib/api/rate-limit'
-import { createAdminClient } from '@/lib/supabase/admin'
 
 /** Vercel Lambda 최대 실행 시간 (초) — after()의 유료 분석 트리거에 60초 필요 */
 export const maxDuration = 60
@@ -24,38 +23,6 @@ export const maxDuration = 60
  *
  * 보안: 🔴 결제 관련 — 금액 서버 강제, 소유권 검증
  */
-
-const MAX_RETRY = 3
-
-/** DB 상태 업데이트 (최대 3회 재시도) — 실패 시 사용자가 영원히 대기하지 않도록 */
-async function updateStatusWithRetry(
-  diagnosisId: string,
-  status: string
-): Promise<void> {
-  for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {
-    try {
-      const admin = createAdminClient()
-      const { error } = await admin
-        .from('diagnoses')
-        .update({ status })
-        .eq('id', diagnosisId)
-      if (!error) return
-      console.error(
-        `[checkout] DB 상태 업데이트 실패 (${attempt}/${MAX_RETRY}):`,
-        error.message
-      )
-    } catch (dbError: unknown) {
-      console.error(
-        `[checkout] DB 상태 업데이트 예외 (${attempt}/${MAX_RETRY}):`,
-        dbError
-      )
-    }
-  }
-  console.error(
-    `[checkout] DB 상태 업데이트 ${MAX_RETRY}회 모두 실패:`,
-    diagnosisId
-  )
-}
 
 const checkoutSchema = z.object({
   diagnosisId: z.string().uuid('diagnosisId must be a valid UUID'),
@@ -114,33 +81,10 @@ export async function POST(request: NextRequest): Promise<Response> {
       )
     }
 
-    // 5. 유료 분석 트리거 — after() 사용 금지 (Vercel Hobby에서 신뢰 불가)
-    //    응답 전에 fetch를 fire-and-forget으로 발사 → trigger-analysis가 독립 Lambda로 실행
+    // 5. 유료 분석은 프론트엔드(PaidAnalyzingState)에서 trigger-analysis를 직접 호출
+    //    Vercel Hobby 서버리스에서 after()/fire-and-forget이 불안정하므로
+    //    서버→서버 트리거 대신 클라이언트→서버 방식으로 변경
     const paidDiagId = paymentResult.paidDiagnosisId ?? body.diagnosisId
-
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
-    const internalSecret = process.env.CRAWL_EXECUTE_SECRET
-
-    if (baseUrl && internalSecret) {
-      // fire-and-forget: 요청만 보내고 응답 대기 안 함
-      // trigger-analysis Lambda가 독립적으로 60초간 실행 (maxDuration=60)
-      fetch(`${baseUrl}/api/payment/trigger-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-internal-secret': internalSecret,
-        },
-        body: JSON.stringify({ diagnosisId: paidDiagId }),
-      }).catch((err: unknown) => {
-        console.error('[checkout] trigger-analysis fetch 실패:', err)
-      })
-    } else {
-      console.error('[checkout] 환경변수 미설정:', {
-        siteUrl: !!baseUrl,
-        secret: !!internalSecret,
-      })
-      void updateStatusWithRetry(paidDiagId, 'failed')
-    }
 
     return successResponse({
       paymentId: paymentResult.paymentId,

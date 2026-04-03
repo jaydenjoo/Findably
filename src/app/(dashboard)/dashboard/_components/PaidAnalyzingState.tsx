@@ -51,6 +51,7 @@ export function PaidAnalyzingState({
   const [error, setError] = useState('')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const triggerCalledRef = useRef(false)
 
   const stages = isPaid ? PAID_STAGES : FREE_STAGES
   const estimatedSeconds = isPaid
@@ -87,6 +88,21 @@ export function PaidAnalyzingState({
       setError('분석 중 문제가 발생했습니다. 페이지를 새로고침해주세요.')
     }
   }, [diagnosisId, router])
+
+  // 유료 분석 트리거 — 프론트엔드에서 직접 호출 (Vercel 서버리스 fire-and-forget 불안정 대응)
+  useEffect(() => {
+    if (!isPaid || triggerCalledRef.current) return
+    triggerCalledRef.current = true
+
+    fetch('/api/payment/trigger-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ diagnosisId }),
+    }).catch(() => {
+      // trigger-analysis가 60초간 실행되므로 timeout 에러가 날 수 있음
+      // 실제 상태는 pollStatus에서 확인
+    })
+  }, [diagnosisId, isPaid])
 
   // 경과 시간 타이머
   useEffect(() => {
