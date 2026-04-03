@@ -36,8 +36,10 @@ export async function POST(request: NextRequest): Promise<Response> {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
+      console.error('[trigger-analysis] 인증 실패 — 사용자 세션 없음')
       return errorResponse('인증이 필요합니다', 401)
     }
+    console.log('[trigger-analysis] 인증 성공:', user.id)
   }
 
   // 2. 페이로드 검증

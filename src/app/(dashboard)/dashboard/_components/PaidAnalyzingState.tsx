@@ -89,17 +89,25 @@ export function PaidAnalyzingState({
     }
   }, [diagnosisId, router])
 
-  // 유료 분석 트리거 — 프론트엔드에서 직접 호출 (Vercel 서버리스 fire-and-forget 불안정 대응)
+  // 유료 분석 트리거 — 프론트엔드에서 직접 호출
+  // isPaid 여부와 무관하게 analyzing 상태면 트리거 시도
+  // (trigger-analysis 내부에서 이미 완료된 건은 스킵)
   useEffect(() => {
-    if (!isPaid || triggerCalledRef.current) return
+    if (triggerCalledRef.current) return
     triggerCalledRef.current = true
+
+    console.log('[PaidAnalyzingState] 분석 트리거 호출:', diagnosisId, {
+      isPaid,
+    })
 
     fetch('/api/payment/trigger-analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // 인증 쿠키 포함 필수
       body: JSON.stringify({ diagnosisId }),
-    }).catch(() => {
-      // trigger-analysis가 60초간 실행되므로 timeout 에러가 날 수 있음
+    }).catch((err) => {
+      console.error('[PaidAnalyzingState] 트리거 fetch 에러:', err)
+      // trigger-analysis가 120초간 실행되므로 timeout 에러가 날 수 있음
       // 실제 상태는 pollStatus에서 확인
     })
   }, [diagnosisId, isPaid])
