@@ -16,6 +16,8 @@ import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import { AICitationCard } from '@/components/dashboard/AICitationCard'
 import { QuickWinCard } from '@/components/dashboard/QuickWinCard'
 import { CategoryScoreCard } from './CategoryScoreCard'
+import { ImpactMatrix } from './ImpactMatrix'
+import { RiskHeatmap } from './RiskHeatmap'
 import { PartialDataBanner } from '@/features/crawling'
 
 interface DashboardContentProps {
@@ -219,6 +221,14 @@ export function DashboardContent({
             </BlurOverlay>
           )}
         </section>
+      )}
+
+      {/* 2.5행: 리스크 히트맵 — 카테고리 건강 상태 한눈에 */}
+      {categories.length > 0 && <RiskHeatmap categories={categories} />}
+
+      {/* 2.6행: 영향도 매트릭스 (유료만) — 뭘 먼저 할까? */}
+      {!isFree && quickWins.length > 0 && (
+        <ImpactMatrix quickWins={quickWins} />
       )}
 
       {/* Free 사용자 업그레이드 CTA — Quick Win이 부족해도 항상 표시 */}
