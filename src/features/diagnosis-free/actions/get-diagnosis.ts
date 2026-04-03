@@ -16,6 +16,9 @@ export interface DiagnosisResult {
   diagnosisId: string
   isPartial: boolean
   blockedReason?: string
+  competitorUrls?: string[]
+  targetKeywords?: string[]
+  industry?: string
 }
 
 /**
@@ -39,7 +42,9 @@ export async function getDiagnosisAction(
 
     let query = supabase
       .from('diagnoses')
-      .select('id, url, analysis_data, tier, crawl_data, status')
+      .select(
+        'id, url, analysis_data, tier, crawl_data, status, competitor_urls, target_keywords, industry'
+      )
       .eq('user_id', user.id)
 
     if (diagnosisId) {
@@ -79,6 +84,9 @@ export async function getDiagnosisAction(
         diagnosisId: data.id,
         isPartial: partialInfo.isPartial,
         blockedReason: partialInfo.blockedReason,
+        competitorUrls: data.competitor_urls ?? undefined,
+        targetKeywords: data.target_keywords ?? undefined,
+        industry: data.industry ?? undefined,
       },
       error: null,
     }

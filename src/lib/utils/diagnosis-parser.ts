@@ -22,12 +22,48 @@ export interface ParsedAIInsight {
   priority?: number
 }
 
+/** SWOT 분석 (파서용) */
+export interface ParsedSwot {
+  strengths: string[]
+  weaknesses: string[]
+  opportunities: string[]
+  threats: string[]
+}
+
+/** 로드맵 항목 (파서용) */
+export interface ParsedRoadmapItem {
+  week: number
+  title: string
+  description: string
+  category: string
+  priority: string
+  estimatedImpact: number
+  phase?: string
+  howTo?: string
+}
+
+/** 경쟁사 분석 (파서용) */
+export interface ParsedCompetitor {
+  url: string
+  strengths: string[]
+  weaknesses: string[]
+  gaps: string[]
+}
+
 /** analysis_data JSON 구조 */
 export interface AnalysisData {
   overallScore: OverallScore
   aiCitation: AICitationPossibilityScore
   /** 유료 AI 인사이트 (paid tier만) */
   aiInsights?: ParsedAIInsight[]
+  /** CMO 경영진 요약 */
+  cmoSummary?: string
+  /** SWOT 분석 */
+  swot?: ParsedSwot
+  /** 90일 로드맵 */
+  roadmap?: ParsedRoadmapItem[]
+  /** 경쟁사 분석 */
+  competitors?: ParsedCompetitor[]
 }
 
 /** crawl_data → partial 정보 */
@@ -313,14 +349,90 @@ export function parseAnalysisData(raw: unknown): AnalysisData | null {
         }))
     : undefined
 
+  // 유료 전용 필드 파싱 (있으면 포함, 없으면 생략)
+  const cmoSummary =
+    typeof data.cmoSummary === 'string' && data.cmoSummary.length > 0
+      ? data.cmoSummary
+      : undefined
+
+  const swot = parseSwot(data.swot)
+  const roadmap = parseRoadmap(data.roadmap)
+  const competitors = parseCompetitors(data.competitors)
+
   return {
     overallScore,
     aiCitation: normalizeAICitation(rawCitation),
     ...(aiInsights && aiInsights.length > 0 ? { aiInsights } : {}),
+    ...(cmoSummary ? { cmoSummary } : {}),
+    ...(swot ? { swot } : {}),
+    ...(roadmap ? { roadmap } : {}),
+    ...(competitors ? { competitors } : {}),
   }
 }
 
 /** crawl_data → partial 정보 추출 */
+// ─── 유료 필드 파서 ───
+
+function parseSwot(raw: unknown): ParsedSwot | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const obj = raw as Record<string, unknown>
+  const strengths = Array.isArray(obj.strengths)
+    ? obj.strengths.filter((s): s is string => typeof s === 'string')
+    : []
+  const weaknesses = Array.isArray(obj.weaknesses)
+    ? obj.weaknesses.filter((s): s is string => typeof s === 'string')
+    : []
+  const opportunities = Array.isArray(obj.opportunities)
+    ? obj.opportunities.filter((s): s is string => typeof s === 'string')
+    : []
+  const threats = Array.isArray(obj.threats)
+    ? obj.threats.filter((s): s is string => typeof s === 'string')
+    : []
+  if (strengths.length === 0 && weaknesses.length === 0) return undefined
+  return { strengths, weaknesses, opportunities, threats }
+}
+
+function parseRoadmap(raw: unknown): ParsedRoadmapItem[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  return raw
+    .filter(
+      (item): item is Record<string, unknown> =>
+        typeof item === 'object' && item !== null
+    )
+    .map((item) => ({
+      week: typeof item.week === 'number' ? item.week : 0,
+      title: String(item.title ?? ''),
+      description: String(item.description ?? ''),
+      category: String(item.category ?? 'technical'),
+      priority: String(item.priority ?? 'medium'),
+      estimatedImpact:
+        typeof item.estimatedImpact === 'number' ? item.estimatedImpact : 5,
+      phase: typeof item.phase === 'string' ? item.phase : undefined,
+      howTo: typeof item.howTo === 'string' ? item.howTo : undefined,
+    }))
+}
+
+function parseCompetitors(raw: unknown): ParsedCompetitor[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  return raw
+    .filter(
+      (item): item is Record<string, unknown> =>
+        typeof item === 'object' && item !== null
+    )
+    .map((item) => ({
+      url: String(item.url ?? ''),
+      strengths: Array.isArray(item.strengths)
+        ? item.strengths.filter((s): s is string => typeof s === 'string')
+        : [],
+      weaknesses: Array.isArray(item.weaknesses)
+        ? item.weaknesses.filter((s): s is string => typeof s === 'string')
+        : [],
+      gaps: Array.isArray(item.gaps)
+        ? item.gaps.filter((s): s is string => typeof s === 'string')
+        : [],
+    }))
+}
+
 export function parsePartialInfo(raw: unknown): PartialInfo {
   if (typeof raw === 'object' && raw !== null && 'is_partial' in raw) {
     const data = raw as Record<string, unknown>
