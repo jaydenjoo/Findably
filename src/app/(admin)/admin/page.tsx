@@ -1,7 +1,10 @@
 import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
+import { ACCESS } from '@/config/access-control'
 import { AdminActions } from './_components/AdminActions'
 import { AdminGiftCodeForm } from './_components/AdminGiftCodeForm'
+import { AdminLoginForm } from './_components/AdminLoginForm'
 
 export const metadata: Metadata = {
   title: '관리자',
@@ -39,6 +42,15 @@ interface DiagnosisRow {
 export const dynamic = 'force-dynamic'
 
 export default async function AdminPage(): Promise<React.JSX.Element> {
+  // 관리자 세션 확인
+  const authSupabase = await createClient()
+  const {
+    data: { user: adminUser },
+  } = await authSupabase.auth.getUser()
+
+  const isAdmin =
+    adminUser && ACCESS.ADMIN_EMAILS.includes(adminUser.email ?? '')
+
   const supabase = createAdminClient()
 
   // 선물 코드 목록
@@ -120,6 +132,12 @@ export default async function AdminPage(): Promise<React.JSX.Element> {
 
   return (
     <div className="space-y-6">
+      {/* 관리자 로그인 상태 */}
+      {!isAdmin && <AdminLoginForm />}
+      {isAdmin && (
+        <p className="text-xs text-success-600">✓ {adminUser.email} 로그인됨</p>
+      )}
+
       {/* 시스템 상태 */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <StatCard label="오늘 진단" value={todayRows.length} />
