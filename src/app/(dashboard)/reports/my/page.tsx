@@ -120,10 +120,18 @@ export default async function ReportsMyPage(): Promise<React.JSX.Element> {
             day: 'numeric',
           })
 
+          // 유료 completed → 상세 리포트, 무료 completed → 대시보드
+          const linkHref =
+            isCompleted && isPaid
+              ? `/reports/my/${d.id}`
+              : isCompleted
+                ? `/dashboard?id=${d.id}`
+                : '#'
+
           return (
             <Link
               key={d.id}
-              href={isCompleted ? `/dashboard?id=${d.id}` : '#'}
+              href={linkHref}
               className={`group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all ${
                 isCompleted
                   ? 'hover:-translate-y-0.5 hover:shadow-md cursor-pointer'
@@ -151,7 +159,7 @@ export default async function ReportsMyPage(): Promise<React.JSX.Element> {
                   <p className="mt-1 text-xs text-slate-400">{dateStr}</p>
                 </div>
 
-                {/* Right: Score + arrow */}
+                {/* Right: Score + action */}
                 <div className="flex items-center gap-3">
                   {isCompleted && (
                     <div className="flex items-center gap-2">
@@ -167,7 +175,12 @@ export default async function ReportsMyPage(): Promise<React.JSX.Element> {
                       </span>
                     </div>
                   )}
-                  {isCompleted && (
+                  {isCompleted && isPaid && (
+                    <span className="text-xs font-medium text-primary-500 group-hover:text-primary-600">
+                      상세 보기 →
+                    </span>
+                  )}
+                  {isCompleted && !isPaid && (
                     <ExternalLink className="size-4 text-slate-300 transition-colors group-hover:text-primary-500" />
                   )}
                 </div>
