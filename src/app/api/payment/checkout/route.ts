@@ -118,6 +118,9 @@ export async function POST(request: NextRequest): Promise<Response> {
     //    createPayment이 별도 paid 레코드를 생성했으므로 해당 ID로 트리거
     const paidDiagId = paymentResult.paidDiagnosisId ?? body.diagnosisId
 
+    // 유료 분석 트리거 — 별도 Lambda로 fire-and-forget
+    // trigger-analysis는 동기 실행(maxDuration=60)이므로 응답을 기다리지 않음
+    // after()를 사용하되, fetch 자체만 보내고 응답은 기다리지 않음 (빠르게 완료)
     after(async () => {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
       const internalSecret = process.env.CRAWL_EXECUTE_SECRET
@@ -132,13 +135,17 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
 
       try {
-        await fetch(`${baseUrl}/api/payment/trigger-analysis`, {
+        // fire-and-forget: 요청만 보내고 응답 대기 안 함
+        // trigger-analysis Lambda가 독립적으로 60초간 실행
+        fetch(`${baseUrl}/api/payment/trigger-analysis`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'x-internal-secret': internalSecret,
           },
           body: JSON.stringify({ diagnosisId: paidDiagId }),
+        }).catch((err: unknown) => {
+          console.error('[checkout] trigger-analysis fetch 실패:', err)
         })
       } catch (triggerError: unknown) {
         console.error('[checkout] 유료 분석 트리거 실패:', triggerError)
