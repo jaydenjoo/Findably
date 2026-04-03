@@ -206,3 +206,102 @@
 - **원인**: 초기 기획 시 비로그인 진단을 고려했으나 실제 구현은 로그인 필수. 문구가 업데이트되지 않음
 - **해결**: "가입 불필요" → "URL만 입력"으로 변경
 - **규칙**: 랜딩 페이지의 신뢰 지표 문구는 실제 유저 플로우와 반드시 일치해야 함. 기능 변경 시 마케팅 문구도 함께 점검. 거짓 약속은 이탈률 증가 + 신뢰 하락
+
+---
+
+## 🔍 에러 발생 시 디버깅 체크포인트
+
+> learnings 전체에서 추출한 패턴별 체크리스트. 에러 발생 시 해당 카테고리부터 확인.
+
+### A. 유료 분석이 멈춤 (analyzing 영구 고착)
+
+```
+□ 1. Anthropic 콘솔 로그 확인 — code 499 "client disconnected"인가?
+     → Yes: Vercel Lambda 타임아웃. maxDuration = 60 설정 확인
+□ 2. Anthropic 로그에서 output_tokens == maxTokens인가?
+     → Yes: JSON 절삭. maxTokens 4096 이상으로 증가
+□ 3. Anthropic 로그에 400/404 에러인가?
+     → 400: API 크레딧 소진 → 충전 필요
+     → 404: 모델 ID 오류 → claude-sonnet-4-20250514 형식 확인
+□ 4. admin에서 AI 에이전트 ✓인데 CMO만 ✗인가?
+     → CMO Opus 타임아웃(30초) 초과. 로그에서 latency 확인
+□ 5. 크롤링 ✗ + 무료분석 ✗인가?
+     → n8n 콜백 실패. SITE_URL이 localhost가 아닌지 확인
+     → crawl/complete 라우트에 maxDuration 설정 확인
+```
+
+### B. 배포 후 프로덕션 에러
+
+```
+□ 1. git status -sb에서 [ahead N] 없는지 확인
+     → 있으면 push 안 된 것. git push origin main 실행
+□ 2. git diff --stat HEAD로 미커밋 파일 확인
+     → types.ts, config 파일이 미커밋이면 Vercel 빌드 실패
+     → 검증법: git stash && npx next build (Git 코드만으로 빌드)
+□ 3. Vercel 대시보드에서 빌드 상태 확인
+     → 빌드 실패: 에러 로그 확인 (타입 에러가 대부분)
+     → 빌드 성공인데 동작 안 됨: 환경변수 누락 확인
+□ 4. 환경변수 확인 (admin 페이지 또는 Vercel 대시보드)
+     → ANTHROPIC_API_KEY, CRAWL_EXECUTE_SECRET, SITE_URL 등
+```
+
+### C. 외부 API 실패
+
+```
+□ 1. 특정 도메인만 실패? vs 모든 도메인 실패?
+     → 모든 도메인: API 서비스 종료/마이그레이션 의심 (Observatory v1→v2 사례)
+     → 특정 도메인: robots.txt 차단 또는 사이트 문제
+□ 2. Google API "API key not valid" 400?
+     → API 활성화와 키 권한은 별개. Cloud Console에서 키 제한 확인
+     → 설정 반영 최대 5분 소요
+□ 3. n8n 콜백 405 "Method Not Allowed"?
+     → trailing slash → 308 → POST→GET 변환. GET 핸들러도 export
+□ 4. Claude API 404?
+     → 모델 ID 확인. 마케팅명(4.6) ≠ API ID(4). claude-sonnet-4-20250514
+□ 5. Claude API 499 "client disconnected"?
+     → 서버 측 타임아웃. maxDuration 설정 + Vercel 플랜 한도 확인
+```
+
+### D. 대시보드/UI 이상
+
+```
+□ 1. 데이터가 있는데 안 보임?
+     → diagnosis-parser.ts의 정규화 로직 확인 (필드명 차이: passedRules vs passedCount)
+     → DB 컬럼 조회에 필요한 필드 빠졌는지 select() 확인
+□ 2. 이전 정상 결과가 안 보이고 에러만 표시?
+     → 대시보드 쿼리 우선순위: 진행중 > 완료 > 실패 순인지 확인
+     → 단순 최신순(LIMIT 1)이면 failed가 completed를 가림
+□ 3. BlurOverlay/유료 기능이 Free에서 보임?
+     → tier 확인 로직. DB에 tier='paid'로 저장되었는지 확인
+□ 4. 점수 색상이 안 맞음?
+     → config/scoring.ts의 getScoreColor() 사용하는지 확인. 직접 색상 판단 금지
+```
+
+### E. Vercel 서버리스 특수 규칙
+
+```
+□ 1. after()가 있는 라우트 → maxDuration = 60 필수
+□ 2. void promise / fire-and-forget → 절대 사용 금지. await 또는 after()
+□ 3. Hobby 최대 60초 / Pro 최대 300초
+□ 4. Lambda 죽으면 catch 블록도 안 실행됨 → status 영구 고착 위험
+□ 5. 로컬 정상 + 프로덕션 실패 → Lambda 수명 차이가 원인일 가능성 높음
+```
+
+### F. 보안 체크 (커밋 전)
+
+```
+□ 1. n8n workflow JSON에 시크릿 하드코딩 없는지 grep 확인
+□ 2. /api/dev/ 디버그 엔드포인트 삭제했는지 확인
+□ 3. 환경변수 값(길이, prefix)을 응답에 포함하지 않는지 확인
+□ 4. NEXT_PUBLIC_ 접두사가 붙은 변수에 시크릿 없는지 확인
+```
+
+### G. 부분 수정 후 재발 방지
+
+```
+□ 1. maxTokens 변경 → 5개 에이전트 모두 동일 기준 적용했는지 확인
+□ 2. 타입 추가 → 해당 타입 사용하는 모든 파일 커밋했는지 확인
+□ 3. API Route 추가 → maxDuration + POST/GET 모두 export 확인
+□ 4. 환경변수 추가 → Vercel 대시보드에도 추가했는지 확인
+□ 5. 설정 변경 → "일부만 수정"하지 말고 전체 일관성 확인
+```
