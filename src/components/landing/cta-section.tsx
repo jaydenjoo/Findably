@@ -3,10 +3,12 @@
 import { Search } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
 const BottomCTA = () => {
   const [url, setUrl] = useState('')
+  const router = useRouter()
 
   const handleSubmit = () => {
     if (!url.trim()) {
@@ -14,8 +16,9 @@ const BottomCTA = () => {
       return
     }
     try {
-      new URL(url.startsWith('http') ? url : `https://${url}`)
-      toast.success('진단을 시작합니다!')
+      const validUrl = new URL(url.startsWith('http') ? url : `https://${url}`)
+      localStorage.setItem('findably_pending_url', validUrl.toString())
+      router.push('/signup')
     } catch {
       toast.error('올바른 URL 형식을 입력해주세요.')
     }

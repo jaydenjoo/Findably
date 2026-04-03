@@ -2,6 +2,7 @@
 
 import { Check } from 'lucide-react'
 import { motion } from 'framer-motion'
+import Link from 'next/link'
 
 const plans = [
   {
@@ -103,15 +104,22 @@ const Pricing = () => (
                 </li>
               ))}
             </ul>
-            <button
-              className={`w-full py-3 rounded-full font-bold text-sm transition-all min-h-[44px] ${
+            <Link
+              href={
+                plan.highlighted
+                  ? '/signup'
+                  : plan.name === 'Free'
+                    ? '/signup'
+                    : '/signup'
+              }
+              className={`block w-full py-3 rounded-full font-bold text-sm transition-all min-h-[44px] text-center cursor-pointer ${
                 plan.highlighted
                   ? 'bg-findably-cyan text-findably-cyan-foreground hover:bg-findably-cyan/90'
                   : 'border border-border text-foreground hover:bg-findably-light'
               }`}
             >
               {plan.cta}
-            </button>
+            </Link>
           </motion.div>
         ))}
       </div>
