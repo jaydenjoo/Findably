@@ -518,8 +518,8 @@ const CMO_AGENT = {
   name: 'CMO 검증가',
   description: '5개 에이전트 분석 결과 품질 검증 + Executive Summary 생성',
   maxTokens: 4096,
-  timeoutMs: 10_000,
-  model: MODEL, // Sonnet — Vercel Hobby 60초 한도 내 완료 필수
+  timeoutMs: 30_000,
+  model: MODEL_OPUS, // Vercel Pro — Opus 복원 (최고 품질)
   systemPrompt: `<role>
 당신은 20년 경력의 CMO(최고 마케팅 책임자)급 전략 검증자입니다.
 기술, SEO, GEO, 콘텐츠 전략을 통합적으로 평가하고, 비전문가 경영진도 즉시 의사결정할 수 있는 전략적 요약을 작성합니다.

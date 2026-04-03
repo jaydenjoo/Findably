@@ -160,7 +160,7 @@ export async function runDiagnosisPaid(
       industry: diagnosis.industry ?? '',
     }
 
-    const GLOBAL_TIMEOUT_MS = 50 * 1000 // 50초 (Vercel Hobby maxDuration=60초, 여유 10초)
+    const GLOBAL_TIMEOUT_MS = 90 * 1000 // 90초 (Vercel Pro maxDuration=120초, 여유 30초)
 
     const agentsPromise = Promise.all([
       executeAgentsParallel(crawlData, diagnosis.url, context),
