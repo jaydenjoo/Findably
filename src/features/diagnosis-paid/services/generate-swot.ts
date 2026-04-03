@@ -70,6 +70,11 @@ export function generateSwotAnalysis(params: GenerateSwotParams): SwotAnalysis {
     enrichFromCompetitorGaps(base, competitorAnalyses)
   }
 
+  // 보강 4: threats가 비어있으면 일반 위협 추가
+  if (base.threats.length === 0) {
+    enrichDefaultThreats(base, overallScore, categoryScores)
+  }
+
   // 중복 제거 + 항목 수 제한
   return {
     strengths: deduplicateAndLimit(base.strengths),
@@ -182,6 +187,43 @@ function enrichFromCompetitorGaps(
     for (const gap of comp.gaps) {
       swot.opportunities.push(`경쟁사 대비 기회: ${gap}`)
     }
+  }
+}
+
+/**
+ * threats가 비어있을 때 점수 기반 일반 위협 추가
+ */
+function enrichDefaultThreats(
+  swot: SwotAnalysis,
+  overallScore: OverallScore,
+  categoryScores: CategoryScore[]
+): void {
+  // 낮은 점수 카테고리 → 경쟁사에게 뒤처질 위험
+  const weakCategories = categoryScores
+    .filter((c) => c.score < 50)
+    .sort((a, b) => a.score - b.score)
+
+  for (const cat of weakCategories.slice(0, 2)) {
+    swot.threats.push(
+      `${cat.name} 점수 ${cat.score}점 — 경쟁 사이트 대비 뒤처질 위험`
+    )
+  }
+
+  // 전반적 위협
+  if (overallScore.score < 60) {
+    swot.threats.push(
+      '종합 점수가 업계 평균 이하로, 검색 노출과 AI 추천에서 밀릴 가능성'
+    )
+  }
+
+  swot.threats.push(
+    'AI 검색(ChatGPT, Perplexity 등) 확산으로 기존 SEO만으로는 트래픽 유지 어려움'
+  )
+
+  if (swot.threats.length < 3) {
+    swot.threats.push(
+      '구글 알고리즘 업데이트(Core Update)에 따른 순위 변동 리스크'
+    )
   }
 }
 

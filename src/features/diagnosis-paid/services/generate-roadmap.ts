@@ -110,6 +110,10 @@ export function generateRoadmap(params: GenerateRoadmapParams): RoadmapItem[] {
   // 한국 시장 전략: Phase 1–3에 걸쳐 한국 플랫폼/생태계 항목 추가
   enrichKoreaMarketItems(items, categoryScores)
 
+  // Phase 라벨 + howTo 매핑
+  assignPhaseLabels(items)
+  assignHowToFromInsights(items, completedResults)
+
   // 중복 제거 + 주차별/전체 제한 적용
   return applyLimits(deduplicateItems(items))
 }
@@ -427,6 +431,50 @@ function enrichKoreaMarketItems(
       priority: 'low',
       estimatedImpact: 5,
     })
+  }
+}
+
+// ─── Phase + HowTo 매핑 ───
+
+/** week 번호 → Phase 라벨 */
+function assignPhaseLabels(items: RoadmapItem[]): void {
+  for (const item of items) {
+    if (item.week <= 4) {
+      item.phase = 'Phase 1: 즉시 실행 (1-4주)'
+    } else if (item.week <= 8) {
+      item.phase = 'Phase 2: 단기 개선 (5-8주)'
+    } else {
+      item.phase = 'Phase 3: 중장기 최적화 (9-12주)'
+    }
+  }
+}
+
+/**
+ * 로드맵 항목의 title과 매칭되는 AI insight의 suggestedFix를 howTo에 매핑
+ * "[agentId] insight_title" 형식에서 insight_title로 매칭
+ */
+function assignHowToFromInsights(
+  items: RoadmapItem[],
+  completedResults: AIAgentResult[]
+): void {
+  const allInsights = completedResults.flatMap((r) => r.insights)
+
+  for (const item of items) {
+    if (item.howTo) continue // 이미 있으면 스킵
+
+    // "[agentId] title" 에서 title 부분 추출
+    const titlePart = item.title.replace(/^\[[^\]]+\]\s*/, '')
+
+    const matched = allInsights.find(
+      (ins) =>
+        ins.title === titlePart ||
+        ins.title === item.title ||
+        item.title.includes(ins.title)
+    )
+
+    if (matched?.suggestedFix) {
+      item.howTo = matched.suggestedFix
+    }
   }
 }
 

@@ -101,6 +101,10 @@ export interface RoadmapItem {
   category: string
   priority: 'high' | 'medium' | 'low'
   estimatedImpact: number
+  /** 실행 단계 (Phase 1: 즉시 실행 / Phase 2: 단기 개선 / Phase 3: 중장기) */
+  phase?: string
+  /** 구체적 실행 가이드 — AI insight의 suggestedFix에서 매핑 */
+  howTo?: string
 }
 
 // ─── AI 인용 실제 추적 (Task 5.3) ───

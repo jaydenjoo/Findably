@@ -1432,9 +1432,39 @@ export function parseCmoResponse(
  * CMO 폴백 요약 — AI 실패 시 단순 집계
  */
 export function generateCmoSummaryFallback(insights: AIInsight[]): string {
-  const critical = insights.filter((i) => i.severity === 'critical').length
-  const warning = insights.filter((i) => i.severity === 'warning').length
-  const info = insights.filter((i) => i.severity === 'info').length
+  const critical = insights.filter((i) => i.severity === 'critical')
+  const warning = insights.filter((i) => i.severity === 'warning')
+  const actionable = insights.filter((i) => i.actionable)
 
-  return `총 ${insights.length}개 인사이트 발견: 심각 ${critical}개, 주의 ${warning}개, 참고 ${info}개`
+  const parts: string[] = []
+
+  // 전체 요약
+  parts.push(
+    `이 사이트는 총 ${insights.length}개 항목을 분석한 결과, 심각 ${critical.length}개·주의 ${warning.length}개의 개선 포인트가 발견되었습니다.`
+  )
+
+  // 가장 긴급한 문제
+  if (critical.length > 0) {
+    const topCritical = critical
+      .slice(0, 3)
+      .map((i) => `"${i.title}"`)
+      .join(', ')
+    parts.push(
+      `가장 시급한 문제는 ${topCritical}입니다. 이 항목들을 먼저 해결하면 검색 순위와 사용자 경험이 눈에 띄게 개선됩니다.`
+    )
+  }
+
+  // 즉시 실행 가능한 항목
+  if (actionable.length > 0) {
+    parts.push(
+      `${actionable.length}개 항목은 바로 실행할 수 있으며, 각 항목의 "이렇게 고치세요" 가이드를 따라 순서대로 진행하는 것을 권장합니다.`
+    )
+  }
+
+  // 긍정적 마무리
+  parts.push(
+    '아래 90일 로드맵에 따라 Phase 1(즉시 실행)부터 차근차근 개선하면 3개월 내에 의미 있는 성과를 기대할 수 있습니다.'
+  )
+
+  return parts.join(' ')
 }
