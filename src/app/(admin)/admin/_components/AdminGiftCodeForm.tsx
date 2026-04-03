@@ -38,7 +38,7 @@ export function AdminGiftCodeForm(): React.JSX.Element {
       const result = (await response.json()) as CreateGiftCodeResponse
 
       if (!response.ok || !result.success) {
-        setMessage(result.error ?? '코드 생성 실패')
+        setMessage(result.error ?? `코드 생성 실패 (${response.status})`)
         setIsLoading(false)
         return
       }
@@ -48,8 +48,10 @@ export function AdminGiftCodeForm(): React.JSX.Element {
       setDescription('')
       setIsLoading(false)
       router.refresh()
-    } catch {
-      setMessage('네트워크 오류')
+    } catch (err) {
+      setMessage(
+        `네트워크 오류: ${err instanceof Error ? err.message : String(err)}`
+      )
       setIsLoading(false)
     }
   }
