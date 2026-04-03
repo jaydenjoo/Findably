@@ -19,11 +19,14 @@ export const performanceRules: RuleDefinition[] = [
     evaluate: (data) => {
       const score = data.layer2!.pagespeed!.performance_score
       if (score >= SEO_THRESHOLDS.MIN_PSI_SCORE) {
-        return { passed: true, message: `PageSpeed 점수 ${score}점` }
+        return {
+          passed: true,
+          message: `PageSpeed 점수 ${score}점 (Google 시뮬레이션 기준)`,
+        }
       }
       return {
         passed: false,
-        message: `PageSpeed 점수 ${score}점 (${SEO_THRESHOLDS.MIN_PSI_SCORE}점 이상 권장). 페이지 속도를 개선하세요.`,
+        message: `PageSpeed 점수 ${score}점 (${SEO_THRESHOLDS.MIN_PSI_SCORE}점 이상 권장, Google 시뮬레이션 기준). 페이지 속도를 개선하세요.`,
       }
     },
   },

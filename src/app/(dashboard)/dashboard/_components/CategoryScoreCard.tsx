@@ -84,6 +84,36 @@ export function CategoryScoreCard({
       {/* 확장 영역: 룰 목록 */}
       {expanded && (
         <div className="border-t border-slate-100 px-4 py-3 space-y-2">
+          {/* 성능/모바일 카테고리: 데이터 소스 표시 */}
+          {(category.id === 'performance' || category.id === 'mobile') && (
+            <div className="flex flex-wrap gap-1.5 pb-1">
+              {category.rules?.some((r) => r.id.startsWith('perf-0')) && (
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-600">
+                  📊 PageSpeed 시뮬레이션
+                </span>
+              )}
+              {category.rules?.some(
+                (r) => r.id === 'perf-08' || r.id.startsWith('mob-0')
+              ) &&
+                category.rules?.some(
+                  (r) =>
+                    (r.id === 'perf-08' || r.id.startsWith('mob-0')) &&
+                    !r.skipped
+                ) && (
+                  <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-600">
+                    👥 실제 사용자 데이터 (CrUX)
+                  </span>
+                )}
+              {category.rules?.some(
+                (r) =>
+                  (r.id === 'perf-08' || r.id.startsWith('mob-0')) && r.skipped
+              ) && (
+                <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                  실사용자 데이터 부족 — 시뮬레이션 기반
+                </span>
+              )}
+            </div>
+          )}
           {failedRules.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-danger-600">
