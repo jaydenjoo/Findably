@@ -1,3 +1,6 @@
+/** Vercel Lambda 최대 실행 시간 (초) — 크롤링 저장 + 무료 분석에 60초 필요 */
+export const maxDuration = 60
+
 import { timingSafeEqual } from 'crypto'
 import { type NextRequest } from 'next/server'
 import { z } from 'zod'

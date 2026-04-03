@@ -8,6 +8,9 @@ import { PRICING } from '@/config/pricing'
 import { checkRateLimit } from '@/lib/api/rate-limit'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+/** Vercel Lambda 최대 실행 시간 (초) — after()의 유료 분석 트리거에 60초 필요 */
+export const maxDuration = 60
+
 /**
  * POST /api/payment/checkout
  *

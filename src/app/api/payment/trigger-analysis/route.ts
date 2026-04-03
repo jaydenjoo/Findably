@@ -5,6 +5,9 @@ import { successResponse, errorResponse } from '@/lib/api/response'
 import { runDiagnosisPaid } from '@/features/diagnosis-paid'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+/** Vercel Lambda 최대 실행 시간 (초) — AI 에이전트 5개 + CMO 실행에 60초 필요 */
+export const maxDuration = 60
+
 /**
  * POST /api/payment/trigger-analysis
  *
