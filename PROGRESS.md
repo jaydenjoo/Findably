@@ -1,7 +1,7 @@
 # Findably — 진행상황 문서
 
 > **이 파일을 세션 시작 시 첫 번째로 읽으면 100% 이어서 작업 가능**
-> 최종 업데이트: 2026-03-23
+> 최종 업데이트: 2026-04-04
 
 ---
 
@@ -389,5 +389,97 @@ pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm test
 | 크롤링    | Playwright + n8n        | Layer 1 비용 0원                       |
 | AI        | Claude API (Sonnet 4.6) | 유료만 호출 — 원가 ~500원/건           |
 | 결제      | Toss Payments 🔴        | 한국 시장 최적, 건당 결제 지원         |
-| 배포      | Vercel                  | Next.js 최적화                         |
+| 배포      | Vercel Pro              | Next.js 최적화, maxDuration 120초      |
 | DB 접두사 | findably\_              | chatsio-v1과 Supabase 공유 → 충돌 방지 |
+
+---
+
+## 2026-04-03~04 세션: 안정화 + UX 개선 + 선물 코드
+
+### Vercel 타임아웃 문제 해결
+
+| 문제                          | 원인                                          | 해결                                                          |
+| ----------------------------- | --------------------------------------------- | ------------------------------------------------------------- |
+| 유료 분석 analyzing 영구 고착 | Vercel Hobby 기본 Lambda 10초, after() 불안정 | maxDuration 설정 + after() 제거                               |
+| CMO client disconnected (499) | Lambda 60초에 Opus 응답 12초 초과             | Vercel Pro 업그레이드 (maxDuration=120초)                     |
+| checkout fire-and-forget 실패 | 서버→서버 fetch가 Lambda 종료 시 잘림         | 프론트엔드(PaidAnalyzingState)에서 직접 trigger-analysis 호출 |
+
+**아키텍처 변경:**
+
+```
+[이전] checkout → after() → fetch(trigger) → after() → runDiagnosisPaid
+[현재] checkout → 결제만 → 응답
+       PaidAnalyzingState → fetch(trigger-analysis) → 동기 실행 120초
+       5초 폴링으로 완료 확인 → router.refresh()
+```
+
+### UX 개선 (1순위 + 2순위)
+
+| 항목                | 설명                                               | 파일                  |
+| ------------------- | -------------------------------------------------- | --------------------- |
+| Quick Win 임팩트    | "이 항목 수정 시 +N점 예상" 파란 뱃지              | QuickWinCard.tsx      |
+| 모바일 스크롤 힌트  | Quick Win 우측 그라데이션                          | DashboardContent.tsx  |
+| CTA 스피너          | Loader2 로딩 표시                                  | DashboardContent.tsx  |
+| 업종 벤치마크       | "업종 평균(48점)보다 +N점 높음"                    | DashboardContent.tsx  |
+| 게이미피케이션      | 👑 마케팅 마스터 / 🚀 성장 궤도 / 💪 SEO 초보 탈출 | DashboardContent.tsx  |
+| 카테고리 드릴다운   | 클릭 시 아코디언으로 룰 상세 표시                  | CategoryScoreCard.tsx |
+| 성능 데이터 소스    | 📊 시뮬레이션 / 👥 실제 사용자 뱃지                | CategoryScoreCard.tsx |
+| 온보딩 단축         | info 페이지 건너뛰고 바로 analyzing                | submit-url.ts         |
+| 히어로 문구 수정    | "가입 불필요" → "URL만 입력"                       | hero-section.tsx      |
+| 세션 만료 배너 삭제 | middleware 자동 갱신으로 대체                      | layout.tsx            |
+
+### 삭제된 기능
+
+| 항목                      | 이유                            |
+| ------------------------- | ------------------------------- |
+| 경쟁사 메뉴 (사이드바/탭) | 사용하지 않음, 추후 재추가      |
+| 경쟁사 URL 입력 폼        | 온보딩 간소화                   |
+| SessionExpiryWarning      | middleware 자동 갱신으로 불필요 |
+| Mock 결제 (checkout)      | 선물 코드 방식으로 전환         |
+
+### 선물 코드 시스템 (신규)
+
+| 구성요소         | 파일                                                 | 설명                              |
+| ---------------- | ---------------------------------------------------- | --------------------------------- |
+| DB 테이블        | `supabase/migrations/006_findably_gift_codes.sql`    | gift_codes + gift_code_uses + RLS |
+| 코드 검증 API    | `src/app/api/payment/redeem-code/route.ts`           | 코드 유효성 + 유료 레코드 생성    |
+| 코드 생성 API    | `src/app/api/admin/gift-codes/route.ts`              | admin 전용                        |
+| 코드 생성 Action | `src/app/(admin)/admin/_actions/create-gift-code.ts` | Server Action                     |
+| 코드 입력 UI     | `GiftCodeModal.tsx`                                  | 사용자 코드 입력 모달             |
+| Admin 코드 관리  | `AdminGiftCodeForm.tsx` + `AdminLoginForm.tsx`       | 코드 생성/조회/상태               |
+| DB 타입          | `src/types/database.ts`                              | gift_codes, gift_code_uses 추가   |
+
+**플로우:**
+
+```
+[admin] 코드 생성 (FDB-XXXXXX) → 지인에게 전달
+[사용자] 무료 진단 → "상세 분석 받기" → 코드 입력 → 유료 리포트
+```
+
+### learnings 추가
+
+- Vercel Hobby after() Lambda 타임아웃 → analyzing 영구 고착
+- 히어로 "가입 불필요" 문구 실제 플로우와 불일치
+- 에러 디버깅 체크포인트 7개 카테고리 (A~G)
+
+### 현재 배포 상태
+
+| 항목            | 상태                                          |
+| --------------- | --------------------------------------------- |
+| Vercel 플랜     | **Pro** ($20/월)                              |
+| maxDuration     | trigger-analysis: 120초, crawl/complete: 60초 |
+| CMO 모델        | **Opus** (최고 품질, 30초 타임아웃)           |
+| 글로벌 타임아웃 | 90초                                          |
+| 결제 방식       | **선물 코드** (Mock 결제 제거)                |
+
+---
+
+## 🔜 다음 작업 (미완료)
+
+| 항목                  | 우선순위 | 설명                                        |
+| --------------------- | -------- | ------------------------------------------- |
+| 유료 분석 안정성 검증 | P0       | 프론트엔드 트리거 방식 프로덕션 테스트      |
+| Toss Payments 실 연동 | P1       | 선물 코드와 병행, 결제 옵션 추가            |
+| 이메일 알림           | P2       | 분석 완료 시 이메일 발송 (대기 시간 체감 0) |
+| 점진적 결과 표시      | P2       | 에이전트별 순차 노출                        |
+| n8n watchdog          | P3       | 5분 stuck 감지 자동 복구                    |
