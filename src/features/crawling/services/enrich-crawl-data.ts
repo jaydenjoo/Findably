@@ -4,7 +4,7 @@ import { fetchSslLabs } from '../fetchers/ssl-labs'
 import { fetchObservatory } from '../fetchers/observatory'
 import { fetchSafeBrowsing } from '../fetchers/safe-browsing'
 import type { Json } from '@/types/database'
-import type { CrawlData, Layer2Data, Layer3Data } from '../types'
+import type { CrawlData, Layer2Data, Layer3Data, MobileData } from '../types'
 
 /**
  * 크롤링 데이터 보강 (Layer 2/3 fallback)
@@ -48,8 +48,16 @@ export async function enrichCrawlData(
     !existingLayer3?.observatory?.score &&
     existingLayer3?.observatory?.score !== 0
 
-  if (!needsPageSpeed && !needsSafeBrowsing && !needsSsl && !needsObservatory) {
-    console.log('[enrichCrawlData] 모든 Layer 2/3 데이터 존재, 스킵')
+  const needsMobile = !crawlData.mobile
+
+  if (
+    !needsPageSpeed &&
+    !needsSafeBrowsing &&
+    !needsSsl &&
+    !needsObservatory &&
+    !needsMobile
+  ) {
+    console.log('[enrichCrawlData] 모든 데이터 존재, 스킵')
     return
   }
 
@@ -114,10 +122,42 @@ export async function enrichCrawlData(
     observatory: observatoryResult ?? existingLayer3?.observatory ?? null,
   }
 
+  // 모바일 데이터 보강: viewport + PageSpeed 기반으로 생성
+  let mobileData: MobileData | null = crawlData.mobile
+  if (needsMobile) {
+    const viewport = crawlData.layer1?.meta?.viewport
+    const viewportConfigured = !!viewport && viewport.includes('width=')
+    const pagespeedData = pagespeedResult ?? existingLayer2?.pagespeed
+    const hasTouchIssues = pagespeedData
+      ? pagespeedData.cls > 0.25 || pagespeedData.lcp_ms > 4000
+      : false
+
+    const issues: string[] = []
+    if (!viewportConfigured)
+      issues.push('viewport 메타 태그가 설정되지 않았습니다')
+    if (pagespeedData && pagespeedData.lcp_ms > 4000) {
+      issues.push(
+        `모바일 LCP가 ${(pagespeedData.lcp_ms / 1000).toFixed(1)}초로 느립니다 (권장: 2.5초 이하)`
+      )
+    }
+    if (pagespeedData && pagespeedData.cls > 0.25) {
+      issues.push(
+        `CLS가 ${pagespeedData.cls}로 레이아웃 흔들림이 큽니다 (권장: 0.1 이하)`
+      )
+    }
+
+    mobileData = {
+      viewport_configured: viewportConfigured,
+      touch_friendly: !hasTouchIssues,
+      issues,
+    }
+  }
+
   const enrichedCrawlData: CrawlData = {
     ...crawlData,
     layer2: newLayer2,
     layer3: newLayer3,
+    mobile: mobileData,
   }
 
   // 6. DB 업데이트

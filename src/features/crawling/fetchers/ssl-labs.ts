@@ -14,8 +14,7 @@ const CACHE_MAX_AGE_HOURS = 72
 /**
  * SSL Labs API를 호출하여 SSL 인증서 등급 및 정보를 조회.
  *
- * - 캐시 우선 조회 (fromCache=on, maxAge=72h)
- * - 캐시 없거나 분석 미완료 시 null 반환 (비동기 폴링 안 함)
+ * 전략: 캐시 먼저 → 없으면 새 스캔 시작 → 최대 3회 폴링
  *
  * @param url - 분석할 URL
  * @returns SslData | null
@@ -26,36 +25,45 @@ export async function fetchSslLabs(url: string): Promise<SslData | null> {
     return null
   }
 
+  // 1차: 캐시 조회
+  const cached = await fetchSslLabsOnce(host, {
+    fromCache: 'on',
+    maxAge: String(CACHE_MAX_AGE_HOURS),
+  })
+  if (cached) return cached
+
+  // 2차: 새 스캔 시작 + 폴링 (최대 3회, 10초 간격)
+  await fetchSslLabsOnce(host, { startNew: 'on' })
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 10_000))
+    const result = await fetchSslLabsOnce(host, { fromCache: 'off' })
+    if (result) return result
+  }
+
+  return null
+}
+
+/** 단일 SSL Labs 요청 */
+async function fetchSslLabsOnce(
+  host: string,
+  extraParams: Record<string, string>
+): Promise<SslData | null> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), SSL_LABS_TIMEOUT_MS)
 
   try {
-    const params = new URLSearchParams({
-      host,
-      fromCache: 'on',
-      maxAge: String(CACHE_MAX_AGE_HOURS),
-    })
-
+    const params = new URLSearchParams({ host, ...extraParams })
     const response = await fetch(`${SSL_LABS_API_URL}?${params.toString()}`, {
       method: 'GET',
       signal: controller.signal,
     })
 
-    if (!response.ok) {
-      console.error(`[fetchSslLabs] HTTP ${response.status} for ${host}`)
-      return null
-    }
+    if (!response.ok) return null
 
     const json: unknown = await response.json()
     return parseSslLabsResponse(json)
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      console.error(
-        `[fetchSslLabs] Timeout after ${SSL_LABS_TIMEOUT_MS}ms for ${host}`
-      )
-    } else {
-      console.error('[fetchSslLabs]', error)
-    }
+  } catch {
     return null
   } finally {
     clearTimeout(timeout)
