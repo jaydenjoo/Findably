@@ -4,11 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Plus } from 'lucide-react'
 
-interface CreateGiftCodeResponse {
-  success: boolean
-  error?: string
-}
-
 export function AdminGiftCodeForm(): React.JSX.Element {
   const router = useRouter()
   const [code, setCode] = useState('')
@@ -18,44 +13,6 @@ export function AdminGiftCodeForm(): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-  async function handleCreate(): Promise<void> {
-    if (!code.trim() || isLoading) return
-    setIsLoading(true)
-    setMessage('')
-
-    try {
-      const response = await fetch('/api/admin/gift-codes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          code: code.trim().toUpperCase(),
-          maxUses: parseInt(maxUses, 10) || 1,
-          expiresInDays: parseInt(expiresInDays, 10) || 30,
-          description: description.trim(),
-        }),
-      })
-      const result = (await response.json()) as CreateGiftCodeResponse
-
-      if (!response.ok || !result.success) {
-        setMessage(result.error ?? `코드 생성 실패 (${response.status})`)
-        setIsLoading(false)
-        return
-      }
-
-      setMessage('코드 생성 완료!')
-      setCode('')
-      setDescription('')
-      setIsLoading(false)
-      router.refresh()
-    } catch (err) {
-      setMessage(
-        `네트워크 오류: ${err instanceof Error ? err.message : String(err)}`
-      )
-      setIsLoading(false)
-    }
-  }
-
   function generateRandomCode(): void {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
     let random = ''
@@ -63,6 +20,51 @@ export function AdminGiftCodeForm(): React.JSX.Element {
       random += chars[Math.floor(Math.random() * chars.length)]
     }
     setCode(`FDB-${random}`)
+  }
+
+  function handleCreate(): void {
+    if (!code.trim() || isLoading) return
+    setIsLoading(true)
+    setMessage('요청 중...')
+
+    fetch('/api/admin/gift-codes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        code: code.trim().toUpperCase(),
+        maxUses: parseInt(maxUses, 10) || 1,
+        expiresInDays: parseInt(expiresInDays, 10) || 30,
+        description: description.trim(),
+      }),
+    })
+      .then(async (response) => {
+        const text = await response.text()
+        let result: { success?: boolean; error?: string } = {}
+        try {
+          result = JSON.parse(text) as { success?: boolean; error?: string }
+        } catch {
+          setMessage(`파싱 실패: ${text.slice(0, 100)}`)
+          setIsLoading(false)
+          return
+        }
+
+        if (!response.ok || !result.success) {
+          setMessage(result.error ?? `실패 (${response.status})`)
+          setIsLoading(false)
+          return
+        }
+
+        setMessage('코드 생성 완료!')
+        setCode('')
+        setDescription('')
+        setIsLoading(false)
+        router.refresh()
+      })
+      .catch((err: unknown) => {
+        setMessage(`오류: ${err instanceof Error ? err.message : String(err)}`)
+        setIsLoading(false)
+      })
   }
 
   return (
@@ -157,7 +159,7 @@ export function AdminGiftCodeForm(): React.JSX.Element {
         </button>
         {message && (
           <span
-            className={`text-xs ${message.includes('완료') ? 'text-success-600' : 'text-danger-600'}`}
+            className={`text-xs font-medium ${message.includes('완료') ? 'text-success-600' : 'text-danger-600'}`}
           >
             {message}
           </span>
