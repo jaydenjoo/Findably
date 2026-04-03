@@ -15,6 +15,7 @@ import { ScoreGauge } from '@/components/shared/ScoreGauge'
 import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import { AICitationCard } from '@/components/dashboard/AICitationCard'
 import { QuickWinCard } from '@/components/dashboard/QuickWinCard'
+import { Download } from 'lucide-react'
 import { CategoryScoreCard } from './CategoryScoreCard'
 import { ImpactMatrix } from './ImpactMatrix'
 import { RiskHeatmap } from './RiskHeatmap'
@@ -117,6 +118,16 @@ export function DashboardContent({
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">진단 결과</h1>
         <div className="flex items-center gap-3">
+          {!isFree && (
+            <a
+              href={`/api/reports/${diagnosisId}/pdf`}
+              download
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:text-primary-600 hover:shadow-md cursor-pointer"
+            >
+              <Download className="size-3.5" />
+              PDF
+            </a>
+          )}
           <Link
             href="/onboarding/url"
             className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-100 cursor-pointer"

@@ -98,5 +98,22 @@ export const SEVERITY_PRIORITY_WEIGHTS = {
   info: 10,
 } as const
 
-/** 부분 크롤 시 데이터 없음 메시지 */
-export const SKIPPED_MESSAGE = '데이터 없음 (부분 크롤링)' as const
+/** 부분 크롤 시 데이터 없음 — 카테고리별 안내 메시지 */
+export const SKIPPED_MESSAGES: Record<string, string> = {
+  security:
+    '보안 데이터를 수집하지 못했습니다. SSL 인증서 분석에 시간이 더 필요하거나, 서버가 외부 스캔을 차단하고 있을 수 있습니다.',
+  mobile:
+    '모바일 데이터가 없습니다. 사이트의 viewport 설정이나 모바일 성능 정보를 가져오지 못했습니다. 다음 진단 시 자동으로 재시도합니다.',
+  performance:
+    '성능 측정 데이터가 부족합니다. 사이트 트래픽이 적으면 Chrome UX Report 데이터가 없을 수 있으며, 이는 정상입니다.',
+  geo: 'AI 검색 관련 데이터를 수집하지 못했습니다. llms.txt 파일이 없거나, AI 봇 접근 설정이 확인되지 않았습니다.',
+  content:
+    '콘텐츠 분석에 필요한 HTML 구조 데이터가 부족합니다. 사이트가 JavaScript로 렌더링되는 경우 일부 항목이 수집되지 않을 수 있습니다.',
+  technical:
+    '기술 SEO 데이터 일부를 수집하지 못했습니다. robots.txt 차단이나 사이트 구조에 따라 접근이 제한될 수 있습니다.',
+  default:
+    '이 항목의 분석에 필요한 데이터를 수집하지 못했습니다. 다음 진단 시 자동으로 재시도합니다.',
+} as const
+
+/** 폴백 메시지 (하위 호환) */
+export const SKIPPED_MESSAGE = SKIPPED_MESSAGES.default

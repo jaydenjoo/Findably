@@ -3,7 +3,7 @@ import { SCORING } from '@/config/scoring'
 import {
   CATEGORY_CONFIG,
   SEVERITY_PRIORITY_WEIGHTS,
-  SKIPPED_MESSAGE,
+  SKIPPED_MESSAGES,
 } from './constants'
 import { ALL_RULES } from './rules'
 import type {
@@ -26,7 +26,8 @@ function evaluateRule(rule: RuleDefinition, data: CrawlData): RuleResult {
       passed: false,
       skipped: true,
       severity: rule.severity,
-      message: SKIPPED_MESSAGE,
+      message:
+        SKIPPED_MESSAGES[rule.category] ?? SKIPPED_MESSAGES['default'] ?? '',
       quickWinEligible: rule.quickWinEligible,
     }
   }
