@@ -4,10 +4,10 @@ export const LANDING = {
     badge: 'AI 마케팅 진단',
     title: {
       line1: 'URL 하나로',
-      highlight: '마케팅 건강검진',
+      highlight: '마케팅 누수 진단',
     },
     description:
-      '60개 이상 항목을 자동 검사하고, AI가 점수를 매깁니다. 구글 검색(SEO)과 AI 검색(GEO) 모두 진단하는 유일한 서비스.',
+      '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO), 콘텐츠, 기술 인프라 — 60개 항목을 진단하고 가장 돈이 많이 새는 곳부터 고치는 순서를 알려드립니다.',
     cta: {
       primary: '무료 진단 시작 →',
       secondary: '샘플 리포트 보기',

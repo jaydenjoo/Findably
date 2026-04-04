@@ -147,7 +147,7 @@ export default async function DashboardPage({
         }
         description={
           isPaidFailed
-            ? '결제는 정상 처리되었습니다. 새 진단을 시작하거나, support@findably.co.kr로 문의해주세요.'
+            ? '결제는 정상 처리되었습니다. 새 진단을 시작하거나, support@findably.kr로 문의해주세요.'
             : '새 URL로 다시 진단을 시작해보세요.'
         }
         action={{ label: '새 진단 시작 →', href: '/onboarding/url' }}

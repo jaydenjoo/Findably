@@ -9,9 +9,19 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
         disallow: ['/dashboard', '/onboarding', '/settings', '/api'],
       },
-      { userAgent: 'GPTBot', allow: '/' },
-      { userAgent: 'ClaudeBot', allow: '/' },
-      { userAgent: 'PerplexityBot', allow: '/' },
+      {
+        userAgent: [
+          'GPTBot',
+          'ChatGPT-User',
+          'ClaudeBot',
+          'PerplexityBot',
+          'Google-Extended',
+          'anthropic-ai',
+          'Claude-Web',
+          'Yeti',
+        ],
+        allow: '/',
+      },
     ],
     sitemap: `${SEO.siteUrl}/sitemap.xml`,
   }

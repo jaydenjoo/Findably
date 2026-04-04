@@ -51,3 +51,6 @@ next-env.d.ts
 # n8n workflows (contains hardcoded API keys)
 n8n/
 .env*.local
+
+# screenshots (debug/QA captures)
+/*.png

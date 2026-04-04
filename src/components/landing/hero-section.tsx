@@ -66,8 +66,9 @@ const Hero = () => {
           transition={{ duration: 0.7, delay: 0.1 }}
           className="text-3xl md:text-5xl lg:text-[52px] font-bold tracking-hero leading-[1.1] mb-6 bg-linear-to-b from-findably-light to-slate-400 bg-clip-text text-transparent"
         >
-          마케팅에 돈 쓰는데
-          <br />뭘 먼저 고쳐야 하는지 모르겠다면
+          마케팅에 돈을 쓰는데,
+          <br />
+          어디서 새고 있는지 모르겠다면
         </motion.h1>
 
         <motion.p
@@ -76,9 +77,11 @@ const Hero = () => {
           transition={{ duration: 0.7, delay: 0.2 }}
           className="text-base md:text-lg text-slate-400 max-w-2xl mb-12 leading-[1.7]"
         >
-          SEO, GEO, 콘텐츠, 기술 — 60초 만에 진단하고,
-          <br className="hidden md:block" />뭘 먼저 고쳐야 ROI가 올라가는지
-          우선순위로 알려드립니다.
+          웹사이트에서 새는 마케팅 비용부터 찾아드립니다.
+          <br className="hidden md:block" />
+          SEO, AI 검색(GEO), 콘텐츠, 기술 인프라 — 60개 항목을 진단하고
+          <br className="hidden md:block" />
+          가장 돈이 많이 새는 곳부터 고치는 순서를 알려드립니다.
         </motion.p>
 
         <motion.div

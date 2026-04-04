@@ -129,7 +129,7 @@ export function PdfChecklist({
             color: colors.slate500,
           }}
         >
-          Findably — AI 마케팅 진단 · findably.vercel.app
+          Findably — AI 마케팅 진단 · findably.kr
         </Text>
       </View>
     </View>

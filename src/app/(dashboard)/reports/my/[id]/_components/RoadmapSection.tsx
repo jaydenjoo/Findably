@@ -54,6 +54,45 @@ export function RoadmapSection({
         우선순위와 영향도를 고려한 주차별 실행 계획입니다.
       </p>
 
+      {isPaid && (
+        <div className="rounded-lg border border-primary-200 bg-primary-50/50 p-5">
+          <h3 className="mb-3 text-sm font-semibold text-slate-900">
+            📐 이 순서로 고치면 가장 빠르게 효과를 봅니다
+          </h3>
+          <p className="mb-3 text-sm text-slate-600">
+            우선순위는 3가지 기준으로 산정했습니다:
+          </p>
+          <ol className="mb-3 list-inside list-decimal space-y-1 text-sm text-slate-600">
+            <li>
+              <strong>매출 영향 크기</strong> — 이 문제가 얼마나 많은 돈을 새게
+              하는가
+            </li>
+            <li>
+              <strong>실행 난이도</strong> — 얼마나 빨리, 쉽게 고칠 수 있는가
+            </li>
+            <li>
+              <strong>복합 효과</strong> — 이걸 고치면 다른 문제도 함께
+              해결되는가
+            </li>
+          </ol>
+          <p className="mb-4 text-sm font-medium text-slate-700">
+            → 한마디로, &ldquo;적은 노력으로 가장 큰 돈을 아끼는
+            순서&rdquo;입니다.
+          </p>
+          <div className="flex flex-wrap gap-3 text-xs">
+            <span className="rounded-full bg-danger-50 px-3 py-1 font-semibold text-danger-700">
+              🔴 높음 — 즉시 실행
+            </span>
+            <span className="rounded-full bg-warning-50 px-3 py-1 font-semibold text-warning-700">
+              🟡 보통 — 1~2개월 내
+            </span>
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+              ⚪ 낮음 — 여유 있을 때
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="relative ml-4 border-l-2 border-primary-200 pl-6">
         {sortedWeeks.map((week, weekIdx) => {
           const items = weekGroups.get(week) ?? []

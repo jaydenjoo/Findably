@@ -101,7 +101,7 @@ export function AnalysisTimeoutState({
         </div>
 
         <p className="mt-6 text-xs text-slate-400">
-          문제가 계속되면 support@findably.co.kr로 문의해주세요.
+          문제가 계속되면 support@findably.kr로 문의해주세요.
         </p>
       </div>
     </div>

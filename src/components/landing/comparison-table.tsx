@@ -28,10 +28,10 @@ const ComparisonTable = () => (
           id="heading-compare"
           className="text-3xl font-bold tracking-tight mb-4 text-foreground"
         >
-          마케팅 진단, 어디서 받으시나요?
+          마케팅 진단의 첫 번째 단계, 어떻게 시작하시나요?
         </h2>
         <p className="text-muted-foreground">
-          같은 &ldquo;마케팅 감사&rdquo;도 범위와 방식이 다릅니다
+          전략을 세우기 전에, 먼저 새는 곳을 찾아야 합니다
         </p>
       </div>
 
@@ -41,13 +41,13 @@ const ComparisonTable = () => (
             <tr className="text-sm font-bold text-slate-400 border-b border-border">
               <th className="py-6 px-4 text-left font-medium">항목</th>
               <th className="py-6 px-4 text-left font-medium">
-                대형 컨설팅펌*
+                마케팅 전략 컨설팅*
               </th>
               <th className="py-6 px-4 text-left font-medium">
-                마케팅 에이전시*
+                마케팅 실행 대행*
               </th>
               <th className="py-6 px-4 text-left bg-findably-cyan text-findably-cyan-foreground rounded-t-2xl font-medium">
-                Findably
+                마케팅 기초체력 진단 (Findably)
               </th>
             </tr>
           </thead>
@@ -77,13 +77,18 @@ const ComparisonTable = () => (
 
       <div className="mt-10 space-y-2">
         <p className="text-[11px] text-muted-foreground">
-          * 컨설팅펌 및 에이전시 수치는 업계 일반적 사례 기준이며, 개별 업체에
-          따라 다를 수 있습니다.
+          * 컨설팅 및 대행 수치는 업계 일반적 사례 기준이며, 개별 업체에 따라
+          다를 수 있습니다.
         </p>
         <p className="text-[11px] text-muted-foreground">
-          * 컨설팅펌은 종합 전략 수립·조직 변화 관리 포함, 에이전시는 실행 대행
-          포함. Findably는 자동화된 진단 및 개선 가이드를 제공하며, 서비스
-          범위가 다릅니다.
+          * 전략 컨설팅은 종합 전략 수립·조직 변화 관리 포함, 실행 대행은
+          광고·콘텐츠 운영 포함. Findably는 자동화된 진단 및 개선 가이드를
+          제공하며, 서비스 범위가 다릅니다.
+        </p>
+        <p className="text-sm text-muted-foreground mt-4">
+          💡 컨설팅은 전략을, 에이전시는 실행을, Findably는 그 전에 새고 있는
+          구멍을 찾아드립니다. 전략과 실행이 효과를 내려면, 먼저 기초체력이
+          갖춰져야 합니다.
         </p>
       </div>
     </div>
