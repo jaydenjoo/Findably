@@ -35,6 +35,7 @@ export function DetailedReportContent({
 
       <BridgeSection
         categoryScores={analysisData.categoryScores ?? []}
+        aiInsights={analysisData.aiInsights}
         isPaid={isPaid}
       />
 

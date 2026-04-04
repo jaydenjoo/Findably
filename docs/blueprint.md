@@ -1,154 +1,185 @@
-# Phase 3 Blueprint — 성능 + UX
+# Phase 4 Blueprint — Revenue Translator 연동
 
 > PRD: docs/Findably-PRD-홈페이지-리포트-정합성-v1_2.md
-> 브랜치: feature/phase-3
-> 총 2개 Task, 예상 ~5.5시간
+> 브랜치: feature/phase-4
+> 총 3개 Task (4.6 선행 + C-01 + C-02), 예상 ~5시간
 
 ---
 
 ## 목표
 
-Phase 3 완료 시 상태:
+Phase 4 완료 시 상태:
 
-1. 랜딩 비첫화면 컴포넌트가 next/dynamic으로 코드 분할됨 (LCP 개선)
-2. 히어로 CTA에 안전성 신호 3개 추가됨 ("무료", "카드 불필요", "60초")
-3. 푸터 내부 링크 확장됨 (FAQ, 진단하기 등)
-4. 본문 내 상호 참조 링크 추가됨
+1. 업종별 벤치마크 config 생성 (전환율, 객단가, 기본 트래픽)
+2. `calculateRevenueImpact()` 함수로 진단 항목별 원화 환산 가능
+3. AI 인사이트 각 항목에 "💰 매출 영향" 원화 표시 + "전문가용" 접기 영역
+4. 리포트 브릿지 섹션에 총 누수 요약 카드 표시
 
 ---
 
-## Task E-07 (8.19): LCP 성능 최적화
+## 선행: Task 4.6 — 매출 환산 로직 + config
 
-### 접근 방식
+> PRD에서 C-01/C-02의 의존으로 명시. 현재 미구현 상태.
 
-PRD 목표: LCP 5.9초 → 2.5초 이하. 현재 이미지가 없으므로 주요 병목은 JS 번들.
+### 생성 파일
 
-**실행 가능한 최적화:**
+| 파일                                                               | 변경 내용                                                |
+| ------------------------------------------------------------------ | -------------------------------------------------------- |
+| `src/config/revenue.ts`                                            | **신규** — 업종별 벤치마크 (전환율, 객단가, 기본 트래픽) |
+| `src/features/diagnosis-paid/services/calculate-revenue-impact.ts` | **신규** — 원화 환산 함수                                |
 
-1. 비첫화면 랜딩 컴포넌트를 `next/dynamic`으로 lazy load
-2. 폰트 weight 최적화 (사용하지 않는 weight 제거)
-3. framer-motion이 히어로 외 섹션에서 SSR 불필요 → dynamic import
-
-**E-06 이미지 미추가 상태이므로**, 이미지 최적화(3단계)는 해당 없음.
-
-### 수정 파일
-
-| 파일                           | 변경 내용                                      |
-| ------------------------------ | ---------------------------------------------- |
-| `src/app/(marketing)/page.tsx` | 비첫화면 6개 컴포넌트 → next/dynamic lazy load |
-
-### page.tsx 변경
-
-현재 9개 섹션 모두 정적 import. 히어로(Hero)만 즉시 로드, 나머지는 dynamic:
+### config/revenue.ts 설계
 
 ```typescript
-// 즉시 로드 (첫 화면)
-import Hero from '@/components/landing/hero-section'
+/** 업종별 벤치마크 데이터 */
+type IndustryId =
+  | 'saas'
+  | 'ecommerce'
+  | 'education'
+  | 'healthcare'
+  | 'consulting'
+  | 'default'
 
-// Lazy load (스크롤 후 보이는 섹션)
-const PainPoints = dynamic(() => import('@/components/landing/pain-points'))
-const ScorePreview = dynamic(() => import('@/components/landing/score-preview'))
-const FeatureTabs = dynamic(
-  () => import('@/components/landing/features-section')
-)
-const ComparisonTable = dynamic(
-  () => import('@/components/landing/comparison-table')
-)
-const HowItWorks = dynamic(
-  () => import('@/components/landing/how-it-works-section')
-)
-const CustomerConcerns = dynamic(
-  () => import('@/components/landing/customer-concerns')
-)
-const Pricing = dynamic(() => import('@/components/landing/pricing'))
-const FaqSection = dynamic(() => import('@/components/landing/faq-section'))
-const BottomCTA = dynamic(() => import('@/components/landing/cta-section'))
+interface IndustryBenchmark {
+  label: string
+  conversionRate: number // 전환율 (예: 0.032 = 3.2%)
+  averageOrderValue: number // 평균 객단가 (원)
+  defaultMonthlyTraffic: number // 기본 월 트래픽 (추정)
+}
+
+const INDUSTRY_BENCHMARKS: Record<IndustryId, IndustryBenchmark>
 ```
+
+주요 업종 5개 + default (전체 업종 평균):
+
+- SaaS: 전환율 3.2%, 객단가 50만원, 트래픽 5,000
+- 이커머스: 전환율 2.5%, 객단가 8만원, 트래픽 15,000
+- 교육: 전환율 4.0%, 객단가 30만원, 트래픽 8,000
+- 의료: 전환율 5.0%, 객단가 20만원, 트래픽 3,000
+- 컨설팅: 전환율 2.0%, 객단가 100만원, 트래픽 2,000
+- default: 전환율 3.0%, 객단가 15만원, 트래픽 5,000
+
+### calculateRevenueImpact() 설계
+
+```typescript
+interface RevenueImpact {
+  monthlyLoss: number // 월 손실 추정 (만원)
+  annualLoss: number // 연간 손실 추정 (만원)
+  monthlyGain: number // 개선 시 월 추가 유입 (만원)
+}
+
+function calculateRevenueImpact(params: {
+  severity: 'critical' | 'warning' | 'info'
+  category: string
+  industry?: IndustryId
+  monthlyTraffic?: number
+}): RevenueImpact | null
+```
+
+- `info` severity → null 반환 (영향도 낮음)
+- severity별 영향 비율: critical=15%, warning=5%
+- 업종 미입력 시 `default` 사용
 
 ### 검증
 
-- [ ] 랜딩 첫 화면(히어로)이 빠르게 렌더링
-- [ ] 스크롤 시 나머지 섹션 정상 로드
+- [ ] `calculateRevenueImpact({ severity: 'critical', category: 'technical' })` → 양수 반환
+- [ ] `severity: 'info'` → null 반환
+- [ ] 업종 미지정 시 default 벤치마크 사용
+
+---
+
+## Task C-01 (7.15): 영향도 섹션에 원화 환산 표시
+
+### 수정 파일
+
+| 파일                                                                    | 변경 내용                                   |
+| ----------------------------------------------------------------------- | ------------------------------------------- |
+| `src/app/(dashboard)/reports/my/[id]/_components/AIInsightsSection.tsx` | 각 항목에 💰 매출 영향 + 전문가용 접기 추가 |
+
+### AIInsightsSection.tsx 변경
+
+각 인사이트 카드에 추가:
+
+```
+[기존] title → description → suggestedFix
+
+[변경] title → 💰 매출 영향 (원화) → description → 📊 전문가용 (접기) → suggestedFix
+```
+
+- `calculateRevenueImpact()`로 원화 계산
+- severity가 critical/warning이면 원화 표시, info면 미표시
+- 기존 impact 텍스트는 "전문가용" 접기 영역으로 이동
+- 면책: "업종 평균 기준 추정" 문구
+
+### 검증
+
+- [ ] critical/warning 항목에 원화 환산 표시
+- [ ] info 항목은 원화 미표시
+- [ ] "전문가용" 접기/펼치기 동작
+- [ ] 면책 문구 포함
+
+---
+
+## Task C-02 (7.16): 총 누수 요약 카드
+
+### 수정 파일
+
+| 파일                                                                   | 변경 내용               |
+| ---------------------------------------------------------------------- | ----------------------- |
+| `src/app/(dashboard)/reports/my/[id]/_components/TotalLeakageCard.tsx` | **신규** — 총 누수 카드 |
+| `src/app/(dashboard)/reports/my/[id]/_components/BridgeSection.tsx`    | TotalLeakageCard 삽입   |
+
+### TotalLeakageCard 설계
+
+```
+Props: {
+  insights: AIInsight[]
+  industry?: IndustryId
+}
+```
+
+모든 critical/warning 인사이트의 `calculateRevenueImpact()` 합산 →
+우선순위별(priority 기준) 그룹핑:
+
+- 🔴 즉시 해결 (priority 1~3): {immediate}만원/월
+- 🟡 1~2개월 (priority 4~7): {medium}만원/월
+
+BridgeSection 점수 테이블 아래에 삽입.
+
+### 검증
+
+- [ ] 총 누수 카드가 브릿지 섹션 내에 렌더링
+- [ ] 우선순위별 금액 분류
+- [ ] 항목별 합산 = 총액 일치
+- [ ] 면책 문구 포함
 - [ ] `pnpm build` 통과
 
 ---
 
-## Task E-08 (8.20): CTA 안전성 신호 + 모바일 터치 + 내부 링크
+## Phase 5 (C-03 + D-01) 참고
 
-### 수정 파일
-
-| 파일                                           | 변경 내용                         |
-| ---------------------------------------------- | --------------------------------- |
-| `src/components/landing/hero-section.tsx`      | 신뢰 지표를 안전성 신호로 변경    |
-| `src/components/landing/cta-section.tsx`       | 하단 CTA에도 안전성 신호 추가     |
-| `src/components/landing/footer.tsx`            | 내부 링크 확장 (진단하기, FAQ 등) |
-| `src/components/landing/customer-concerns.tsx` | FAQ 링크 연결                     |
-
-### hero-section.tsx — 안전성 신호
-
-현재 (`line:130`): `"URL만 입력 · 약 60초 안에 결과 · 무료 진단"`
-
-변경:
-
-```
-✓ 첫 진단 완전 무료  ✓ 카드 정보 불필요  ✓ 60초면 결과 확인
-```
-
-→ 체크마크(✓)로 시각적 안전감 강화
-
-### cta-section.tsx — 하단 CTA 안전성 신호
-
-URL 입력 아래에 동일 안전성 신호 추가.
-
-### footer.tsx — 내부 링크 확장
-
-현재: 가격 | 샘플 리포트 | 이용약관 | 개인정보처리방침 (4개)
-
-변경:
-
-```
-제품: 무료 마케팅 진단 | 가격 안내 | 샘플 리포트 | 자주 묻는 질문
-법적: 이용약관 | 개인정보처리방침
-```
-
-→ "무료 마케팅 진단" (/#diagnose), "자주 묻는 질문" (/#faq) 앵커 링크 추가
-
-### customer-concerns.tsx — FAQ 연결
-
-"이런 고민이 있으시다면" 섹션 하단에:
-
-```
-더 궁금한 점이 있으신가요? → 자주 묻는 질문 보기
-```
-
-→ `/#faq` 앵커 링크
-
-### 검증
-
-- [ ] 히어로 CTA 근처에 ✓ 안전성 신호 3개 표시
-- [ ] 하단 CTA에도 안전성 신호 표시
-- [ ] 푸터 내부 링크 6개 이상
-- [ ] customer-concerns → FAQ 링크 동작
-- [ ] 모바일에서 터치 요소 44px 이상 (기존 min-h-[44px] 확인)
-- [ ] `pnpm build` 통과
+C-03 (PDF 반영)은 Phase 4 완료 후 진행. B-01 브릿지와 B-02 우선순위 설명은 이미 PDF에 반영됨 (Phase 1).
+D-01 (정합성 검증)은 모든 Phase 완료 후 최종 검증.
 
 ---
 
 ## 리스크
 
-| 리스크                                     | 대응                                                     |
-| ------------------------------------------ | -------------------------------------------------------- |
-| dynamic import로 CLS 발생                  | 각 섹션 높이가 유동적이라 CLS 영향 적음. Skeleton 불필요 |
-| framer-motion whileInView가 dynamic과 충돌 | viewport={{ once: true }}라 한 번만 트리거. 정상 동작    |
-| 앵커 링크(/#faq)가 dynamic 로딩 전 스크롤  | FAQ가 Pricing 아래라 스크롤 시점에 이미 로드됨           |
+| 리스크                                  | 대응                                           |
+| --------------------------------------- | ---------------------------------------------- |
+| 업종 벤치마크 정확도                    | 면책 문구 필수. "업종 평균 기준 추정치"        |
+| 업종 미입력 시 동작                     | default 벤치마크로 자동 fallback               |
+| 원화 금액이 비현실적 (너무 크거나 작음) | min/max 클램핑 (월 1만원~1,000만원)            |
+| 기존 인사이트에 impact 필드 없는 경우   | severity 기반으로 추정. impact 텍스트는 보너스 |
 
 ---
 
 ## 실행 순서
 
 ```
-1. E-07 (LCP) — page.tsx dynamic import 적용
-2. E-08 (CTA+링크) — 안전성 신호 + 푸터 + 상호 참조
+1. Task 4.6 (config/revenue.ts + calculateRevenueImpact) — 선행 인프라
+2. C-01 (AIInsightsSection 원화 환산) — 4.6 함수 활용
+3. C-02 (TotalLeakageCard) — C-01 결과 합산
 → 커밋 → tsc → lint → build 검증
 ```
 

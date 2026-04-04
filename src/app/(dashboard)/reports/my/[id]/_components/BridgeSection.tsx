@@ -2,9 +2,13 @@ import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import { BLUR_OVERLAY_CTA } from '@/config/report'
 import { SCORING } from '@/config/scoring'
 import type { CategoryScore } from '@/features/diagnosis-free'
+import type { AIInsight } from '@/features/diagnosis-paid'
+
+import { TotalLeakageCard } from './TotalLeakageCard'
 
 interface BridgeSectionProps {
   categoryScores: CategoryScore[]
+  aiInsights?: AIInsight[]
   isPaid: boolean
 }
 
@@ -52,6 +56,7 @@ function calculateGroupScore(
 
 export function BridgeSection({
   categoryScores,
+  aiInsights,
   isPaid,
 }: BridgeSectionProps): React.JSX.Element {
   const safeScores = categoryScores ?? []
@@ -143,6 +148,12 @@ export function BridgeSection({
         </div>
       ) : (
         <p className="text-sm text-slate-400">진단 데이터 준비 중...</p>
+      )}
+
+      {aiInsights && aiInsights.length > 0 && (
+        <div className="mt-4">
+          <TotalLeakageCard insights={aiInsights} />
+        </div>
       )}
 
       <p className="mt-4 text-xs text-slate-400">
