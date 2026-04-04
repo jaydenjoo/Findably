@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import Link from 'next/link'
 
 const concerns = [
   {
@@ -65,6 +66,15 @@ const CustomerConcerns = () => (
             </div>
           </motion.div>
         ))}
+      </div>
+
+      <div className="text-center mt-12">
+        <Link
+          href="/#faq"
+          className="text-sm text-findably-cyan hover:underline transition-colors"
+        >
+          더 궁금한 점이 있으신가요? → 자주 묻는 질문 보기
+        </Link>
       </div>
     </div>
   </section>

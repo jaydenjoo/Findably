@@ -1,19 +1,32 @@
 import type { Metadata } from 'next'
+import dynamic from 'next/dynamic'
 import { JsonLd } from '@/components/shared/JsonLd'
 import { LANDING } from '@/config/landing'
 import { SEO } from '@/config/seo'
+
+// 첫 화면 (즉시 로드)
 import Navbar from '@/components/landing/navbar'
 import Hero from '@/components/landing/hero-section'
-import PainPoints from '@/components/landing/pain-points'
-import ScorePreview from '@/components/landing/score-preview'
-import FeatureTabs from '@/components/landing/features-section'
-import ComparisonTable from '@/components/landing/comparison-table'
-import HowItWorks from '@/components/landing/how-it-works-section'
-import CustomerConcerns from '@/components/landing/customer-concerns'
-import Pricing from '@/components/landing/pricing'
-import BottomCTA from '@/components/landing/cta-section'
-import FaqSection from '@/components/landing/faq-section'
-import Footer from '@/components/landing/footer'
+
+// 비첫화면 (lazy load — LCP 개선)
+const PainPoints = dynamic(() => import('@/components/landing/pain-points'))
+const ScorePreview = dynamic(() => import('@/components/landing/score-preview'))
+const FeatureTabs = dynamic(
+  () => import('@/components/landing/features-section')
+)
+const ComparisonTable = dynamic(
+  () => import('@/components/landing/comparison-table')
+)
+const HowItWorks = dynamic(
+  () => import('@/components/landing/how-it-works-section')
+)
+const CustomerConcerns = dynamic(
+  () => import('@/components/landing/customer-concerns')
+)
+const Pricing = dynamic(() => import('@/components/landing/pricing'))
+const FaqSection = dynamic(() => import('@/components/landing/faq-section'))
+const BottomCTA = dynamic(() => import('@/components/landing/cta-section'))
+const Footer = dynamic(() => import('@/components/landing/footer'))
 
 export const metadata: Metadata = {
   title: '마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably',

@@ -1,65 +1,161 @@
-# Phase 2 Blueprint — 비주얼 + 구조화 데이터
+# Phase 3 Blueprint — 성능 + UX
 
 > PRD: docs/Findably-PRD-홈페이지-리포트-정합성-v1_2.md
-> 브랜치: feature/phase-2
-> 총 2개 Task, 예상 ~3시간
+> 브랜치: feature/phase-3
+> 총 2개 Task, 예상 ~5.5시간
 
 ---
 
 ## 목표
 
-Phase 2 완료 시 상태:
+Phase 3 완료 시 상태:
 
-1. og:image가 Next.js OG Image Generation으로 동적 생성됨 (카카오톡/트위터 공유 시 표시)
-2. Schema Markup 4종(Organization, SoftwareApplication, FAQPage, BreadcrumbList)이 @graph로 통합됨
-3. 랜딩 페이지에 SoftwareApplication + FAQPage Schema가 추가됨
+1. 랜딩 비첫화면 컴포넌트가 next/dynamic으로 코드 분할됨 (LCP 개선)
+2. 히어로 CTA에 안전성 신호 3개 추가됨 ("무료", "카드 불필요", "60초")
+3. 푸터 내부 링크 확장됨 (FAQ, 진단하기 등)
+4. 본문 내 상호 참조 링크 추가됨
 
 ---
 
-## Task E-03 (8.14): Schema Markup Quad Stacking
+## Task E-07 (8.19): LCP 성능 최적화
+
+### 접근 방식
+
+PRD 목표: LCP 5.9초 → 2.5초 이하. 현재 이미지가 없으므로 주요 병목은 JS 번들.
+
+**실행 가능한 최적화:**
+
+1. 비첫화면 랜딩 컴포넌트를 `next/dynamic`으로 lazy load
+2. 폰트 weight 최적화 (사용하지 않는 weight 제거)
+3. framer-motion이 히어로 외 섹션에서 SSR 불필요 → dynamic import
+
+**E-06 이미지 미추가 상태이므로**, 이미지 최적화(3단계)는 해당 없음.
 
 ### 수정 파일
 
-| 파일                           | 변경 내용                                            |
-| ------------------------------ | ---------------------------------------------------- |
-| `src/app/layout.tsx`           | 기존 2개 JSON-LD → @graph 통합 + BreadcrumbList 추가 |
-| `src/app/(marketing)/page.tsx` | SoftwareApplication + FAQPage JSON-LD 추가           |
+| 파일                           | 변경 내용                                      |
+| ------------------------------ | ---------------------------------------------- |
+| `src/app/(marketing)/page.tsx` | 비첫화면 6개 컴포넌트 → next/dynamic lazy load |
 
-### layout.tsx — @graph 통합
+### page.tsx 변경
 
-기존 Organization + WebSite 별도 → 1개 @graph로 통합 + BreadcrumbList 추가.
+현재 9개 섹션 모두 정적 import. 히어로(Hero)만 즉시 로드, 나머지는 dynamic:
 
-### (marketing)/page.tsx — 랜딩 전용 Schema
+```typescript
+// 즉시 로드 (첫 화면)
+import Hero from '@/components/landing/hero-section'
 
-FAQ 데이터를 config/landing.ts에서 가져와 FAQPage Schema 생성.
-SoftwareApplication Schema에 실제 가격 반영 (무료 + 건당 99,000원).
+// Lazy load (스크롤 후 보이는 섹션)
+const PainPoints = dynamic(() => import('@/components/landing/pain-points'))
+const ScorePreview = dynamic(() => import('@/components/landing/score-preview'))
+const FeatureTabs = dynamic(
+  () => import('@/components/landing/features-section')
+)
+const ComparisonTable = dynamic(
+  () => import('@/components/landing/comparison-table')
+)
+const HowItWorks = dynamic(
+  () => import('@/components/landing/how-it-works-section')
+)
+const CustomerConcerns = dynamic(
+  () => import('@/components/landing/customer-concerns')
+)
+const Pricing = dynamic(() => import('@/components/landing/pricing'))
+const FaqSection = dynamic(() => import('@/components/landing/faq-section'))
+const BottomCTA = dynamic(() => import('@/components/landing/cta-section'))
+```
 
 ### 검증
 
-- [ ] @graph 내 Organization, WebSite, BreadcrumbList 존재 (layout)
-- [ ] SoftwareApplication, FAQPage 존재 (랜딩만)
-- [ ] FAQ Schema = config/landing.ts FAQ와 일치
+- [ ] 랜딩 첫 화면(히어로)이 빠르게 렌더링
+- [ ] 스크롤 시 나머지 섹션 정상 로드
+- [ ] `pnpm build` 통과
 
 ---
 
-## Task E-06 (8.18): og:image 동적 생성
+## Task E-08 (8.20): CTA 안전성 신호 + 모바일 터치 + 내부 링크
 
 ### 수정 파일
 
-| 파일                   | 변경 내용                      |
-| ---------------------- | ------------------------------ |
-| `src/app/og/route.tsx` | **신규** — OG 이미지 동적 생성 |
-| `src/config/seo.ts`    | ogImage 경로 변경              |
+| 파일                                           | 변경 내용                         |
+| ---------------------------------------------- | --------------------------------- |
+| `src/components/landing/hero-section.tsx`      | 신뢰 지표를 안전성 신호로 변경    |
+| `src/components/landing/cta-section.tsx`       | 하단 CTA에도 안전성 신호 추가     |
+| `src/components/landing/footer.tsx`            | 내부 링크 확장 (진단하기, FAQ 등) |
+| `src/components/landing/customer-concerns.tsx` | FAQ 링크 연결                     |
 
-### 설계
+### hero-section.tsx — 안전성 신호
 
-- Next.js ImageResponse API로 1200x630 이미지 생성
-- 배경: findably-dark, 중앙: 로고+서브텍스트
+현재 (`line:130`): `"URL만 입력 · 약 60초 안에 결과 · 무료 진단"`
+
+변경:
+
+```
+✓ 첫 진단 완전 무료  ✓ 카드 정보 불필요  ✓ 60초면 결과 확인
+```
+
+→ 체크마크(✓)로 시각적 안전감 강화
+
+### cta-section.tsx — 하단 CTA 안전성 신호
+
+URL 입력 아래에 동일 안전성 신호 추가.
+
+### footer.tsx — 내부 링크 확장
+
+현재: 가격 | 샘플 리포트 | 이용약관 | 개인정보처리방침 (4개)
+
+변경:
+
+```
+제품: 무료 마케팅 진단 | 가격 안내 | 샘플 리포트 | 자주 묻는 질문
+법적: 이용약관 | 개인정보처리방침
+```
+
+→ "무료 마케팅 진단" (/#diagnose), "자주 묻는 질문" (/#faq) 앵커 링크 추가
+
+### customer-concerns.tsx — FAQ 연결
+
+"이런 고민이 있으시다면" 섹션 하단에:
+
+```
+더 궁금한 점이 있으신가요? → 자주 묻는 질문 보기
+```
+
+→ `/#faq` 앵커 링크
+
+### 검증
+
+- [ ] 히어로 CTA 근처에 ✓ 안전성 신호 3개 표시
+- [ ] 하단 CTA에도 안전성 신호 표시
+- [ ] 푸터 내부 링크 6개 이상
+- [ ] customer-concerns → FAQ 링크 동작
+- [ ] 모바일에서 터치 요소 44px 이상 (기존 min-h-[44px] 확인)
+- [ ] `pnpm build` 통과
+
+---
+
+## 리스크
+
+| 리스크                                     | 대응                                                     |
+| ------------------------------------------ | -------------------------------------------------------- |
+| dynamic import로 CLS 발생                  | 각 섹션 높이가 유동적이라 CLS 영향 적음. Skeleton 불필요 |
+| framer-motion whileInView가 dynamic과 충돌 | viewport={{ once: true }}라 한 번만 트리거. 정상 동작    |
+| 앵커 링크(/#faq)가 dynamic 로딩 전 스크롤  | FAQ가 Pricing 아래라 스크롤 시점에 이미 로드됨           |
 
 ---
 
 ## 실행 순서
 
 ```
-1. E-03 (Schema) → 2. E-06 (og:image) → 검증 게이트
+1. E-07 (LCP) — page.tsx dynamic import 적용
+2. E-08 (CTA+링크) — 안전성 신호 + 푸터 + 상호 참조
+→ 커밋 → tsc → lint → build 검증
+```
+
+---
+
+## 검증 게이트
+
+```bash
+pnpm tsc --noEmit && pnpm lint && pnpm build
 ```
