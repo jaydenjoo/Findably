@@ -52,7 +52,7 @@ const BottomCTA = () => {
           transition={{ delay: 0.1 }}
           className="text-slate-400 mb-12"
         >
-          약 60초 안에 확인하세요. 무료입니다.
+          ✓ 첫 진단 완전 무료 &nbsp;✓ 카드 정보 불필요 &nbsp;✓ 60초면 결과 확인
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}

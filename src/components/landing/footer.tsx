@@ -18,10 +18,18 @@ const Footer = () => (
           <ul className="space-y-4 text-sm">
             <li>
               <Link
+                href="/#diagnose"
+                className="hover:text-findably-cyan transition-colors"
+              >
+                무료 마케팅 진단
+              </Link>
+            </li>
+            <li>
+              <Link
                 href="/pricing"
                 className="hover:text-findably-cyan transition-colors"
               >
-                가격
+                가격 안내
               </Link>
             </li>
             <li>
@@ -30,6 +38,14 @@ const Footer = () => (
                 className="hover:text-findably-cyan transition-colors"
               >
                 샘플 리포트
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/#faq"
+                className="hover:text-findably-cyan transition-colors"
+              >
+                자주 묻는 질문
               </Link>
             </li>
           </ul>

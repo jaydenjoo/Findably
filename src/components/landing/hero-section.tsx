@@ -127,7 +127,7 @@ const Hero = () => {
           transition={{ delay: 0.8 }}
           className="mt-6 text-[13px] text-slate-500 font-medium tracking-wide"
         >
-          URL만 입력 · 약 60초 안에 결과 · 무료 진단
+          ✓ 첫 진단 완전 무료 &nbsp;✓ 카드 정보 불필요 &nbsp;✓ 60초면 결과 확인
         </motion.p>
       </div>
     </section>
