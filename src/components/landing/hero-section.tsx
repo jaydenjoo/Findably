@@ -57,7 +57,7 @@ const Hero = () => {
           transition={{ duration: 0.7 }}
           className="inline-block px-4 py-1.5 rounded-full text-xs font-medium border border-findably-cyan/25 text-findably-cyan bg-findably-cyan/[0.08] mb-8"
         >
-          마케팅 진단부터 실행 우선순위까지, 한 번에 끝내는 마케팅 진단
+          AI 마케팅 진단 서비스 | SEO + GEO 통합 분석
         </motion.span>
 
         <motion.h1
@@ -82,6 +82,17 @@ const Hero = () => {
           SEO, AI 검색(GEO), 콘텐츠, 기술 인프라 — 60개 항목을 진단하고
           <br className="hidden md:block" />
           가장 돈이 많이 새는 곳부터 고치는 순서를 알려드립니다.
+        </motion.p>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.7, delay: 0.25 }}
+          className="text-xs text-slate-500 max-w-xl mb-8 leading-relaxed"
+          id="quick-answer"
+        >
+          <strong className="text-slate-400">Findably</strong>는 URL 하나만
+          입력하면 AI가 SEO + GEO 통합 진단을 제공하는 마케팅 진단 플랫폼입니다.
         </motion.p>
 
         <motion.div

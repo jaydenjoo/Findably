@@ -1,6 +1,7 @@
 import type { PaidAnalysisData } from '@/features/diagnosis-paid'
 
 import { AIInsightsSection } from './AIInsightsSection'
+import { BridgeSection } from './BridgeSection'
 import { CitationTrackingSection } from './CitationTrackingSection'
 import { CmoSummarySection } from './CmoSummarySection'
 import { CompetitorSection } from './CompetitorSection'
@@ -29,6 +30,11 @@ export function DetailedReportContent({
         url={url}
         createdAt={createdAt}
         diagnosisId={diagnosisId}
+        isPaid={isPaid}
+      />
+
+      <BridgeSection
+        categoryScores={analysisData.categoryScores ?? []}
         isPaid={isPaid}
       />
 

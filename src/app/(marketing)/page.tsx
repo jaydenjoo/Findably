@@ -9,6 +9,7 @@ import HowItWorks from '@/components/landing/how-it-works-section'
 import CustomerConcerns from '@/components/landing/customer-concerns'
 import Pricing from '@/components/landing/pricing'
 import BottomCTA from '@/components/landing/cta-section'
+import FaqSection from '@/components/landing/faq-section'
 import Footer from '@/components/landing/footer'
 
 export const metadata: Metadata = {
@@ -47,6 +48,7 @@ export default function MarketingPage() {
         <HowItWorks />
         <CustomerConcerns />
         <Pricing />
+        <FaqSection />
         <BottomCTA />
       </main>
       <Footer />

@@ -1,281 +1,258 @@
-# Phase 0 Blueprint — 홈페이지 프레이밍 + SEO 기반 파일
+# Phase 1 Blueprint — 리포트 프레이밍 + 홈페이지 콘텐츠
 
-> PRD: docs/Findably-PRD-홈페이��-리포트-정합성-v1_2.md
-> 브랜치: feature/phase-0
-> 총 5개 Task, 예상 ~3.5시간
+> PRD: docs/Findably-PRD-홈페이지-리포트-정합성-v1_2.md
+> 브랜치: feature/phase-1
+> 총 4개 Task, 예상 ~5시간
 
 ---
 
 ## 목표
 
-Phase 0 완료 시 상태:
+Phase 1 완료 시 상태:
 
-1. 홈페이지 H1/서브카피가 "마케팅 누수" 프레이밍으로 변경됨
-2. 비교 ��이블이 "기초체력 진단" 포지셔���으로 리프레이밍됨
-3. 리포트 90일 로드맵에 우선순위 산정 근거 설명이 추가됨
-4. robots.txt + llms.txt가 PRD ��준으로 보강됨
-5. OG 메타 + canonical + twitter card가 완성됨
+1. 유료 리포트 최상단에 "마케팅 누수 브릿지" 섹션이 추가됨 (4개 영역 점수 테이블 포함)
+2. CMO 경영진 요약이 비즈니스 언어로 생성됨 (기술 용어 → 비유 기반)
+3. 랜딩 H1 아래에 SEO 보조 키워드 블록이 추가됨
+4. 랜딩에 FAQ 7개 + Quick Answer가 추가됨 (FAQPage Schema 준비)
 
 ---
 
-## Task A-01 (8.10): 모토/서브카피 수정
+## Task B-01 (7.12): 리포트 도입부 "마케팅 누수 브릿지" 섹션
 
 ### 수정 파일
 
-| 파일                                           | 변경 내용                                     |
-| ---------------------------------------------- | --------------------------------------------- |
-| `src/components/landing/hero-section.tsx`      | H1, 서브카피 텍스트 변경                      |
-| `src/components/landing/customer-concerns.tsx` | 고민카드 1번 텍스트 변경                      |
-| `src/config/landing.ts`                        | hero.title, hero.description 상수 변경        |
-| `src/app/(marketing)/page.tsx`                 | metadata.title, metadata.openGraph.title 변경 |
+| 파일                                                                        | 변경 내용                              |
+| --------------------------------------------------------------------------- | -------------------------------------- |
+| `src/app/(dashboard)/reports/my/[id]/_components/BridgeSection.tsx`         | **신규** — 브릿지 컴포넌트             |
+| `src/app/(dashboard)/reports/my/[id]/_components/DetailedReportContent.tsx` | BridgeSection 삽입 (CmoSummary 위)     |
+| `src/features/report/pdf/sections/PdfBridgeSection.tsx`                     | **신규** — PDF용 브릿지                |
+| `src/features/report/pdf/ReportDocument.tsx`                                | PdfBridgeSection 삽입 (커버 페이지 뒤) |
 
-### AS-IS → TO-BE
-
-**H1** (`hero-section.tsx:69-70`, 하드코딩):
+### BridgeSection 설계
 
 ```
-AS: "마케팅에 돈 쓰는데 / 뭘 먼저 고쳐야 하는지 모르겠다면"
-TO: "마케팅에 돈을 쓰는데, / 어디서 새고 있는지 모르겠다면"
+Props: {
+  categoryScores: CategoryScore[]  ← PaidAnalysisData.categoryScores
+  isPaid: boolean
+}
 ```
 
-**서브카피** (`hero-section.tsx:79-81`, 하드코딩):
+**렌더링 구조:**
 
 ```
-AS: "SEO, GEO, 콘텐츠, 기술 — 60초 만에 진단하고, / 뭘 먼저 고��야 ROI가 올라가는지 우선순위로 알려드립니다."
-TO: "웹사이트에서 새는 마케팅 비용부터 찾아드립니다. / SEO, AI 검색(GEO), 콘텐츠, 기술 인프라 — 60개 항목을 진단하고 / 가장 돈이 많이 새는 곳부터 고치는 순서를 알려드립니다."
+┌─────────────────────────────────────────────────────┐
+│ 🔍 마케팅 비용이 새는 곳을 찾았습니다                    │
+│                                                      │
+│ 광고를 돌려도, SNS를 해도, 콘텐츠를 만들어도 —          │
+│ 고객이 당신의 웹사이트를 검색에서 찾을 수 없거나...      │
+│                                                      │
+│ ┌──────────────┬──────────────────────┬───────┐      │
+│ │ 진단 영역     │ 마케팅에서의 의미     │ 점수  │      │
+│ ├──────────────┼──────────────────────┼───────┤      │
+│ │ SEO          │ Google에서 찾을 수..  │ 68/100│      │
+│ │ GEO          │ AI가 추천하는가      │ 45/100│      │
+│ │ 콘텐츠       │ 신뢰하고 행동하는가  │ 72/100│      │
+│ │ 기술 인프라   │ 떠나지 않을 만큼..   │ 55/100│      │
+│ └──────────────┴──────────────────────┴───────┘      │
+│                                                      │
+│ * 업종 평균 벤치마크 기준 추정치이며, 실제와 다를 수 있음 │
+└─────────────────────────────────────────────────────┘
 ```
 
-**config/landing.ts hero 섹션** (`landing.ts:3-18`):
+**카테고리 매핑** — `categoryScores`에서 ID 기준:
+
+- `seo` → "SEO (검색 최적화)" / "Google에서 고객이 당신을 찾을 수 있는가"
+- `geo` → "GEO (AI 검색 최적화)" / "ChatGPT, Perplexity가 당신을 추천하는가"
+- `content` → "콘텐츠" / "방문한 고객이 신뢰하고 행동하는가"
+- `technical` → "기술 인프라" / "고객이 떠나지 않을 만큼 빠르고 안정적인가"
+
+**원화 환산**: C-01 (Phase 4) 완료 전이므로 총 매출 영향 금액은 표시하지 않음. 면책 문구만 포함.
+
+**DetailedReportContent.tsx 삽입 위치:**
 
 ```
-AS: title.line1="URL 하나로", highlight="마케팅 건강검진"
-    description="60개 이상 항목을 자동 검사하고..."
-TO: title.line1="URL 하나로", highlight="마케팅 누수 진단"
-    description="웹사이트에서 새는 마케팅 비용부터 찾아드립니다..."
-```
-
-> 참고: hero-section.tsx의 H1은 config를 사용하지 않고 하드코딩. 두 곳 모두 수정 필요.
-
-**고민카드 1번** (`customer-concerns.tsx:6-10`):
-
-```
-AS: q="SEO 대행사한테 매달 돈 내는데, 효과가 있는 건지 판단이 안 돼요"
-    a="Findably는 진단 항목별 비즈니스 영향도를 표시하여..."
-TO: q="마케팅비 쓰는데 어디서 새는지 모르겠다"
-    a="항목별 매출 영향 금액 환산 + 가장 큰 구멍부터 막는 순서 제공"
-```
-
-**OG 태그** (`(marketing)/page.tsx:14-23`):
-
-```
-AS: title="Findably — AI 마케팅 진단, URL 하나로 시작"
-TO: title="마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably"
-    description="웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단."
+ReportHeader
+→ BridgeSection (신규)     ← 여기
+→ CmoSummarySection
+→ SwotSection
+→ RoadmapSection
+→ ...
 ```
 
 ### 검증
 
-- [ ] 모바일(375px)에서 H1 줄바꿈 자연스러운지 확인
-- [ ] `pnpm build` 통과
+- [ ] BridgeSection이 ReportHeader 바로 아래에 렌더링
+- [ ] 4개 영역 점수가 실제 categoryScores와 일치
+- [ ] isPaid=false면 BlurOverlay 적용
+- [ ] PDF에도 동일 브릿지 섹션 포함
+- [ ] 면책 문구 포함
 
 ---
 
-## Task A-02 (8.11): 비교 테이블 리프레이밍
+## Task B-03 (7.14): 경영진 요약 문구 수정
 
 ### 수정 파일
 
-| 파일                                          | 변경 내용                             |
-| --------------------------------------------- | ------------------------------------- |
-| `src/components/landing/comparison-table.tsx` | 제목, 부제, 컬럼 헤더, 하단 주석 변경 |
+| 파일                           | 변경 내용                   |
+| ------------------------------ | --------------------------- |
+| `src/config/diagnosis-paid.ts` | CMO_AGENT systemPrompt 수정 |
 
-### AS-IS → TO-BE
+### CMO 프롬프트 변경
 
-**섹션 제목** (`comparison-table.tsx:31`):
-
-```
-AS: "마케팅 진단, 어디서 받으시나요?"
-TO: "마케팅 진단의 첫 번째 단계, 어떻게 시작하시나요?"
-```
-
-**부제** (`comparison-table.tsx:33-34`):
+현재 프롬프트(`diagnosis-paid.ts:523-540`)의 `<context>` 섹션에 추가:
 
 ```
-AS: "같은 '마케팅 감사'도 범위와 방식이 다릅니다"
-TO: "전략을 세우기 전에, 먼저 새는 곳을 찾아야 합니다"
-```
+AS-IS context:
+- 이 리포트가 전체 진단의 "최종 요약"이자 "실행 계획서".
+- 단순 숫자 나열 절대 금지
+- 전략적 서사 ...
 
-**컬럼 헤더** (`comparison-table.tsx:43-49`):
-
-```
-AS: "대형 컨설팅펌*" | "마케팅 에이전시*" | "Findably"
-TO: "마케팅 전략 컨설팅*" | "마케팅 실행 대행*" | "마케팅 기초체력 진단 (Findably)"
-```
-
-**하단 주석** (`comparison-table.tsx:78-87`): 기존 2개 유지 + 1개 추가:
-
-```
-추가: "💡 컨설팅은 전략을, 에이전시는 실행을, Findably는 그 전에 새고 ��는 구멍을 찾아드립니다.
-      전략과 실행이 효과를 내려면, 먼저 기초체력이 갖춰져야 합니다."
-```
-
-### 검증
-
-- [ ] 테이블 모바일 가로 스크롤 정상
-- [ ] `pnpm build` 통과
-
----
-
-## Task B-02 (7.13): 우선순위 산정 로직 설명 추가
-
-### 수정 파일
-
-| 파일                                                                 | 변경 내용                             |
-| -------------------------------------------------------------------- | ------------------------------------- |
-| `src/app/(dashboard)/reports/my/[id]/_components/RoadmapSection.tsx` | 로드맵 상단에 우선순위 설명 블록 추가 |
-| `src/features/report/pdf/sections/PdfRoadmap.tsx`                    | PDF에도 동일 블록 추가                |
-
-### 추가할 콘텐츠
-
-RoadmapSection.tsx의 로드맵 아이템 렌더링 위에 정적 텍스트 블록 삽입:
-
-```
-📐 이 순서로 고치면 가장 빠르게 효과를 봅니다
-
-우선순위는 3가지 기준으로 산정했습니다:
-① 매출 영향 크기 — 이 문제가 얼마나 많은 돈을 새게 하는가
-② 실행 난이도 — 얼마나 빨리, 쉽게 고칠 수 있는가
-③ 복합 효과 — 이걸 고치면 다른 문제도 함께 해결되는가
-
-→ 한마디로, "적은 노력으로 가장 큰 돈을 아끼는 순서"입니다.
-
-| 🔴 높음 (즉시 실행) | 매출 영향 크고 + 난이도 쉬움~보통 |
-| 🟡 보통 (1~2개월)   | 매출 영향 중간 또는 난이도 보통    |
-| ⚪ 낮음 (여유)       | 매출 영향 작거나 난이도 높음       |
+TO-BE context (추가):
+- 첫 문장은 반드시 "마케팅 비용이 새고 있는 구멍이 N개 발견되었습니다" 패턴.
+- 기술 용어(LCP, Canonical, Core Web Vitals 등) 사용 금지. 대신 비유 기반 설명.
+  예: "페이지가 너무 느려서 방문자 절반이 떠남", "AI 검색에서 추천받지 못하고 있음"
+- 마지막 문장에 반드시 다음 행동 안내: "아래 90일 로드맵의 '즉시 실행' 항목부터 시작하세요."
+- 원화 환산이 가능하면 포함하되, 불가능하면 정성적 표현 사용.
 ```
 
 ### 설계 원칙
 
-- 정적 텍스트만. 별도 로직/데이터 불필요
-- 기존 RoadmapSection 구조(주차별 그룹핑) 앞에 삽입
-- 유료(isPaid=true)일 때만 표시
+- CMO 에이전트의 프롬프트만 수정. 코드 로직 변경 없음.
+- 기존 output 구조(executive_summary + quality_score + issues_found) 변경 없음.
+- 이미 생성된 리포트는 영향 없음. 신규 유료 분석부터 적용.
 
 ### 검증
 
-- [ ] `/reports/my/[id]` 페이지에서 로드맵 위에 설명 블록 렌더링
-- [ ] PDF 다운로드 시 동일 블록 포함
-- [ ] `pnpm build` 통과
+- [ ] `pnpm build` 통과 (프롬프트 변경만이라 타입 에러 없음)
+- [ ] 프롬프트 내 "비즈니스 언어 우선" 지시 포함
+- [ ] "다음 행동" 안내 지시 포함
 
 ---
 
-## Task E-01 (8.12): robots.txt + llms.txt 보강
+## Task E-04 (8.15): H1 키워드 최적화 + Title 태그 조정
 
 ### 수정 파일
 
-| 파일                | 변경 내용                                                                  |
-| ------------------- | -------------------------------------------------------------------------- |
-| `src/app/robots.ts` | AI 봇 추가 (ChatGPT-User, Google-Extended, anthropic-ai, Claude-Web, Yeti) |
-| `public/llms.txt`   | PRD v1.2 기준으로 전체 재작성 ("누수" 프레이밍 반영)                       |
+| 파일                                      | 변경 내용                       |
+| ----------------------------------------- | ------------------------------- |
+| `src/components/landing/hero-section.tsx` | H1 아래에 보조 키워드 블록 추가 |
+| `src/app/(marketing)/page.tsx`            | Title 태그 50자 이내 조정       |
 
-### robots.ts 변경
+### hero-section.tsx 변경
 
-현재 3개 봇(GPTBot, ClaudeBot, PerplexityBot)만 명시 → 8개로 확장:
+현재 badge(`line:54-61`): "마케팅 진단부터 실행 우선순위까지, 한 번에 끝내는 마케팅 진단"
+
+이 badge를 SEO 키워드 보조 블록으로 활용:
+
+```
+AS: "마케팅 진단부터 실행 우선순위까지, 한 번에 끝내는 마케팅 진단"
+TO: "AI 마케팅 진단 서비스 | SEO + GEO 통합 분석"
+```
+
+→ 기존 badge 위치를 유지하면서 핵심 키워드("AI 마케팅 진단", "SEO", "GEO") 삽입.
+→ H1은 Phase 0에서 확정된 감성 모토 유지.
+
+### page.tsx Title 변경
+
+현재: `"마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably"` (38자 — 이미 50자 이내 ✅)
+
+→ 변경 불필요. E-02에서 이미 최적화됨.
+
+### 검증
+
+- [ ] H1 위 badge에 "AI 마케팅 진단" 키워드 포함
+- [ ] H1 자체는 변경 없음 (Phase 0 확정)
+- [ ] Title 50자 이내 (현재 38자 ✅)
+
+---
+
+## Task E-05 (8.17): FAQ 섹션 + Quick Answer 구조 추가
+
+### 수정/생성 파일
+
+| 파일                                      | 변경 내용                                     |
+| ----------------------------------------- | --------------------------------------------- |
+| `src/config/landing.ts`                   | `faq` 데이터 배열 추가 (7개 Q&A)              |
+| `src/components/landing/faq-section.tsx`  | **신규** — FAQ 아코디언 컴포넌트              |
+| `src/components/landing/hero-section.tsx` | Quick Answer 블록 추가 (H1 아래, URL 입력 위) |
+| `src/app/(marketing)/page.tsx`            | FAQ 섹션 import + Pricing 뒤에 삽입           |
+
+### config/landing.ts — FAQ 데이터
 
 ```typescript
-rules: [
-  { userAgent: '*', allow: '/', disallow: [...] },
-  {
-    userAgent: ['GPTBot', 'ChatGPT-User', 'ClaudeBot', 'PerplexityBot',
-                'Google-Extended', 'anthropic-ai', 'Claude-Web', 'Yeti'],
-    allow: '/',
-  },
-],
+faq: {
+  title: '자주 묻는 질문',
+  items: [
+    { q: '마케팅 진단이 왜 필요한가요?', a: '중소기업 73%가...' },
+    { q: 'Findably는 어떤 서비스인가요?', a: 'URL 하나만...' },
+    { q: '진단은 얼마나 걸리나요?', a: '약 60초면...' },
+    { q: '기존 SEO 대행업체와 어떤 차이가 있나요?', a: '대행업체는...' },
+    { q: 'GEO(AI 검색 최적화)란 무엇인가요?', a: 'ChatGPT...' },
+    { q: '진단 결과는 얼마나 정확한가요?', a: 'Google 알고리즘...' },
+    { q: '무료 진단만 받아도 되나요?', a: '네. 첫 진단은...' },
+  ],
+}
 ```
 
-### llms.txt 재작성
+→ PRD v1.2 Section E-05의 Q&A 텍스트 그대로 사용.
 
-현재 llms.txt는 기본적인 내용. PRD v1.2 기준으로 전체 재작성:
+### faq-section.tsx 설계
 
-- "새는 마케팅 비용" 프레이밍 반영
-- 건당 9.9만원만 기재 (월 구독은 Phase 2이므로 제외)
-- 차별점에 "원화 환산 우선순위" 추가
+- `'use client'` (아코디언 상호작용 필요)
+- `<details>/<summary>` 시맨틱 HTML 사용 (접근성 + SEO)
+- framer-motion으로 펼침/접힘 애니메이션
+- `aria-labelledby="heading-faq"`
+- 통계 출처 인라인 표기 (Constant Contact 2025)
 
-### sitemap.ts
+**섹션 순서 (page.tsx):**
 
-현재 이미 5개 URL 포함. 변경 불필요.
+```
+... → Pricing → FAQ (신규) → BottomCTA
+```
+
+### hero-section.tsx — Quick Answer
+
+H1과 서브카피 사이 또는 서브카피 바로 아래에 한 줄 추가:
+
+```html
+<p class="text-sm text-slate-400 max-w-xl">
+  <strong>Findably</strong>는 URL 하나만 입력하면 AI가 SEO + GEO 통합 진단을
+  제공하는 마케팅 진단 플랫폼입니다.
+</p>
+```
+
+→ 시각적으로 작게, 검색엔진이 서비스 설명을 파악할 수 있도록.
 
 ### 검증
 
-- [ ] `pnpm build` 후 /robots.txt, /llms.txt 응답 확인
-- [ ] robots.txt에 8개 봇 허용 확인
-
----
-
-## Task E-02 (8.13): Canonical URL + OG 메타 완성
-
-### 수정 파일
-
-| 파일                           | 변경 내용                                                |
-| ------------------------------ | -------------------------------------------------------- |
-| `src/config/seo.ts`            | defaultTitle, defaultDescription, landing 섹션 문구 변경 |
-| `src/app/(marketing)/page.tsx` | A-01에서 OG 수정 + twitter card 추가 + canonical 추가    |
-
-### 현재 상태
-
-- `layout.tsx`: canonical ✅, OG ✅, twitter ✅ — 변경 불필요
-- `(marketing)/page.tsx`: OG 있으나 twitter card 없음, canonical 없음
-- `config/seo.ts`: 문구가 이전 프레이밍
-
-### seo.ts 변경
-
-```
-AS: defaultTitle="Findably — AI 마케팅 진단"
-TO: defaultTitle="AI 마케팅 진단, URL 하나로 시작 — Findably"
-
-AS: defaultDescription="URL 하나로 SEO + GEO 통합 진단..."
-TO: defaultDescription="웹사이트에서 새는 마케팅 비용부터 찾아드립니다..."
-
-AS: landing.title="AI 마케팅 진단 — SEO + GEO 통합 분석 | Findably"
-TO: landing.title="마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably"
-
-AS: landing.description="URL 하나로 SEO + GEO 통합 진단..."
-TO: landing.description="웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단."
-```
-
-### (marketing)/page.tsx 보완
-
-A-01에서 OG 변경 + 추가로:
-
-- `alternates: { canonical: '/' }` 추가
-- `twitter: { card: 'summary_large_image', ... }` 추가
-
-### 검증
-
-- [ ] `<link rel="canonical">` 랜딩에서 확인
-- [ ] og:title이 A-01 H1 프레이밍과 일관
-- [ ] twitter:card 메타 태그 존재
+- [ ] FAQ 섹션이 Pricing 아래, BottomCTA 위에 렌더링
+- [ ] 7개 Q&A가 아코디언으로 동작 (클릭 시 펼침/접힘)
+- [ ] 시맨틱 HTML (`<details>/<summary>`)
+- [ ] Quick Answer가 히어로에 표시
+- [ ] 모바일에서 FAQ 정상 동작
 - [ ] `pnpm build` 통과
 
 ---
 
 ## 리스크
 
-| 리스크                                              | 대응                                                |
-| --------------------------------------------------- | --------------------------------------------------- |
-| hero-section.tsx H1이 config 미참조 (하드코딩)      | config와 컴포넌트 두 곳 모두 수정. 불일치 주의      |
-| OG 이미지 미존재 (/og/default.png, /og/landing.png) | E-06 (Phase 2)에서 제작 예정. 현재는 기존 경로 유지 |
-| llms.txt에 월 구독 가격 기재 시 Phase 1과 불일치    | 건당 9.9만원만 기재. 월 구독은 Phase 2              |
-| 모바일 H1 줄바꿈 어색할 수 있음                     | A-01 수정 후 375px에서 확인                         |
+| 리스크                                       | 대응                                                      |
+| -------------------------------------------- | --------------------------------------------------------- |
+| BridgeSection에 categoryScores가 없는 경우   | 빈 배열일 때 "진단 데이터 준비 중" fallback 표시          |
+| CMO 프롬프트 변경 → 기존 리포트 영향         | 기존 리포트는 이미 저장된 텍스트라 영향 없음. 신규만 적용 |
+| FAQ가 너무 길어 CTA까지 스크롤 증가          | 기본 접힌 상태. 열린 항목은 하나만 (아코디언)             |
+| PDF 브릿지 섹션이 페이지 넘침                | 커버 다음 새 페이지에 배치                                |
+| PaidAnalysisData에서 카테고리 점수 매핑 오류 | categoryScores의 id 필드로 매핑, 없는 카테고리는 "-" 표시 |
 
 ---
 
 ## 실행 순서
 
 ```
-1. A-01 (모토/서브카피) — 프레이밍 기준 확정 (다른 Task가 참조)
-2. A-02 (비교 테이블) — A-01 프레이밍과 일관
-3. E-02 (OG 메타) — A-01 문구를 seo.ts에 반영
-4. E-01 (봇 파일) — 독립 작업
-5. B-02 (우선순위 설명) — 독립 작업
+1. B-01 (브릿지 섹션) — 가장 큰 변경. 웹+PDF 컴포넌트 신규 생성
+2. B-03 (CMO 프롬프트) — config 텍스트만 수정. 독립 작업
+3. E-04 (H1 키워드) — badge 텍스트 변경. 독립 작업
+4. E-05 (FAQ) — 신규 컴포넌트 + config 데이터 + page.tsx 수정
 → 커밋 → tsc → lint → build 검증
 ```
 

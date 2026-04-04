@@ -2,6 +2,7 @@ import { Document, Page, Text, View } from '@react-pdf/renderer'
 
 import type { PaidAnalysisData } from '@/features/diagnosis-paid'
 
+import { PdfBridgeSection } from './sections/PdfBridgeSection'
 import { PdfCoverPage } from './sections/PdfCoverPage'
 import { PdfCitationTracking } from './sections/PdfCitationTracking'
 import { PdfCompetitors } from './sections/PdfCompetitors'
@@ -43,9 +44,10 @@ export function ReportDocument({
         />
       </Page>
 
-      {/* 2페이지~: SWOT + 로드맵 */}
+      {/* 2페이지: 브릿지 + SWOT + 로드맵 */}
       <Page size="A4" style={styles.page} wrap>
         <PageHeader />
+        <PdfBridgeSection categoryScores={data.categoryScores ?? []} />
         <PdfSwot swot={data.swot} />
         <PdfRoadmap roadmap={data.roadmap} />
       </Page>
