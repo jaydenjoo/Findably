@@ -47,7 +47,10 @@ export function ReportDocument({
       {/* 2페이지: 브릿지 + SWOT + 로드맵 */}
       <Page size="A4" style={styles.page} wrap>
         <PageHeader />
-        <PdfBridgeSection categoryScores={data.categoryScores ?? []} />
+        <PdfBridgeSection
+          categoryScores={data.categoryScores ?? []}
+          aiInsights={data.aiInsights ?? []}
+        />
         <PdfSwot swot={data.swot} />
         <PdfRoadmap roadmap={data.roadmap} />
       </Page>

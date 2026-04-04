@@ -1,5 +1,6 @@
 import { Text, View } from '@react-pdf/renderer'
 
+import { calculateRevenueImpact } from '@/config/revenue'
 import type { AIInsight } from '@/features/diagnosis-paid'
 
 import { colors, styles } from '../styles'
@@ -92,18 +93,60 @@ export function PdfInsights({ insights }: PdfInsightsProps): React.JSX.Element {
               )}
             </View>
 
-            {/* 영향도 */}
+            {/* 💰 매출 영향 (원화 환산) */}
+            {(() => {
+              const revenue = calculateRevenueImpact({
+                severity: insight.severity,
+              })
+              if (!revenue) return null
+              return (
+                <View
+                  style={{
+                    marginTop: 6,
+                    backgroundColor: colors.slate50,
+                    borderRadius: 4,
+                    padding: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 600,
+                      color: colors.slate900,
+                      marginBottom: 3,
+                    }}
+                  >
+                    매출 영향: 월 약 {revenue.monthlyLoss}만원 손실 추정
+                  </Text>
+                  <Text style={{ fontSize: 8, color: colors.slate700 }}>
+                    안 고치면 → 연간 약 {revenue.annualLoss}만원 손실 지속 /
+                    고치면 → 월 +{revenue.monthlyGain}만원 추가 유입
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 7,
+                      color: colors.slate500,
+                      marginTop: 2,
+                    }}
+                  >
+                    * 업종 평균 기준 추정치
+                  </Text>
+                </View>
+              )
+            })()}
+
+            {/* 상세 지표 */}
             {insight.impact && (
               <View style={{ marginTop: 6 }}>
                 <Text
                   style={{
                     fontSize: 8,
                     fontWeight: 600,
-                    color: colors.warning700,
+                    color: colors.slate500,
                     marginBottom: 2,
                   }}
                 >
-                  영향도
+                  상세 지표 (전문가용)
                 </Text>
                 <Text
                   style={{
