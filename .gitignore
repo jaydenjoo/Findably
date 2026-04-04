@@ -54,3 +54,12 @@ n8n/
 
 # screenshots (debug/QA captures)
 /*.png
+
+# archive (일회성 스냅샷, 개발 참고용)
+docs/archive/
+
+# debug scripts (로컬 전용)
+scripts/
+
+# claude agent memory (내부용)
+.claude/agent-memory/

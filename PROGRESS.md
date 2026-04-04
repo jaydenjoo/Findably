@@ -275,6 +275,85 @@
 
 ---
 
+## 2026-04-04 세션: PRD v1.2 홈페이지↔리포트 정합성 (전체 완료)
+
+> PRD: `docs/Findably-PRD-홈페이지-리포트-정합성-v1_2.md`
+> 브랜치 전략: `feature/phase-N` → PR → main 머지 → Vercel 자동 배포
+
+### 해결한 갭 4가지
+
+| 갭        | 문제                          | 해결                                                  |
+| --------- | ----------------------------- | ----------------------------------------------------- |
+| G-01 범위 | 홈페이지가 "마케팅 전반" 암시 | H1 "어디서 새고 있는지" + 비교 테이블 "기초체력 진단" |
+| G-02 언어 | 리포트가 전문용어 사용        | 원화 환산 + CMO 비즈니스 언어 프롬프트                |
+| G-03 근거 | 우선순위 "왜" 설명 없음       | 로드맵에 3기준 설명 블록 추가                         |
+| G-04 신뢰 | 자체 사이트 SEO/GEO 미달      | Schema 5종 + og:image + FAQ + robots/llms 보강        |
+
+### Phase별 PR
+
+| Phase   | PR  | Task 수 | 핵심 변경                                                                   |
+| ------- | --- | ------- | --------------------------------------------------------------------------- |
+| Phase 0 | #2  | 5       | 누수 프레이밍(H1/서브카피/비교테이블) + SEO 기반(robots/llms/OG) + URL 통일 |
+| Phase 1 | #3  | 4       | 브릿지 섹션(웹+PDF) + CMO 프롬프트 + FAQ 7개 + 키워드                       |
+| Phase 2 | #4  | 2       | Schema @graph 5종 + og:image 동적 생성                                      |
+| Phase 3 | #5  | 2       | dynamic import LCP 개선 + CTA 안전성 신호 + 내부 링크                       |
+| Phase 4 | #6  | 3       | 업종 벤치마크 config + 원화 환산 + 총 누수 카드                             |
+| Phase 5 | #7  | 2       | PDF 원화 반영 + 정합성 검증 11항목 통과                                     |
+
+### 신규 생성 파일
+
+| 파일                                                                   | 용도                                                  |
+| ---------------------------------------------------------------------- | ----------------------------------------------------- |
+| `src/config/revenue.ts`                                                | 업종별 벤치마크 (6개 업종) + calculateRevenueImpact() |
+| `src/components/landing/faq-section.tsx`                               | FAQ 7개 아코디언                                      |
+| `src/app/og/route.tsx`                                                 | OG 이미지 동적 생성 (Edge Runtime, 1200x630)          |
+| `src/app/(dashboard)/reports/my/[id]/_components/BridgeSection.tsx`    | 마케팅 누수 브릿지 (4영역 점수 테이블)                |
+| `src/app/(dashboard)/reports/my/[id]/_components/TotalLeakageCard.tsx` | 총 누수 요약 카드                                     |
+| `src/features/report/pdf/sections/PdfBridgeSection.tsx`                | PDF 브릿지 섹션                                       |
+
+### 주요 수정 파일
+
+| 파일                             | 변경                                               |
+| -------------------------------- | -------------------------------------------------- |
+| `hero-section.tsx`               | H1 + 서브카피 + badge + Quick Answer + 안전성 신호 |
+| `comparison-table.tsx`           | 제목/컬럼/주석 리프레이밍                          |
+| `customer-concerns.tsx`          | 고민카드1 + FAQ 링크                               |
+| `footer.tsx`                     | 내부 링크 확장 (6개)                               |
+| `cta-section.tsx`                | 안전성 신호                                        |
+| `(marketing)/page.tsx`           | dynamic import + Schema + OG + FAQ 삽입            |
+| `config/seo.ts`                  | Title/Description 누수 프레이밍 + og:image 경로    |
+| `config/landing.ts`              | hero 상수 + FAQ 데이터                             |
+| `config/diagnosis-paid.ts`       | CMO 프롬프트 비즈니스 언어 지시                    |
+| `AIInsightsSection.tsx`          | 원화 환산 + 전문가용 접기                          |
+| `RoadmapSection.tsx`             | 우선순위 3기준 설명 블록                           |
+| `layout.tsx`                     | Schema @graph 통합                                 |
+| `robots.ts`                      | AI 봇 8개 확장                                     |
+| `llms.txt`                       | 누수 프레이밍 재작성                               |
+| `PdfInsights.tsx`                | PDF 원화 환산                                      |
+| `PdfRoadmap.tsx`                 | PDF 우선순위 설명                                  |
+| `findably.co.kr` → `findably.kr` | 7개 파일 도메인 통일                               |
+
+### 배포 후 수동 확인 필요
+
+- [ ] PageSpeed LCP 2.5초 이하
+- [ ] 카카오톡 공유 미리보기 (제목+설명+이미지)
+- [ ] Google 구조화 데이터 테스트 도구 통과
+- [ ] Findably 자체 재진단 → 90점+ 달성
+
+### 프로젝트 파일 정리 (2026-04-04)
+
+| 정리 항목              | 위치                             | Git                 |
+| ---------------------- | -------------------------------- | ------------------- |
+| 일회성 참고 문서 6개   | `docs/archive/`                  | .gitignore 제외     |
+| 디버깅 스크립트        | `scripts/`                       | .gitignore 제외     |
+| Claude 에이전트 메모리 | `.claude/agent-memory/`          | .gitignore 제외     |
+| 루트 스크린샷          | 삭제됨                           | `/*.png` .gitignore |
+| 도메인 통일            | `findably.co.kr` → `findably.kr` | 7개 파일 수정 완료  |
+
+`docs/archive/` 내용: ARCHITECTURE-REVIEW, E2E-TEST-COVERAGE-ANALYSIS, audit-ui-ux-2026, building-story, findably-v0-prompt-v1, blueprint
+
+---
+
 ## ⏳ 진행 중
 
 ### Task 10.4 + 10.5: 접근성/에러 페이지 (부분 완료)
@@ -305,24 +384,28 @@
 
 ## 🔜 다음 할 일
 
+### PRD v1.2 배포 후 검증
+
+1. PageSpeed LCP 측정 → 2.5초 미달 시 추가 최적화
+2. 카카오톡 공유 미리보기 확인
+3. Google 구조화 데이터 테스트 도구 확인
+4. Findably 자체 재진단 → 90점+ 달성 여부
+
 ### Task 10.4 잔여 — 404/500 에러 페이지
 
-1. **`src/app/not-found.tsx`** — 404 전용 페이지 (Server Component, SearchX 아이콘, 디자인 토큰 적용)
-2. **`src/app/global-error.tsx`** — 500 페이지 개선 (bg-blue→bg-primary, role="alert", 홈 링크 추가)
+5. **`src/app/not-found.tsx`** — 404 전용 페이지
+6. **`src/app/global-error.tsx`** — 500 페이지 개선
 
-### Phase 1 마무리 (인프라)
+### 인프라/결제
 
-3. **Task 10.1** — Vercel 배포 + 도메인 연결
-4. **Task 10.2** — n8n 서버 설정 (Elest.io)
-5. **Toss Payments 실 연동** — 현재 Mock → 별도 지시 시 진행
+7. **findably.kr** 도메인 연결 (Vercel)
+8. **Toss Payments 실 연동** — 현재 선물 코드 → 별도 지시 시 진행
 
 ### Phase 2 (v2 기능)
 
-4. **경쟁사 벤치마킹** — 경쟁사 자동 탐색 + 병렬 크롤링 + 비교 매트릭스
-5. **AI 가시성 실시간 추적** — 타겟 키워드별 AI 플랫폼 인용 주기적 추적
-6. **주간 자동 재크롤링** — 크론 기반 주간 재진단 + 점수 변화 추적 + 이메일 알림
-
-> **Phase 1 코딩 작업 전체 완료** (2026-03-17). 최종 검증: 596 tests, 0 failed.
+9. **경쟁사 벤치마킹** — 경쟁사 자동 탐색 + 병렬 크롤링 + 비교 매트릭스
+10. **AI 가시성 실시간 추적** — 타겟 키워드별 AI 플랫폼 인용 주기적 추적
+11. **주간 자동 재크롤링** — 크론 기반 주간 재진단 + 점수 변화 추적 + 이메일 알림
 
 ---
 
