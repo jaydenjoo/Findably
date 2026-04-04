@@ -110,10 +110,10 @@ export default async function SettingsBillingPage(): Promise<React.JSX.Element> 
           결제일로부터 7일 이내, 리포트를 열람하지 않은 경우 전액 환불이
           가능합니다. 환불 요청은{' '}
           <a
-            href="mailto:support@findably.co.kr"
+            href="mailto:support@findably.kr"
             className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
           >
-            support@findably.co.kr
+            support@findably.kr
           </a>
           로 문의해 주세요.
         </p>

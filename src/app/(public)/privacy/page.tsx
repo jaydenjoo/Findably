@@ -75,7 +75,7 @@ export default function PrivacyPage(): React.JSX.Element {
           </h2>
           <p>
             언제든지 개인정보 열람, 수정, 삭제를 요청할 수 있습니다. 설정
-            페이지에서 직접 수정하거나, support@findably.co.kr로 문의해 주세요.
+            페이지에서 직접 수정하거나, support@findably.kr로 문의해 주세요.
           </p>
         </section>
 

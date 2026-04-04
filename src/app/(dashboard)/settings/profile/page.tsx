@@ -58,10 +58,10 @@ export default async function SettingsProfilePage(): Promise<React.JSX.Element> 
         <p className="text-sm text-slate-500">
           계정 삭제를 원하시면{' '}
           <a
-            href="mailto:support@findably.co.kr"
+            href="mailto:support@findably.kr"
             className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
           >
-            support@findably.co.kr
+            support@findably.kr
           </a>
           로 문의해 주세요.
         </p>

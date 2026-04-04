@@ -12,14 +12,23 @@ import BottomCTA from '@/components/landing/cta-section'
 import Footer from '@/components/landing/footer'
 
 export const metadata: Metadata = {
-  title: 'Findably — AI 마케팅 진단, URL 하나로 시작',
+  title: '마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably',
   description:
-    'URL만 입력하면 AI가 SEO + GEO 통합 진단. 60개+ 항목 자동 분석, 비즈니스 영향도 기반 실행 계획까지. 무료로 시작하세요.',
+    '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단. 60개 항목 자동 분석, 가장 돈이 많이 새는 곳부터 고치는 순서를 알려드립니다.',
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
-    title: 'Findably — AI 마케팅 진단, URL 하나로 시작',
+    title: '마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably',
     description:
-      'URL만 입력하면 AI가 SEO + GEO 통합 진단. 60개+ 항목 자동 분석, 비즈니스 영향도 기반 실행 계획까지.',
+      '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단.',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: '마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably',
+    description:
+      '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단.',
   },
 }
 

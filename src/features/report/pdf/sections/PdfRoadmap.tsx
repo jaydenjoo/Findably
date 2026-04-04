@@ -38,6 +38,45 @@ export function PdfRoadmap({ roadmap }: PdfRoadmapProps): React.JSX.Element {
         우선순위와 영향도를 고려한 주차별 실행 계획입니다.
       </Text>
 
+      {/* 우선순위 산정 기준 설명 */}
+      <View
+        style={{
+          backgroundColor: colors.primary50,
+          borderRadius: 6,
+          padding: 12,
+          marginBottom: 14,
+          borderWidth: 1,
+          borderColor: colors.slate200,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: colors.slate900,
+            marginBottom: 6,
+          }}
+        >
+          이 순서로 고치면 가장 빠르게 효과를 봅니다
+        </Text>
+        <Text style={{ fontSize: 8, color: colors.slate700, marginBottom: 4 }}>
+          우선순위는 3가지 기준으로 산정했습니다:
+        </Text>
+        <Text style={{ fontSize: 8, color: colors.slate700, marginBottom: 2 }}>
+          1. 매출 영향 크기 — 이 문제가 얼마나 많은 돈을 새게 하는가
+        </Text>
+        <Text style={{ fontSize: 8, color: colors.slate700, marginBottom: 2 }}>
+          2. 실행 난이도 — 얼마나 빨리, 쉽게 고칠 수 있는가
+        </Text>
+        <Text style={{ fontSize: 8, color: colors.slate700, marginBottom: 6 }}>
+          3. 복합 효과 — 이걸 고치면 다른 문제도 함께 해결되는가
+        </Text>
+        <Text style={{ fontSize: 8, fontWeight: 600, color: colors.slate700 }}>
+          → 한마디로, &ldquo;적은 노력으로 가장 큰 돈을 아끼는
+          순서&rdquo;입니다.
+        </Text>
+      </View>
+
       {sortedWeeks.map((week) => {
         const items = weekGroups.get(week) ?? []
         return (

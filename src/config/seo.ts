@@ -4,9 +4,9 @@ export const SEO = {
   siteName: 'Findably',
   siteVersion: '0.1.0',
   siteUrl: SITE_URL,
-  defaultTitle: 'Findably — AI 마케팅 진단',
+  defaultTitle: 'AI 마케팅 진단, URL 하나로 시작 — Findably',
   defaultDescription:
-    'URL 하나로 SEO + GEO 통합 진단. AI가 검색 노출 문제를 찾고 실행 가능한 개선안을 제시합니다.',
+    '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단. 60개 항목 자동 분석, 가장 돈이 많이 새는 곳부터 고치는 순서를 알려드립니다.',
   locale: 'ko_KR',
   // OG 기본값
   ogImage: `${SITE_URL}/og/default.png`,
@@ -14,9 +14,9 @@ export const SEO = {
   ogImageHeight: 630,
   // 랜딩 페이지 전용
   landing: {
-    title: 'AI 마케팅 진단 — SEO + GEO 통합 분석 | Findably',
+    title: '마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably',
     description:
-      'URL 하나로 SEO + GEO 통합 진단. AI가 마케팅 점수를 매기고 실행 계획까지 제시합니다. 무료로 시작하세요.',
+      '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단.',
     ogImage: `${SITE_URL}/og/landing.png`,
   },
   // JSON-LD Organization 데이터
