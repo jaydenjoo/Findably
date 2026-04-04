@@ -1,4 +1,7 @@
 import type { Metadata } from 'next'
+import { JsonLd } from '@/components/shared/JsonLd'
+import { LANDING } from '@/config/landing'
+import { SEO } from '@/config/seo'
 import Navbar from '@/components/landing/navbar'
 import Hero from '@/components/landing/hero-section'
 import PainPoints from '@/components/landing/pain-points'
@@ -33,9 +36,51 @@ export const metadata: Metadata = {
   },
 }
 
+const landingJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${SEO.siteUrl}/#application`,
+      name: 'Findably AI 마케팅 진단',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      provider: { '@id': `${SEO.siteUrl}/#organization` },
+      description: 'URL 하나로 SEO+GEO 통합 진단, 60개+ 항목 자동 분석',
+      offers: [
+        {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'KRW',
+          name: '무료 진단',
+        },
+        {
+          '@type': 'Offer',
+          price: '99000',
+          priceCurrency: 'KRW',
+          name: '상세 분석',
+        },
+      ],
+    },
+    {
+      '@type': 'FAQPage',
+      '@id': `${SEO.siteUrl}/#faq`,
+      mainEntity: LANDING.faq.items.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.a,
+        },
+      })),
+    },
+  ],
+}
+
 export default function MarketingPage() {
   return (
     <div className="min-h-screen bg-background font-satoshi selection:bg-findably-cyan/30">
+      <JsonLd data={landingJsonLd} />
       <header>
         <Navbar />
       </header>

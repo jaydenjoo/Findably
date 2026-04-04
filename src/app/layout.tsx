@@ -58,20 +58,37 @@ export const metadata: Metadata = {
   },
 }
 
-const organizationJsonLd = {
+const globalJsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: SEO.organization.name,
-  url: SEO.organization.url,
-  logo: SEO.organization.logo,
-  description: SEO.organization.description,
-}
-
-const webSiteJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'WebSite',
-  name: SEO.siteName,
-  url: SEO.siteUrl,
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SEO.siteUrl}/#organization`,
+      name: SEO.organization.name,
+      url: SEO.organization.url,
+      logo: SEO.organization.logo,
+      description: SEO.organization.description,
+      knowsAbout: ['SEO 진단', 'GEO 최적화', '마케팅 분석', 'AI 검색 최적화'],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SEO.siteUrl}/#website`,
+      name: SEO.siteName,
+      url: SEO.siteUrl,
+      publisher: { '@id': `${SEO.siteUrl}/#organization` },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: '홈',
+          item: SEO.siteUrl,
+        },
+      ],
+    },
+  ],
 }
 
 export default function RootLayout({
@@ -90,8 +107,7 @@ export default function RootLayout({
             <div>{children}</div>
           </ErrorBoundary>
         </TooltipProvider>
-        <JsonLd data={organizationJsonLd} />
-        <JsonLd data={webSiteJsonLd} />
+        <JsonLd data={globalJsonLd} />
       </body>
     </html>
   )
