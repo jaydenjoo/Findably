@@ -9,7 +9,7 @@ export const SEO = {
     '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단. 60개 항목 자동 분석, 가장 돈이 많이 새는 곳부터 고치는 순서를 알려드립니다.',
   locale: 'ko_KR',
   // OG 기본값
-  ogImage: `${SITE_URL}/og/default.png`,
+  ogImage: `${SITE_URL}/og`,
   ogImageWidth: 1200,
   ogImageHeight: 630,
   // 랜딩 페이지 전용
@@ -17,7 +17,7 @@ export const SEO = {
     title: '마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably',
     description:
       '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단.',
-    ogImage: `${SITE_URL}/og/landing.png`,
+    ogImage: `${SITE_URL}/og`,
   },
   // JSON-LD Organization 데이터
   organization: {
