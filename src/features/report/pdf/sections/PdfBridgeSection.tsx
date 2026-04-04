@@ -1,11 +1,14 @@
 import { Text, View } from '@react-pdf/renderer'
 
+import { calculateRevenueImpact } from '@/config/revenue'
 import type { CategoryScore } from '@/features/diagnosis-free'
+import type { AIInsight } from '@/features/diagnosis-paid'
 
 import { colors, styles } from '../styles'
 
 interface PdfBridgeSectionProps {
   categoryScores: CategoryScore[]
+  aiInsights?: AIInsight[]
 }
 
 const BRIDGE_ROWS = [
@@ -52,6 +55,7 @@ function getScoreColor(score: number): string {
 
 export function PdfBridgeSection({
   categoryScores,
+  aiInsights,
 }: PdfBridgeSectionProps): React.JSX.Element {
   const rows = BRIDGE_ROWS.map((row) => ({
     ...row,
@@ -143,6 +147,63 @@ export function PdfBridgeSection({
           </Text>
         </View>
       ))}
+
+      {/* 총 누수 요약 카드 */}
+      {(() => {
+        const safeInsights = aiInsights ?? []
+        let immediateTotal = 0
+        let mediumTotal = 0
+        for (const insight of safeInsights) {
+          const revenue = calculateRevenueImpact({ severity: insight.severity })
+          if (!revenue) continue
+          const priority = insight.priority ?? 5
+          if (priority <= 3) {
+            immediateTotal += revenue.monthlyLoss
+          } else {
+            mediumTotal += revenue.monthlyLoss
+          }
+        }
+        const totalMonthly = immediateTotal + mediumTotal
+        if (totalMonthly === 0) return null
+        return (
+          <View
+            style={{
+              marginTop: 12,
+              backgroundColor: colors.primary50,
+              borderRadius: 6,
+              padding: 10,
+              borderWidth: 1,
+              borderColor: colors.slate200,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 9,
+                fontWeight: 600,
+                color: colors.slate900,
+                marginBottom: 4,
+              }}
+            >
+              현재 매월 새고 있는 마케팅 비용 (추정): 약 {totalMonthly}만원
+            </Text>
+            <Text
+              style={{ fontSize: 8, color: colors.slate700, marginBottom: 2 }}
+            >
+              연간 환산: 약 {totalMonthly * 12}만원
+            </Text>
+            {immediateTotal > 0 && (
+              <Text style={{ fontSize: 8, color: colors.danger700 }}>
+                즉시 해결 시 회복 가능: {immediateTotal}만원/월
+              </Text>
+            )}
+            {mediumTotal > 0 && (
+              <Text style={{ fontSize: 8, color: colors.warning700 }}>
+                1~2개월 내 해결 시: +{mediumTotal}만원/월
+              </Text>
+            )}
+          </View>
+        )
+      })()}
 
       <Text style={{ fontSize: 7, color: colors.slate500, marginTop: 8 }}>
         * 업종 평균 벤치마크 기준 추정치이며, 실제 결과와 다를 수 있습니다.
