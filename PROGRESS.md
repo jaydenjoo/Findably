@@ -382,24 +382,74 @@
 - `.next` 캐시 문제: 삭제된 `(public)/page.tsx` 참조로 `validator.ts` tsc 에러 발생 → `grep -v 'validator.ts'`로 필터링하면 실제 에러 0개
 - `rm -rf .next` 후 재빌드하면 해결됨
 
+## 2026-04-05~06 세션: CEO Review + Eng Review (Activation-First Launch Strategy)
+
+> /office-hours → /plan-ceo-review → /plan-eng-review 순으로 실행
+> Design doc: `~/.gstack/projects/jaydenjoo-Findably/jayden-main-design-20260405-231321.md`
+> CEO plan: `~/.gstack/projects/jaydenjoo-Findably/ceo-plans/2026-04-05-activation-first-launch.md`
+> Test plan: `~/.gstack/projects/jaydenjoo-Findably/jayden-main-eng-review-test-plan-20260406-001329.md`
+
+### 핵심 결정
+
+| 항목         | 결정                                                               |
+| ------------ | ------------------------------------------------------------------ |
+| 런칭 접근법  | Activation-First Hybrid (Phase 1 유지 + 대시보드 실행 중심 재구성) |
+| 모드         | SELECTIVE EXPANSION (4개 확장 수락)                                |
+| 무료 QW      | 미리보기만 (코드는 유료 뒤) — Codex cannibalization 우려 반영      |
+| QW 선택 로직 | `difficulty` 필드 추가 (types.ts + engine.ts + rules)              |
+| 이메일       | crawl/complete에서 after()로 발송 (Resend)                         |
+| 구현 순서    | 퍼널 추적 먼저 → UX 변경 후 (Codex 반영)                           |
+| 테스트       | 27개 전부 작성 (100% 커버리지)                                     |
+
+### 수락된 확장 (cherry-pick)
+
+1. 자동 리크롤 (7일 후 "고쳤어요" 검증)
+2. 이메일 알림 (Resend, 진단 완료 시)
+3. 무료 Quick Win 1개 미리보기
+4. NPS 1문항 (리포트 하단)
+
+### 구현 병렬화 전략
+
+- **Lane A** (독립): 퍼널 추적 utility + 이메일 adapter + difficulty 필드
+- **Lane B** (독립): API routes (self-report + nps)
+- **Lane C** (A+B 완료 후): Dashboard UX reorder + QuickWinCard 확장 + E2E
+
+### 리뷰 상태
+
+| Review        | Status                                |
+| ------------- | ------------------------------------- |
+| CEO Review    | CLEAR (SELECTIVE EXPANSION, 4/5 수락) |
+| Eng Review    | CLEAR (1 issue, 0 critical gaps)      |
+| Outside Voice | Codex 2회 반영 완료                   |
+| Design Review | 미실행 (UI 구현 후 추천)              |
+
+---
+
 ## 🔜 다음 할 일
 
-### PRD v1.2 배포 후 검증
+### Activation-First 구현 (최우선)
 
-1. PageSpeed LCP 측정 → 2.5초 미달 시 추가 최적화
-2. 카카오톡 공유 미리보기 확인
-3. Google 구조화 데이터 테스트 도구 확인
-4. Findably 자체 재진단 → 90점+ 달성 여부
+1. **Lane A**: `features/diagnosis-free/types.ts`에 `difficulty` 필드 추가 + engine.ts 수정
+2. **Lane A**: `lib/adapters/email.ts` Resend 어댑터 생성
+3. **Lane A**: `lib/analytics/events.ts` 퍼널 추적 유틸리티 생성
+4. **Lane B**: `/api/self-report` + `/api/nps` API routes 생성
+5. **Lane C**: `DashboardContent.tsx` Quick Wins 상단 재배치 + NPS 하단
+6. **Lane C**: `QuickWinCard.tsx` preview mode + "고쳤어요" 버튼
+7. **Lane C**: `crawl/complete`에 이메일 발송 (after())
+8. **Lane C**: E2E 테스트 3개 + Unit 테스트 24개
 
-### Task 10.4 잔여 — 404/500 에러 페이지
+### 10명 테스트 준비
 
-5. **`src/app/not-found.tsx`** — 404 전용 페이지
-6. **`src/app/global-error.tsx`** — 500 페이지 개선
+9. 타겟 매칭 10명 식별 (startup CEO / junior marketer)
+10. 선물 코드 배포 + Zoom 관찰 세션 (Week 1)
+11. 자기보고 + 설문 수집 (Week 2)
+12. 성공 기준 판정: 5명+ QW 실행, 2명+ 유료 의향
 
-### 인프라/결제
+### 잔여 작업 (Activation 이후)
 
-7. **findably.kr** 도메인 연결 (Vercel)
-8. **Toss Payments 실 연동** — 현재 선물 코드 → 별도 지시 시 진행
+13. Task 10.4 잔여 — 404/500 에러 페이지
+14. PRD v1.2 배포 후 검증 (LCP, 카카오톡, Schema)
+15. Toss Payments 실 연동 (테스트 데이터 확인 후)
 
 ### Phase 2 (v2 기능)
 
