@@ -5,8 +5,15 @@ import { runDiagnosisPaid } from '@/features/diagnosis-paid'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
-/** Vercel Lambda 최대 실행 시간 (초) — Pro 플랜: 최대 300초 */
-export const maxDuration = 120
+/**
+ * Vercel Lambda 최대 실행 시간 (초) — Pro 플랜: 최대 300초
+ *
+ * 2026-04-06: 120 → 300으로 상향 (Phase 3 Fix 1).
+ * 1차 실패 사례(competitors retry 중 정확히 120s hit)에서
+ * 5에이전트 90s race + retry-failed-agents + CMO 30s 누적이
+ * 120s를 초과하는 것이 확인됨. 시간 예산 재배분 전 임시 완화.
+ */
+export const maxDuration = 300
 
 /**
  * POST /api/payment/trigger-analysis
