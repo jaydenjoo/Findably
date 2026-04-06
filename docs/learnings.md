@@ -376,6 +376,27 @@
 - **해결**: (1) rule-id 매핑은 참고용 문서로만 두고, (2) `classifyInsight()` 함수가 insight의 `title + description`을 정규식 키워드 매칭으로 8개 영향 카테고리에 분류, (3) 매칭 실패 시 `other` fallback + 우선순위 매칭(ssl > lcp > mobile > ...)으로 다중 키워드 케이스 처리, (4) dev 모니터링용 `otherRatio` 출력으로 키워드 부족 시 실증 기반 확장
 - **규칙**: **AI 자유 생성 데이터를 후처리할 때는 엄격한 ID 기반 매핑 대신 키워드 휴리스틱 + fallback 카테고리**를 쓴다. 규칙 기반 시스템(`rule-id` + config)과 AI 기반 시스템(`insight[]`)이 공존하면 "규칙 레이어에 저장된 메타데이터가 AI 출력에 자동 반영되지 않는다" → 두 시스템을 잇는 **추론 레이어(classify 함수)가 반드시 필요**. 키워드 매칭은 추측으로 늘리지 말고 실제 데이터로 `other` 비율 확인 후 확장. 설계 시 "이 데이터는 어느 레이어에서 생성되는가"를 먼저 확인하고 매핑 구조를 잡을 것
 
+### 2026-04-06 선물 코드 admin 우회 — DB 유니크 제약 회피 + 흔적 미생성 패턴
+
+- **증상**: ADMIN-0709 코드(max_uses=100)를 admin 본인이 1번 사용한 후 재사용 시도 → "이미 사용한 코드입니다" 차단. 일반 사용자에게는 의도된 동작이지만 admin은 검증/테스트를 위해 무제한 사용이 필요
+- **원인**: 2개의 보안 레이어가 같은 사용자의 동일 코드 재사용을 차단:
+  1. DB 레벨: `006_findably_gift_codes.sql`의 `findably_gift_code_uses_code_user_idx` 유니크 인덱스 `(gift_code_id, user_id)`
+  2. 코드 레벨: `redeem-code/route.ts`의 `existingUse` 사전 검증
+- **해결**: DB는 손대지 않고 코드 레이어에서만 admin 우회. 4개 우회 포인트:
+  1. `max_uses` 검증 우회 (admin은 카운터 무관)
+  2. `existingUse` 중복 검사 우회 (admin은 재사용 허용)
+  3. `gift_code_uses` INSERT 우회 (DB 유니크 인덱스 위반 회피)
+  4. `used_count` UPDATE 우회 (카운터 보존 → 다른 사용자 99건 그대로)
+     단, 만료된 코드(`expires_at`)는 admin도 차단 유지 (실수 방지)
+- **규칙**: **DB 제약을 풀어서 모두 영향받게 만드는 대신, 코드 레이어에서 특정 계정만 우회하고 흔적 자체를 안 남기는 패턴**이 더 안전하다. INSERT를 우회하면 DB 유니크 위반을 자연스럽게 회피하면서 일반 사용자에게는 영향이 없다. 단점: admin 사용 흔적이 `gift_code_uses`에 안 남으므로, 감사 추적이 필요하면 별도 audit log 테이블이 더 적합. 보안 영역의 "예외 우회"는 항상 (1) 최소 권한자 (단일 계정 + email allowlist) (2) 명시적 안전장치 유지 (만료 같은 절대 제약은 admin도 차단) (3) DB 변경 회피 (롤백 단순화) 3원칙을 지킬 것
+
+### 2026-04-06 `as const` readonly array의 `.includes()` 좁은 리터럴 타입 에러
+
+- **증상**: `ACCESS.ADMIN_EMAILS.includes(user.email ?? '')` 호출 시 `TS2345: Argument of type 'string' is not assignable to parameter of type '"hidream72@gmail.com"'`. 같은 패턴이 다른 5개 파일에서는 통과하는데 `redeem-code/route.ts`에서만 에러
+- **원인**: `ACCESS.ADMIN_EMAILS`가 `as const`로 선언되어 `readonly ['hidream72@gmail.com']` 타입. TypeScript의 `Array.includes` 시그니처는 readonly 좁은 리터럴 배열에서 검색 인자도 같은 좁은 타입으로 추론. `user.email`은 `string`이라 매칭 안 됨. 다른 파일에서 통과하는 이유는 미파악(TS 캐시 또는 lib 차이 추정)
+- **해결**: `(ACCESS.ADMIN_EMAILS as readonly string[]).includes(user.email ?? '')` 캐스팅. 또는 `ACCESS.ADMIN_EMAILS.some(e => e === user.email)`로 우회 가능
+- **규칙**: **`as const` readonly 배열에서 `.includes()`를 일반 string 인자와 함께 호출할 때는 `readonly string[]` 캐스팅 패턴을 사용**. 같은 코드가 다른 파일에서 통과한다고 해서 자기 파일에서도 통과한다는 보장 없음 (TS 캐시·lib·타입 추론 컨텍스트 차이). 디버깅 단서: TS2345 + 인자 타입이 너무 좁은 리터럴이면 readonly 배열의 inference 함정 의심
+
 ### 2026-04-06 계획 수립 전 지시문 정독 누락 → 범위만 담긴 얕은 제안 (AI 이탈 교훈)
 
 - **상황**: `/start` 직후 Jayden이 유료 리포트 검수 Phase A 진행 여부를 물었을 때, Claude는 `docs/paid-report-audit-v1.md` 지시문을 **읽지 않고** PROGRESS.md 요약과 memory만 보고 "Phase A = Task 1+2+3, Step 1은 rule-id 스캔" 수준의 **범위 분류만** 담긴 제안을 올렸다. Jayden이 "이거 내용대로 계획을 세웠나?"라고 직접 지적해서야 누락을 인정하고 지시문을 정독했다
