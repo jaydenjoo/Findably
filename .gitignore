@@ -63,3 +63,6 @@ scripts/
 
 # claude agent memory (내부용)
 .claude/agent-memory/
+
+# claude personal skills toolkit (gstack — 개인 도구)
+.claude/skills/
