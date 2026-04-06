@@ -7,6 +7,7 @@ import { SEO } from '@/config/seo'
 // 첫 화면 (즉시 로드)
 import Navbar from '@/components/landing/navbar'
 import Hero from '@/components/landing/hero-section'
+import MaintenanceNotice from '@/components/landing/maintenance-notice'
 
 // 비첫화면 (lazy load — LCP 개선)
 const PainPoints = dynamic(() => import('@/components/landing/pain-points'))
@@ -94,6 +95,7 @@ export default function MarketingPage() {
   return (
     <div className="min-h-screen bg-background font-satoshi selection:bg-findably-cyan/30">
       <JsonLd data={landingJsonLd} />
+      <MaintenanceNotice />
       <header>
         <Navbar />
       </header>
