@@ -616,3 +616,73 @@ pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm test
 | 이메일 알림           | P2       | 분석 완료 시 이메일 발송 (대기 시간 체감 0) |
 | 점진적 결과 표시      | P2       | 에이전트별 순차 노출                        |
 | n8n watchdog          | P3       | 5분 stuck 감지 자동 복구                    |
+
+---
+
+## 📌 2026-04-06 세션 진행 상황
+
+### 현재 위치
+
+- **Epic**: 프로덕션 복구 + 아키텍처 재검토
+- **Task**: n8n 크롤링 파이프라인 고장 원인 파악 + 대안 검토
+- **상태**: 🟡 **부분 완료** — PaidAnalyzingState 버그 수정됨, n8n 콜백 미동작 문제는 미해결
+
+### 이번 세션 완료 내역
+
+1. **Lane A/B 코드 작업** (미커밋, 로컬)
+   - Lane A Task 1: `difficulty` 필드 추가 (7개 rule 파일 + types + 테스트)
+   - Lane A Task 2: Resend 이메일 어댑터 + `crawl/complete` 통합 (`src/lib/adapters/email.ts`)
+   - Lane A Task 3: `trackEvent()` 유틸 + `analytics_events` 테이블
+   - Lane B: `/api/self-report` + `/api/nps` POST 엔드포인트 신규
+   - 약 55개 단위 테스트 통과
+
+2. **DB 마이그레이션 재구성** (Supabase)
+   - Findably 관련 10개 테이블 drop & recreate (chatsio 테이블 건드리지 않음)
+   - `updated_at` 컬럼 + trigger + UPDATE RLS 정책 누락 발견 → 추가
+   - `analytics_events`, `self_reports`, `nps_responses` 신규 테이블 적용
+
+3. **프로덕션 버그 수정 (커밋 `c59d9bc`)**
+   - **근본 원인**: `PaidAnalyzingState`가 `isPaid` 무관하게 `/api/payment/trigger-analysis` 호출 → `runDiagnosisPaid()`가 `crawl_data=NULL`에서 실패 → catch 블록이 `status='failed'` 마킹
+   - **수정 1**: `PaidAnalyzingState.tsx`에 `if (!isPaid) return` 가드
+   - **수정 2**: `trigger-analysis/route.ts`에 `tier !== 'paid'` 체크 추가 → `skipped_free_tier` 응답
+   - 증거: pg_stat_statements에서 `SELECT status → SELECT url,crawl_data,... → UPDATE status` 시퀀스 추적
+
+4. **last-known-good.md 시스템 구축 (커밋 `c59d9bc`)**
+   - `docs/last-known-good.md` 신규 258줄 — 프로덕션 상태 추적 프레임워크
+   - 섹션 1 (마지막 정상), 섹션 2 (현재 상태), 섹션 3 (검증 체크리스트 Tier 1~5), 섹션 4 (업데이트 프로토콜), 섹션 5 (문제 발생 시 진단 순서 READ ONLY), 섹션 6 (변경 이력)
+   - `CLAUDE.md`에 1줄 추가: "프로덕션 이슈 발생 시 반드시 `docs/last-known-good.md` 먼저 확인"
+
+5. **n8n 대안 딥리서치 완료 (실행 안 함 — 검토만)**
+   - 9개 옵션 비교: Vercel Lambda 인프로세스, Vercel Workflow (2025-10 출시), Vercel Queues (2026-02 GA), Inngest, Trigger.dev v3, Upstash Workflow, Supabase Edge Functions, Cloudflare Workflows, n8n 유지
+   - **결론**: Vercel Pro 구독 + n8n 공유 무료 상황 감안 시 **시나리오 C (이중 전략)** 권장
+     - 단기 (30분~2h): n8n 콜백 버그 수정 (프로덕션 즉시 복구)
+     - 중기 (1~2일): Option A (Pure `Promise.all` Vercel 인프로세스)로 마이그레이션
+     - 장기 (선택): Option B (Vercel Workflow GA 후 이전)
+   - **핵심 발견**: Vercel Fluid Compute 기본 활성화 (2025-04~) + Hobby 300s / Pro 800s 한도, Active CPU 과금으로 I/O fan-out 거의 무료. Inngest Pro $25→$75 인상 + 무료 5 concurrent step 제한 확인
+
+### 다음 세션 할 일
+
+| 우선순위 | 작업                                      | 비고                                                                      |
+| -------- | ----------------------------------------- | ------------------------------------------------------------------------- |
+| **P0**   | **n8n 콜백 미동작 원인 파악 + 수정**      | Elest.io Executions 탭 / Firecrawl 크레딧 / Vercel env 확인 (Jayden 영역) |
+| **P0**   | Lane A/B 작업분 커밋 전략 수립            | 20+ 미커밋 파일 정리, 테스트 재실행                                       |
+| **P1**   | Option A 마이그레이션 (n8n → Pure Vercel) | Firecrawl 어댑터 + Group C 파서 4개 + 오케스트레이터 (1~2일)              |
+| **P2**   | last-known-good.md Section 1 갱신         | 마이그레이션 성공 후 Tier 1~3 체크 통과 시                                |
+| **P3**   | 기존 테스트 실패 31건 정리                | observatory v2 마이그레이션, CMO fallback, SWOT 관련 (기존 이슈)          |
+
+### 차단 요소
+
+- **n8n 콜백 미동작 원인 불명** — 내가 직접 확인 불가 (Elest.io 계정, Firecrawl 대시보드, Vercel env 값). Jayden 영역
+- **Lane A/B 20+ 파일 미커밋** — 이번 세션의 버그 수정(`c59d9bc`)과 섞이지 않도록 의도적으로 배제. 다음 세션에서 별도 커밋 전략 필요
+
+### 이번 세션 주요 배운 점 (learnings.md에 기록됨)
+
+1. **PaidAnalyzingState race condition** — paid 전용 API에 tier 가드 필수
+2. **증거 수집 전 파괴적 작업 금지** — 프로덕션 이슈 시 READ ONLY 우선, DB drop 같은 작업은 root cause 확정 후
+3. **외부 서비스 가격/제한 검증 습관** — 기술 선정 시 공식 pricing 당일 확인 + 무료 티어 세부 조건 + 최근 6개월 신제품 검색
+
+### 마지막 업데이트
+
+- **날짜**: 2026-04-06
+- **세션 시간**: ~6시간 (긴 디버깅 + 딥리서치 포함)
+- **최종 커밋**: `c59d9bc` fix: 무료 진단이 trigger-analysis로 failed 마킹되는 race condition 수정

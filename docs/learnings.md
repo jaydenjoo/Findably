@@ -207,6 +207,38 @@
 - **해결**: "가입 불필요" → "URL만 입력"으로 변경
 - **규칙**: 랜딩 페이지의 신뢰 지표 문구는 실제 유저 플로우와 반드시 일치해야 함. 기능 변경 시 마케팅 문구도 함께 점검. 거짓 약속은 이탈률 증가 + 신뢰 하락
 
+### 2026-04-05 Supabase OAuth — 커스텀 도메인 Redirect URL 미등록으로 Google 로그인 실패
+
+- **증상**: Google 로그인 버튼 클릭 → Google 인증 완료 → 메인 페이지(`/?code=...`)로 이동. 로그인 안 됨
+- **원인**: Supabase Redirect URLs에 `https://findably.vercel.app/auth/callback`만 등록하고 실제 서비스 도메인 `https://findably.kr/auth/callback`을 등록하지 않음. Supabase는 `redirectTo`가 허용 목록에 없으면 Site URL(루트)로 폴백. `/?code=...`가 루트 페이지에 도착하면 `exchangeCodeForSession()`이 실행되지 않아 세션 미생성
+- **해결**: Supabase Dashboard → Authentication → URL Configuration에서 (1) Site URL: `https://findably.kr` 설정 (2) Redirect URLs: `https://findably.kr/auth/callback` 추가
+- **규칙**: 커스텀 도메인 연결 시 반드시 Supabase Redirect URLs에 `https://{도메인}/auth/callback` 추가. Vercel 도메인과 커스텀 도메인은 별개. 체크리스트: (1) Site URL = 실제 서비스 도메인 (2) Redirect URLs에 모든 도메인의 `/auth/callback` 등록 (3) localhost 개발용도 포함. 증상 단서: OAuth 후 `/?code=...`로 리다이렉트되면 Redirect URL 미등록 의심
+
+### 2026-04-06 PaidAnalyzingState가 무료 진단에 trigger-analysis 호출 → status=failed 마킹 (race condition)
+
+- **증상**: URL 제출 후 `status=crawling`까지는 정상. 5분 뒤 `status=failed`, `crawl_data=NULL`. 사용자는 "점수산출에서 계속 로딩중"만 봄
+- **원인**: `src/app/(dashboard)/dashboard/_components/PaidAnalyzingState.tsx`의 useEffect가 주석("isPaid 여부와 무관하게 analyzing 상태면 트리거 시도")대로 `isPaid` 여부와 상관없이 `/api/payment/trigger-analysis`를 호출. 이 라우트는 `runDiagnosisPaid()`를 실행하는데, 무료 진단은 `crawl_data`가 NULL인 상태에서 호출되면 `isValidCrawlData(null)`이 false → `return { success: false }` → catch 블록이 `.update({ status: 'failed' })` 실행. 이전까지는 n8n 크롤링이 빠르게 끝나 crawl_data가 먼저 채워져서 이 race condition이 가려져 있었음
+- **해결**: (1) 프론트 가드: `PaidAnalyzingState.tsx`에 `if (!isPaid) return` 추가 (2) 백엔드 방어: `trigger-analysis/route.ts`에서 `select('status, tier')` 후 `if (diag?.tier !== 'paid') return successResponse({ status: 'skipped_free_tier' })` — 이중 방어
+- **규칙**: paid 전용 API 라우트는 **반드시 tier 가드를 추가**. 프론트엔드만 믿지 말 것. `runDiagnosisPaid`처럼 crawl_data 의존성 있는 함수는 입력 검증 실패 시 catch에서 `status='failed'` UPDATE 금지 — 정상 진행 중인 다른 프로세스를 죽일 수 있음. 디버깅 단서: pg_stat_statements에서 `UPDATE status` pure-update 쿼리가 있으면 이 패턴 의심. 2026-04-06 이번 세션에서 프로덕션 4시간 추적 끝에 발견
+
+### 2026-04-06 프로덕션 이슈 발생 시 증거 수집 전 파괴적 DB 작업 금지 (AI 방향 이탈 교훈)
+
+- **상황**: Jayden이 "프로덕션 분석리포트가 나오지 않는다" 보고. Claude는 pg_stat_statements/API logs 확인 없이 "테이블이 없다"고 오진 → 마이그레이션 10+개 실행 → "drop and recreate all tables" 파괴적 작업 실행. 이후 진짜 원인은 코드 버그였음이 판명
+- **AI가 한 것**: 증거 수집 생략 → 가설 수립 생략 → 파괴적 작업 직행 → chatsio 공유 프로젝트 위험 증가 → 근본 원인과 무관한 수술
+- **올바른 방향**: (1) pg_stat_statements로 최근 쿼리 패턴 확인 (2) Supabase API logs + Postgres logs 확인 (3) git log로 최근 변경 확인 (4) 가설 수립 후 Jayden 승인 → 작은 확인 쿼리부터 (5) 파괴적 작업은 root cause 증거 확정 후에만
+- **프롬프트 교훈**: 프로덕션 이슈가 보고되면 AI는 **반드시** 먼저 "READ ONLY 단계 → 가설 수립 → 승인 → 실행" 순서를 지켜야 함. 파괴적 작업(DB drop, env 변경, 재마이그레이션)은 증거로 확정된 root cause가 있을 때만 제안. `docs/last-known-good.md` 시스템 도입(2026-04-06)으로 이 규칙을 명문화 + CLAUDE.md에 1줄 추가. CLAUDE.md 규칙: "프로덕션 이슈 발생 시 반드시 `docs/last-known-good.md` 먼저 확인. 증거 수집 전 파괴적 작업 금지"
+
+### 2026-04-06 외부 서비스 가격/제한 변경 검증 습관 (딥리서치 교훈)
+
+- **증상**: Claude가 n8n 대안으로 Inngest를 1순위 추천. 근거로 "Pro $25/월, 무료 5000건 충분"을 제시. Jayden이 딥리서치 요청 후 실제 확인했더니 Inngest Pro는 **$75/월** (2024→2026 3배 인상), 무료 티어는 "함수당 5 concurrent step 제한"으로 Findably 10 병렬 fan-out을 직렬화. 또한 Vercel이 2025-04부터 Fluid Compute 기본 활성화 + Hobby 한도 60초→300초로 대폭 상향한 사실을 첫 조사에서 놓침
+- **원인**: 학습 데이터 cutoff 이후의 가격/제한 변경을 검증하지 않고 "내가 아는 것"을 기반으로 추천. 특히 기술 선정 같은 중요 결정에서 오래된 정보가 잘못된 방향으로 안내할 위험이 큼
+- **해결**: Jayden이 "딥리서치로 검증" 재요청 → Context7 + WebSearch + 공식 가격 페이지 직접 확인 → Vercel Workflow(2025-10 출시), Vercel Queues(2026-02 GA) 같은 신제품 발견 → 추천 전면 재정리
+- **규칙**: 기술 선정/아키텍처 추천 시 **반드시** 아래 3개 확인:
+  (1) **가격**: 공식 pricing 페이지 WebFetch로 당일 확인 — "내가 아는 가격"을 절대 인용하지 말 것
+  (2) **제한/한도**: 무료 티어 세부 조건 확인 (concurrent, rate limit, retention 등). "월 X건 충분"만 보지 말고 병렬성/동시성 제약 확인
+  (3) **신제품**: 주요 벤더(Vercel, Supabase, Cloudflare 등)의 최근 6개월 출시 제품 검색 — 검색 쿼리에 현재 연도 명시
+  추천을 잘못하면 Jayden이 잘못된 방향으로 며칠을 날릴 수 있음. 10분 딥리서치 > 3일 잘못된 구현
+
 ---
 
 ## 🔍 에러 발생 시 디버깅 체크포인트
