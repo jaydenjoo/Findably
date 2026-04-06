@@ -62,6 +62,10 @@
 
 tsc → eslint → build → test 통과 전 다음 Task 금지
 
+## 프로덕션 디버깅
+
+프로덕션 이슈 발생 시 **반드시 `docs/last-known-good.md` 먼저 확인**. 증거 수집 전 파괴적 작업(DB drop, env 변경, 재마이그레이션) 금지.
+
 ## 참조 (필요 시 읽기)
 
 - @docs/PRD.md

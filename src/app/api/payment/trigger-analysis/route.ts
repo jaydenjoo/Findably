@@ -52,11 +52,11 @@ export async function POST(request: NextRequest): Promise<Response> {
     return errorResponse(message, 400)
   }
 
-  // 3. 이미 완료/진행 중인지 확인 (중복 실행 방지)
+  // 3. 진단 조회 — tier + status (중복 실행 + 잘못된 tier 방지)
   const admin = createAdminClient()
   const { data: diag } = await admin
     .from('diagnoses')
-    .select('status')
+    .select('status, tier')
     .eq('id', body.diagnosisId)
     .single()
 
@@ -64,6 +64,20 @@ export async function POST(request: NextRequest): Promise<Response> {
     return successResponse({
       diagnosisId: body.diagnosisId,
       status: 'already_completed',
+    })
+  }
+
+  // 3-1. tier 가드 — 무료 진단은 n8n 콜백(/api/crawl/complete)이 트리거하므로
+  //      이 라우트로 들어오면 무시. 프론트엔드 실수/재시도로 들어와도 DB를 망치지 않음.
+  if (diag?.tier !== 'paid') {
+    console.warn(
+      '[trigger-analysis] 무료 진단에 호출됨 — 스킵:',
+      body.diagnosisId,
+      { tier: diag?.tier ?? 'null' }
+    )
+    return successResponse({
+      diagnosisId: body.diagnosisId,
+      status: 'skipped_free_tier',
     })
   }
 

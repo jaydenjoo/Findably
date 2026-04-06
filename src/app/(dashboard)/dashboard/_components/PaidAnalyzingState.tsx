@@ -90,15 +90,15 @@ export function PaidAnalyzingState({
   }, [diagnosisId, router])
 
   // 유료 분석 트리거 — 프론트엔드에서 직접 호출
-  // isPaid 여부와 무관하게 analyzing 상태면 트리거 시도
-  // (trigger-analysis 내부에서 이미 완료된 건은 스킵)
+  // 무료 진단은 n8n 크롤링 콜백 (/api/crawl/complete)이 진단 엔진을 트리거하므로
+  // 여기서는 isPaid === true일 때만 호출한다.
+  // (과거 버그: isPaid 무관 호출 → 무료 진단에 runDiagnosisPaid 실행 → crawl_data NULL → failed 마킹)
   useEffect(() => {
     if (triggerCalledRef.current) return
+    if (!isPaid) return
     triggerCalledRef.current = true
 
-    console.log('[PaidAnalyzingState] 분석 트리거 호출:', diagnosisId, {
-      isPaid,
-    })
+    console.log('[PaidAnalyzingState] 유료 분석 트리거 호출:', diagnosisId)
 
     fetch('/api/payment/trigger-analysis', {
       method: 'POST',
