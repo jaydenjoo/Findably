@@ -188,6 +188,7 @@ export function OverviewContent({
                 key={qw.ruleId}
                 quickWin={qw}
                 diagnosisId={diagnosisId}
+                canSelfReport={!isFree}
               />
             ))}
           </div>

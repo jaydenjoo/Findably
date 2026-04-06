@@ -21,6 +21,7 @@ import { RiskHeatmap } from './RiskHeatmap'
 import { ScoreTrend } from './ScoreTrend'
 import { PartialDataBanner } from '@/features/crawling'
 import { GiftCodeModal } from './GiftCodeModal'
+import { NPSSection } from './NPSSection'
 
 interface DashboardContentProps {
   overallScore: OverallScore
@@ -222,6 +223,7 @@ export function DashboardContent({
                   key={qw.ruleId}
                   quickWin={qw}
                   diagnosisId={diagnosisId}
+                  canSelfReport={!isFree}
                 />
               ))}
             </div>
@@ -302,6 +304,9 @@ export function DashboardContent({
           ))}
         </div>
       </DetailSection>
+
+      {/* 4행: NPS 피드백 (Free/Paid 공통, 페이지 최하단) */}
+      <NPSSection diagnosisId={diagnosisId} />
     </div>
   )
 }

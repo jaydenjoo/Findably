@@ -1,4 +1,8 @@
+'use client'
+
+import { useState, type MouseEvent } from 'react'
 import Link from 'next/link'
+import { Check } from 'lucide-react'
 import type { QuickWin } from '@/features/diagnosis-free/types'
 import { CATEGORY_CONFIG } from '@/features/diagnosis-free/constants'
 import { SCORING } from '@/config/scoring'
@@ -6,12 +10,22 @@ import { SCORING } from '@/config/scoring'
 interface QuickWinCardProps {
   quickWin: QuickWin
   diagnosisId: string
+  /**
+   * true 면 "고쳤어요" 자기보고 버튼 노출 (유료 사용자 전용)
+   * false/undefined (기본): 버튼 미노출 (Free 사용자)
+   */
+  canSelfReport?: boolean
 }
+
+type ReportState = 'idle' | 'submitting' | 'reported' | 'error'
 
 export function QuickWinCard({
   quickWin,
   diagnosisId,
+  canSelfReport = false,
 }: QuickWinCardProps): React.JSX.Element {
+  const [reportState, setReportState] = useState<ReportState>('idle')
+
   const severity = SCORING.SEVERITY_STYLES[quickWin.severity] ?? {
     bg: 'bg-slate-50',
     text: 'text-slate-600',
@@ -22,6 +36,36 @@ export function QuickWinCard({
   const barColor =
     SCORING.SEVERITY_BAR_COLORS[quickWin.severity] ?? 'bg-slate-400'
   const detailUrl = `/diagnosis/overview?id=${diagnosisId}`
+
+  async function handleSelfReport(
+    e: MouseEvent<HTMLButtonElement>
+  ): Promise<void> {
+    // Link 네비게이션 차단 — 카드 전체가 Link 내부이므로
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (reportState === 'submitting' || reportState === 'reported') return
+
+    setReportState('submitting')
+    try {
+      const res = await fetch('/api/self-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diagnosisId,
+          ruleId: quickWin.ruleId,
+        }),
+      })
+      if (!res.ok) {
+        setReportState('error')
+        return
+      }
+      setReportState('reported')
+    } catch (error) {
+      console.error('[QuickWinCard] self-report 실패', error)
+      setReportState('error')
+    }
+  }
 
   return (
     <Link href={detailUrl}>
@@ -77,6 +121,36 @@ export function QuickWinCard({
             />
           </div>
         </div>
+
+        {/* 자기보고 버튼 — 유료 사용자 전용 */}
+        {canSelfReport && (
+          <div className="flex flex-col gap-1 border-t border-slate-100 pt-3">
+            {reportState === 'reported' ? (
+              <div
+                className="inline-flex items-center gap-1.5 rounded-md bg-success-50 px-2.5 py-1.5 text-xs font-semibold text-success-700"
+                aria-live="polite"
+              >
+                <Check className="size-3.5" aria-hidden="true" />
+                확인했어요 · 7일 후 재검사 예정
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSelfReport}
+                disabled={reportState === 'submitting'}
+                aria-label={`${quickWin.ruleName} 고쳤다고 표시`}
+                className="inline-flex items-center justify-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              >
+                {reportState === 'submitting' ? '기록 중...' : '고쳤어요 ✓'}
+              </button>
+            )}
+            {reportState === 'error' && (
+              <p role="alert" className="text-xs text-danger-600">
+                기록에 실패했습니다. 다시 시도해주세요.
+              </p>
+            )}
+          </div>
+        )}
       </article>
     </Link>
   )
