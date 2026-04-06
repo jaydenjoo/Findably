@@ -10,14 +10,22 @@
 ## 1. 🟢 마지막 검증된 정상 상태 (Last Verified Good)
 
 ```
-마지막 검증 일시: 2026-04-06 15:04 KST
-Git SHA:         cecb651 (chore: health 라우트 + prd v1.2 + .claude/skills 무시)
-Vercel 배포 ID:  (자동 배포 — cecb651 푸시 후)
+마지막 검증 일시: 2026-04-06 16:38 KST
+Git SHA:         96997d2 (feat(dashboard): lane c — quick win 자기보고 + nps 피드백)
+Vercel 배포 ID:  findably-cxt3urkkh-jaydens-projects-f5e92399 (수동 배포 — vercel --prod)
 n8n workflow:    findably-crawl-v2-production (callback URL = https://findably.kr/api/crawl/complete)
-검증자:          Jayden
-검증 시나리오:   무료 진단 end-to-end (https://findably.kr/) → 17.85초만에 completed
-                 diagnosis_id=147e37aa-5ada-44ae-aec8-33d21d12e0c1
-                 total_score=56, grade=warning, has_crawl=true, has_analysis=true
+검증자:          Jayden + Claude (Lane C UI 수동 + DB 자동)
+검증 시나리오 A: Lane C 프로덕션 검증 (QuickWinCard 자기보고 + NPSSection)
+                 → diagnosis_id=5878eca6-214f-4078-b7fd-bfe3ae4454d7 (paid)
+                 → self_reports 1건 (rule_id=soc-03, recrawl_scheduled_at=2026-04-13)
+                 → nps_responses 1건 (score=10)
+                 → analytics_events 2건 (self_report_submitted + nps_submitted)
+검증 시나리오 B: Tier 3 유료 파이프라인 DB 재확인 (5878eca6)
+                 → 5-Agent 모두 completed (technical 52.5s / seo 39.0s / geo 60.6s / content 43.4s / competitors 68.9s)
+                 → CMO 요약 ~420자 정상 생성
+                 → 총 소요 69.2초 / 총 비용 408원 / insights 30개 / roadmap 18개 / quickWins 5개
+검증 시나리오 C: Tier 4 PDF 다운로드 — Jayden 수동 확인 성공
+미검증 (이관):   Tier 4 Resend 이메일 발송 (RESEND_API_KEY 미설정으로 어댑터 동작 안 함)
 ```
 
 ### 적용된 Supabase 마이그레이션 (정상 시점 기준)
@@ -32,35 +40,51 @@ ORDER BY version;
 
 ### 설정되어 있어야 하는 환경변수 (이름만 — 값 금지)
 
-_Vercel 대시보드 기준 — 다음 검증 성공 시 현재 이름 목록을 붙여넣기:_
+_Vercel 대시보드 기준 (2026-04-06 16:38 KST 확인):_
+
+**✅ 설정됨 (Production + Preview + Development):**
 
 ```
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
 ANTHROPIC_API_KEY
-N8N_WEBHOOK_URL
-N8N_WEBHOOK_SECRET
 CRAWL_EXECUTE_SECRET
+FIRECRAWL_API_KEY
+GOOGLE_AI_API_KEY
+GOOGLE_API_KEY
+N8N_WEBHOOK_SECRET
+N8N_WEBHOOK_URL
 NEXT_PUBLIC_SITE_URL
-RESEND_API_KEY
-TOSS_SECRET_KEY
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+NEXT_PUBLIC_SUPABASE_URL
+OPENAI_API_KEY
+PAYMENT_PROVIDER
+PERPLEXITY_API_KEY
+SUPABASE_SERVICE_ROLE_KEY
+VERCEL_OIDC_TOKEN
+```
+
+**❌ 미설정 (기능 미활성 상태):**
+
+```
+RESEND_API_KEY             → 진단 완료 이메일 발송 안 됨 (코드 catch로 graceful 처리)
+TOSS_SECRET_KEY            → Toss Payments 실 연동 안 됨 (현재 MockPaymentAdapter + 선물코드)
 NEXT_PUBLIC_TOSS_CLIENT_KEY
-SENTRY_DSN
-CRON_SECRET
-(이 외 추가 시 여기 이름만 추가)
+SENTRY_DSN                 → Sentry 에러 추적 비활성
+CRON_SECRET                → 7일 재크롤 크론 트리거 시크릿 (Phase 2)
 ```
 
 ### 검증 통과한 사용자 시나리오
 
-- [ ] 로그인 (이메일)
-- [ ] 로그인 (Google OAuth)
-- [ ] URL 제출 → 3분 이내 무료 리포트 완료
-- [ ] 대시보드에서 점수/Quick Win 정상 렌더
-- [ ] 선물코드 결제 → 상세 분석 2분 이내 완료
-- [ ] Toss 결제 → 상세 분석 2분 이내 완료
-- [ ] PDF 다운로드 작동
-- [ ] Sentry 대시보드 에러 0건 (최근 1시간)
+- [x] 로그인 (이메일) — Jayden 세션 유지
+- [ ] 로그인 (Google OAuth) — 이번 세션 미검증
+- [x] URL 제출 → 3분 이내 무료 리포트 완료 — 이전 세션 17.85초
+- [x] 대시보드에서 점수/Quick Win 정상 렌더 — Jayden 수동 확인
+- [x] **Quick Win "고쳤어요" 버튼 → self_reports INSERT + 7일 재크롤 예약** (2026-04-06 신규)
+- [x] **NPS 섹션 점수 제출 → nps_responses INSERT + 감사 메시지 전환** (2026-04-06 신규)
+- [x] 선물코드 결제 → 상세 분석 (5878eca6 재사용 검증: 5-Agent 69.2초 + CMO 정상)
+- [ ] Toss 결제 → 상세 분석 — MockPaymentAdapter + 선물코드만 운용 중
+- [x] PDF 다운로드 작동 — Jayden 수동 확인 성공 (/reports/my/5878eca6)
+- [ ] 이메일 알림 (Resend) — RESEND_API_KEY 미설정으로 기능 비활성
+- [ ] Sentry 대시보드 에러 0건 — SENTRY_DSN 미설정
 
 ---
 
@@ -69,16 +93,23 @@ CRON_SECRET
 > **자동 갱신 아님** — 세션 작업 중 상황 바뀌면 여기 기록
 
 ```
-마지막 점검 일시: 2026-04-06 15:04 KST
-Git SHA:         cecb651 (chore: health 라우트 + prd v1.2 + .claude/skills 무시)
-상태:            🟢 정상 (무료 진단 파이프라인 end-to-end 검증 통과)
+마지막 점검 일시: 2026-04-06 16:38 KST
+Git SHA:         96997d2 (feat(dashboard): lane c — quick win 자기보고 + nps 피드백)
+상태:            🟢 정상 (Lane C 배포 + 유료 파이프라인 재검증 + Tier 4 PDF 통과)
 ```
 
-### 해소된 문제
+### 이번 세션 해소/달성
 
-- **P0 — 무료 진단 플로우 고장 (`status=failed` race condition)** → 커밋 `c59d9bc`에서 수정 완료. `PaidAnalyzingState`에 `if (!isPaid) return` 가드 + `trigger-analysis`에 tier 가드 추가.
-- **P0 — n8n 콜백 URL stale (`findably.vercel.app`)** → Jayden이 Elest.io workflow 콜백 URL을 `https://findably.kr/api/crawl/complete` 로 교체. Save 직후에는 반영 안 됐고, 약 30분 후 재활성화/재저장 후 17.85초 end-to-end 성공 검증.
-- **Lane A/B 미커밋 20+ 파일** → 4개 커밋(`6650180`, `efe4719`, `d114235`, `cecb651`)으로 분할 후 `origin/main` 푸시 완료.
+- **Lane C 구현 + 배포** → QuickWinCard 자기보고 버튼 + NPSSection 신규. 커밋 `96997d2`.
+- **수동 배포 필요했던 이유 불명** → `git push origin main` 후 Vercel 자동 배포가 15분간 트리거되지 않아 `vercel --prod`로 수동 배포. 원인: GitHub Actions CI lint 실패(`pnpm store path` 환경 이슈)가 직접 원인은 아닐 것. Vercel GitHub App 연동 상태 재확인 필요 (별도 Task).
+- **Lane C DB 증거 확보** — self_reports 1건 / nps_responses 1건 / analytics_events 2건 (baseline 0 → 정상 증가)
+- **유료 파이프라인 재검증** — 기존 `5878eca6`의 agentResults + cmoSummary + cost + duration 모두 정상 확인
+- **Tier 4 PDF 검증 완료** — Jayden 수동 확인 성공
+
+### 미해소/이관
+
+- **Tier 4 Resend 이메일** — RESEND_API_KEY 환경변수 미설정으로 발송 기능 비활성. 코드는 정상(어댑터 + crawl/complete after() 연동). 다음 세션에 Resend 계정 가입 + 도메인 검증 + env 추가 작업 예정.
+- **GitHub Actions CI lint 실패** — 최근 5개 커밋 모두 `pnpm store path --silent` 실행 시 "packages field missing or empty" 에러로 실패. Vercel 배포는 독립적으로 성공하므로 배포 차단은 아님. 별도 디버깅 Task.
 
 ### DB 재마이그레이션 이력 (2026-04-06 이전 세션)
 
@@ -91,11 +122,12 @@ findably_v2_complete_schema_2026_04_06  (20260406030732) — 통합 재생성
 
 **중요**: chatsio-v1 공유 Supabase 프로젝트이므로 `user_profiles, shops, products, optimizations, prompts, prompt_versions` 등 chatsio 테이블은 건드리지 않음.
 
-### 검증되지 않은 영역 (다음 검증 Tier로 남김)
+### 검증되지 않은 영역 (다음 세션)
 
-- Tier 3: 유료 진단 (선물코드 / Toss Payments) end-to-end — 이번 세션 미검증
-- Tier 4: PDF 다운로드, Resend 이메일 알림 실제 발송
-- Tier 5: Sentry / Vercel Function Logs 장시간 에러 0건 확인
+- Tier 4: Resend 이메일 알림 실제 발송 (인프라 설정 대기)
+- Tier 5: Sentry / Vercel Function Logs 장시간 에러 0건 확인 (SENTRY_DSN 미설정)
+- Google OAuth 로그인 — 이메일 로그인만 확인
+- Toss Payments 실 연동 — 현재 MockPaymentAdapter + 선물코드만 운용
 
 ---
 
@@ -242,10 +274,11 @@ mcp__claude_ai_Supabase__get_logs(service="postgres")
 
 ## 6. 📜 변경 이력
 
-| 날짜       | SHA     | 상태    | 변경 사유                                                                                                   | 갱신자          |
-| ---------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------- | --------------- |
-| 2026-04-06 | 8f7d569 | 🔴 고장 | 초기 파일 생성 — PaidAnalyzingState race condition 버그 발견, 프로덕션 고장 상태                            | Claude + Jayden |
-| 2026-04-06 | cecb651 | 🟢 정상 | n8n 콜백 URL 수정(`findably.vercel.app` → `findably.kr`) + Lane A/B 정리. 무료 진단 17.85초 end-to-end 성공 | Claude + Jayden |
+| 날짜       | SHA     | 상태    | 변경 사유                                                                                                                                                                                | 갱신자          |
+| ---------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| 2026-04-06 | 8f7d569 | 🔴 고장 | 초기 파일 생성 — PaidAnalyzingState race condition 버그 발견, 프로덕션 고장 상태                                                                                                         | Claude + Jayden |
+| 2026-04-06 | cecb651 | 🟢 정상 | n8n 콜백 URL 수정(`findably.vercel.app` → `findably.kr`) + Lane A/B 정리. 무료 진단 17.85초 end-to-end 성공                                                                              | Claude + Jayden |
+| 2026-04-06 | 96997d2 | 🟢 정상 | Lane C 배포 + 검증: QuickWin 자기보고 + NPS 섹션. DB 증거 4건 확보. 유료 파이프라인(5878eca6) 5-Agent+CMO 재확인. Tier 4 PDF 다운로드 수동 검증 통과. (Resend 이메일은 인프라 미완 이관) | Claude + Jayden |
 
 ---
 

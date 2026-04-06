@@ -811,3 +811,75 @@ pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm test
 - **날짜**: 2026-04-06
 - **최종 커밋**: `da8c1c4` docs: save session 2차 — lane a/b 정리 + n8n 콜백 복구 기록
 - **상태**: ⏸️ Lane C 구현 보류 (계획 완료, 승인 완료, 구현 대기)
+
+---
+
+## 2026-04-06 세션 4차: Lane C 구현 + 배포 + Tier 3/4 검증 완료
+
+### 세션 범위
+
+Lane C 재개 → L-C1~L-C4 전부 완료 → 프로덕션 배포 → Lane C 실기능 검증 → 유료 파이프라인 재확인 → Tier 4 PDF 검증 → last-known-good.md 갱신
+
+### 완료 Task
+
+| Task | 상태    | 비고                                                                     |
+| ---- | ------- | ------------------------------------------------------------------------ |
+| L-C1 | ✅ 완료 | NPSSection 신규 (0-10 점수 + 선택 코멘트) + DashboardContent 하단 삽입   |
+| L-C2 | ✅ 완료 | QuickWinCard `'use client'` + `canSelfReport` prop + "고쳤어요" 버튼     |
+| L-C3 | ✅ 완료 | Unit 테스트 12개 (NPSSection 6 + QuickWinCard 6), act warning 0          |
+| L-C4 | ✅ 완료 | tsc/lint/build/test 전부 통과. 커밋 `96997d2` 단일 커밋                  |
+| N1   | ✅ 완료 | Vercel 수동 배포 + 프로덕션 실기능 검증 (DB 4건 증거)                    |
+| N2   | ✅ 완료 | Tier 3 유료 파이프라인 재검증 (기존 `5878eca6` 재활용, 5-Agent+CMO 정상) |
+| N3   | 🟡 부분 | PDF ✅ 성공 / Email ❌ RESEND_API_KEY 미설정으로 비활성                  |
+| N4   | ✅ 완료 | last-known-good.md 갱신 (Section 1, 2, 6 + 환경변수 실제 상태)           |
+
+### 핵심 커밋
+
+| SHA       | 제목                                                      |
+| --------- | --------------------------------------------------------- |
+| `96997d2` | feat(dashboard): lane c — quick win 자기보고 + nps 피드백 |
+
+### Lane C 프로덕션 검증 증거 (DB)
+
+| 테이블             | Before | After | Delta | 검증 포인트                                                |
+| ------------------ | ------ | ----- | ----- | ---------------------------------------------------------- |
+| `self_reports`     | 0      | 1     | +1    | rule_id=`soc-03`, recrawl_scheduled_at=2026-04-13 (7일 후) |
+| `nps_responses`    | 0      | 1     | +1    | score=10                                                   |
+| `analytics_events` | 0      | 2     | +2    | `self_report_submitted` + `nps_submitted`                  |
+
+### 유료 파이프라인 재검증 (5878eca6, 기존 진단 재활용)
+
+| 항목         | 값                                                     |
+| ------------ | ------------------------------------------------------ |
+| 5-Agent 상태 | technical/seo/geo/content/competitors 전부 `completed` |
+| 총 소요      | 69.2초                                                 |
+| 총 비용      | 408원                                                  |
+| AI Insights  | 30개                                                   |
+| 90일 로드맵  | 18 items                                               |
+| Quick Wins   | 5개                                                    |
+| CMO 요약     | ~420자 한국어 비즈니스 요약 정상 생성                  |
+| 경쟁사       | 0건 (findably.kr 자체 분석이라 정상)                   |
+
+### 이번 세션 발견 이슈 (차단 요소 아님)
+
+1. **Vercel 자동 배포 미작동** — `git push origin main` 후 15분 이상 기다려도 새 배포 트리거 안 됨. 수동 `vercel --prod`로 해결. 원인 미확인 (GitHub App 연동 상태 재점검 Task).
+2. **GitHub Actions CI lint 실패** — 최근 5개 커밋 모두 `pnpm store path --silent`에서 "packages field missing or empty" 에러. 워크플로우 환경 설정 문제로 추정. Vercel 배포와는 독립.
+3. **RESEND_API_KEY 미설정** — 이메일 발송 비활성. 코드는 정상.
+
+### 다음 세션 할 일 (우선순위)
+
+| 우선순위 | 작업                              | 비고                                       |
+| -------- | --------------------------------- | ------------------------------------------ |
+| **P1**   | Resend 이메일 인프라 설정         | 계정 + API 키 + 도메인 DNS 검증 + env 추가 |
+| **P2**   | Vercel 자동 배포 재연동 조사      | GitHub App 상태 확인, webhook 점검         |
+| **P2**   | GitHub Actions CI lint 수정       | `pnpm store path` 에러 원인 수정           |
+| **P2**   | Task 10.4 — 404 + 500 에러 페이지 | PROGRESS.md 잔여 Task                      |
+| **P3**   | Google OAuth 로그인 검증          | 이메일 로그인만 확인됨                     |
+| **P3**   | Toss Payments 실 연동             | 현재 MockPaymentAdapter + 선물코드만 운용  |
+
+### 마지막 업데이트 (4차)
+
+- **날짜**: 2026-04-06 16:55 KST
+- **최종 커밋**: `96997d2` feat(dashboard): lane c — quick win 자기보고 + nps 피드백
+- **상태**: 🟢 정상 — Lane C 배포 + 실기능 검증 + 유료 파이프라인 재확인 + Tier 4 PDF 통과
+- **프로덕션**: https://findably.kr (수동 배포 완료, 활성 상태)
