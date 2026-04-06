@@ -1,11 +1,16 @@
 'use client'
 
-import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { useState } from 'react'
+
 import { BlurOverlay } from '@/components/shared/BlurOverlay'
 import { BLUR_OVERLAY_CTA } from '@/config/report'
-import { calculateRevenueImpact } from '@/config/revenue'
+import { IMPACT_CATEGORY_LABELS } from '@/config/revenue'
 import type { AIInsight } from '@/features/diagnosis-paid'
+import {
+  classifyInsight,
+  dedupeInsightsByImpactCategory,
+} from '@/lib/utils/insight-aggregation'
 
 interface AIInsightsSectionProps {
   insights: AIInsight[]
@@ -42,19 +47,24 @@ const SEVERITY_CONFIG = {
 function InsightCard({ insight }: { insight: AIInsight }): React.JSX.Element {
   const [showExpert, setShowExpert] = useState(false)
   const config = SEVERITY_CONFIG[insight.severity]
-  const revenue = calculateRevenueImpact({ severity: insight.severity })
+  const impactCategoryId = classifyInsight(insight)
+  const impactLabel = IMPACT_CATEGORY_LABELS[impactCategoryId]
 
   return (
     <div
       className={`rounded-xl border ${config.border} ${config.bg} p-5 shadow-sm`}
     >
+      {/* 뱃지 라인: 심각도 > 영향 카테고리 > 원본 카테고리 > 실행 가능 */}
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${config.bg} ${config.text}`}
         >
           {config.label}
         </span>
-        <span className="text-xs text-slate-400">{insight.category}</span>
+        <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold text-primary-700">
+          {impactLabel}
+        </span>
+        <span className="text-xs text-slate-400">#{insight.category}</span>
         {insight.actionable && (
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
             실행 가능
@@ -66,34 +76,10 @@ function InsightCard({ insight }: { insight: AIInsight }): React.JSX.Element {
         {insight.title}
       </h3>
 
-      {/* 💰 매출 영향 (critical/warning만) */}
-      {revenue && (
-        <div className="my-3 rounded-lg bg-white/60 p-3">
-          <p className="text-sm font-semibold text-slate-800">
-            💰 이 문제로 월 약 {revenue.monthlyLoss}만원의 잠재 방문자를 놓치고
-            있습니다
-          </p>
-          <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-600">
-            <span>
-              안 고치면 → 연간 약{' '}
-              <strong className="text-danger-700">
-                {revenue.annualLoss}만원
-              </strong>{' '}
-              손실 지속
-            </span>
-            <span>
-              고치면 → 월{' '}
-              <strong className="text-success-700">
-                +{revenue.monthlyGain}만원
-              </strong>{' '}
-              추가 유입
-            </span>
-          </div>
-          <p className="mt-1 text-[10px] text-slate-400">
-            * 업종 평균 기준 추정치
-          </p>
-        </div>
-      )}
+      {/*
+        Phase A (2026-04-06): 개별 카드 금액 블록 제거.
+        금액은 상단 TotalLeakageCard 한 곳에서만 표시 (지시문 Task 3 — 중복 방지).
+      */}
 
       <p className="text-sm text-slate-600">{insight.description}</p>
 
@@ -134,20 +120,21 @@ export function AIInsightsSection({
   const safeInsights = insights ?? []
   if (safeInsights.length === 0) return <></>
 
-  const sorted = [...safeInsights].sort(
-    (a, b) =>
-      SEVERITY_CONFIG[a.severity].order - SEVERITY_CONFIG[b.severity].order
-  )
+  // Phase A (2026-04-06): 8개 영향 카테고리 기준 dedupe → 카테고리당 최대 3개 대표
+  // 예: 기존 critical 10 + warning 20 = 30장 → dedupe 후 카테고리별 대표 ≤ 24장
+  // 지시문 Task 3: "통합 후 항목 수가 줄어도 OK"
+  const deduped = dedupeInsightsByImpactCategory(safeInsights)
 
   const content = (
     <section className="flex flex-col gap-4" aria-label="AI 인사이트">
       <h2 className="text-lg font-semibold text-slate-900">AI 인사이트</h2>
       <p className="text-sm text-slate-500">
-        AI가 발견한 핵심 인사이트와 개선 제안입니다.
+        AI가 발견한 핵심 인사이트와 개선 제안입니다. 동일한 근본 원인은 대표
+        항목으로 통합되어 표시됩니다.
       </p>
 
       <div className="flex flex-col gap-3">
-        {sorted.map((insight, idx) => (
+        {deduped.map((insight, idx) => (
           <InsightCard key={idx} insight={insight} />
         ))}
       </div>

@@ -1,7 +1,11 @@
 import { Text, View } from '@react-pdf/renderer'
 
-import { calculateRevenueImpact } from '@/config/revenue'
+import { IMPACT_CATEGORY_LABELS } from '@/config/revenue'
 import type { AIInsight } from '@/features/diagnosis-paid'
+import {
+  classifyInsight,
+  dedupeInsightsByImpactCategory,
+} from '@/lib/utils/insight-aggregation'
 
 import { colors, styles } from '../styles'
 
@@ -33,18 +37,35 @@ const SEVERITY_CONFIG = {
   },
 } as const
 
+/**
+ * Phase A (2026-04-06):
+ * - 개별 카드 금액 블록 제거 (금액은 PdfBridgeSection 1곳에서만)
+ * - dedupeInsightsByImpactCategory()로 동일 근본 원인 통합
+ * - 영향 카테고리 뱃지 추가 (SSL/LCP/모바일 등)
+ * 지시문: docs/paid-report-audit-v1.md Task 1 + Task 3
+ */
 export function PdfInsights({ insights }: PdfInsightsProps): React.JSX.Element {
-  const sorted = [...insights].sort(
-    (a, b) =>
-      SEVERITY_CONFIG[a.severity].order - SEVERITY_CONFIG[b.severity].order
-  )
+  const deduped = dedupeInsightsByImpactCategory(insights ?? [])
 
   return (
     <View style={styles.section}>
       <Text style={styles.h2}>AI 인사이트</Text>
+      <Text
+        style={{
+          fontSize: 8,
+          color: colors.slate500,
+          marginBottom: 8,
+          lineHeight: 1.5,
+        }}
+      >
+        동일한 근본 원인은 대표 항목으로 통합되어 표시됩니다.
+      </Text>
 
-      {sorted.map((insight, idx) => {
+      {deduped.map((insight, idx) => {
         const severity = SEVERITY_CONFIG[insight.severity]
+        const impactCategoryId = classifyInsight(insight)
+        const impactLabel = IMPACT_CATEGORY_LABELS[impactCategoryId]
+
         return (
           <View
             key={idx}
@@ -58,13 +79,30 @@ export function PdfInsights({ insights }: PdfInsightsProps): React.JSX.Element {
               backgroundColor: colors.white,
             }}
           >
-            {/* 헤더: 뱃지 + 제목 */}
+            {/* 헤더: 심각도 + 영향 카테고리 + 제목 */}
             <View style={[styles.row, { gap: 6, marginBottom: 4 }]}>
               <View style={[styles.badge, { backgroundColor: severity.bg }]}>
                 <Text
-                  style={{ fontSize: 7, color: severity.text, fontWeight: 600 }}
+                  style={{
+                    fontSize: 7,
+                    color: severity.text,
+                    fontWeight: 600,
+                  }}
                 >
                   {severity.label}
+                </Text>
+              </View>
+              <View
+                style={[styles.badge, { backgroundColor: colors.primary50 }]}
+              >
+                <Text
+                  style={{
+                    fontSize: 7,
+                    color: colors.primary500,
+                    fontWeight: 600,
+                  }}
+                >
+                  {impactLabel}
                 </Text>
               </View>
               <Text style={styles.h3}>{insight.title}</Text>
@@ -73,9 +111,9 @@ export function PdfInsights({ insights }: PdfInsightsProps): React.JSX.Element {
             {/* 설명 */}
             <Text style={styles.body}>{insight.description}</Text>
 
-            {/* 메타: 카테고리 + actionable */}
+            {/* 메타: 원본 카테고리 + actionable */}
             <View style={[styles.row, { gap: 8, marginTop: 4 }]}>
-              <Text style={styles.caption}>카테고리: {insight.category}</Text>
+              <Text style={styles.caption}>#{insight.category}</Text>
               {insight.actionable && (
                 <View
                   style={[styles.badge, { backgroundColor: colors.success50 }]}
@@ -93,47 +131,10 @@ export function PdfInsights({ insights }: PdfInsightsProps): React.JSX.Element {
               )}
             </View>
 
-            {/* 💰 매출 영향 (원화 환산) */}
-            {(() => {
-              const revenue = calculateRevenueImpact({
-                severity: insight.severity,
-              })
-              if (!revenue) return null
-              return (
-                <View
-                  style={{
-                    marginTop: 6,
-                    backgroundColor: colors.slate50,
-                    borderRadius: 4,
-                    padding: 8,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 9,
-                      fontWeight: 600,
-                      color: colors.slate900,
-                      marginBottom: 3,
-                    }}
-                  >
-                    매출 영향: 월 약 {revenue.monthlyLoss}만원 손실 추정
-                  </Text>
-                  <Text style={{ fontSize: 8, color: colors.slate700 }}>
-                    안 고치면 → 연간 약 {revenue.annualLoss}만원 손실 지속 /
-                    고치면 → 월 +{revenue.monthlyGain}만원 추가 유입
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 7,
-                      color: colors.slate500,
-                      marginTop: 2,
-                    }}
-                  >
-                    * 업종 평균 기준 추정치
-                  </Text>
-                </View>
-              )
-            })()}
+            {/*
+              Phase A: 개별 매출 영향 블록 제거.
+              총 누수는 PdfBridgeSection 한 곳에서만 표시 (중복 방지).
+            */}
 
             {/* 상세 지표 */}
             {insight.impact && (

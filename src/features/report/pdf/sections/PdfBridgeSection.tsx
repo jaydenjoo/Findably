@@ -1,8 +1,8 @@
 import { Text, View } from '@react-pdf/renderer'
 
-import { calculateRevenueImpact } from '@/config/revenue'
 import type { CategoryScore } from '@/features/diagnosis-free'
 import type { AIInsight } from '@/features/diagnosis-paid'
+import { distributeRevenueLeakage } from '@/lib/utils/insight-aggregation'
 
 import { colors, styles } from '../styles'
 
@@ -148,65 +148,117 @@ export function PdfBridgeSection({
         </View>
       ))}
 
-      {/* 총 누수 요약 카드 */}
+      {/*
+        총 누수 요약 카드 — Phase A (2026-04-06) 재설계
+        지시문: 매출 캡(20%) + 가중 분배 + 중복 영향 보정 + "월매출 X만원 기준" 병기
+      */}
       {(() => {
-        const safeInsights = aiInsights ?? []
-        let immediateTotal = 0
-        let mediumTotal = 0
-        for (const insight of safeInsights) {
-          const revenue = calculateRevenueImpact({ severity: insight.severity })
-          if (!revenue) continue
-          const priority = insight.priority ?? 5
-          if (priority <= 3) {
-            immediateTotal += revenue.monthlyLoss
-          } else {
-            mediumTotal += revenue.monthlyLoss
-          }
-        }
-        const totalMonthly = immediateTotal + mediumTotal
-        if (totalMonthly === 0) return null
+        const dist = distributeRevenueLeakage(aiInsights ?? [])
+        if (dist.byCategory.length === 0) return null
+
+        const baseManwon = Math.round(dist.baseMonthlyRevenue / 10_000)
+        const leakagePercent = Math.round(dist.leakageRatio * 100)
+
         return (
           <View
             style={{
               marginTop: 12,
               backgroundColor: colors.primary50,
               borderRadius: 6,
-              padding: 10,
+              padding: 12,
               borderWidth: 1,
               borderColor: colors.slate200,
             }}
           >
+            {/* 헤더 */}
             <Text
               style={{
                 fontSize: 9,
                 fontWeight: 600,
                 color: colors.slate900,
-                marginBottom: 4,
+                marginBottom: 2,
               }}
             >
-              현재 매월 새고 있는 마케팅 비용 (추정): 약 {totalMonthly}만원
+              💧 현재 매월 새고 있는 마케팅 비용 (추정)
             </Text>
+
+            {/* 메인 금액 */}
             <Text
-              style={{ fontSize: 8, color: colors.slate700, marginBottom: 2 }}
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: colors.slate900,
+                marginBottom: 2,
+              }}
             >
-              연간 환산: 약 {totalMonthly * 12}만원
+              매출의 약 {leakagePercent}% 수준 · 월 약{' '}
+              {dist.totalMonthlyManwon.toLocaleString('ko-KR')}만원
             </Text>
-            {immediateTotal > 0 && (
-              <Text style={{ fontSize: 8, color: colors.danger700 }}>
-                즉시 해결 시 회복 가능: {immediateTotal}만원/월
-              </Text>
-            )}
-            {mediumTotal > 0 && (
-              <Text style={{ fontSize: 8, color: colors.warning700 }}>
-                1~2개월 내 해결 시: +{mediumTotal}만원/월
-              </Text>
-            )}
+
+            {/* 기준 매출 병기 */}
+            <Text
+              style={{
+                fontSize: 8,
+                color: colors.slate500,
+                marginBottom: 8,
+              }}
+            >
+              월매출 {baseManwon.toLocaleString('ko-KR')}만원 기준 추정 · 연간
+              약 {dist.totalAnnualManwon.toLocaleString('ko-KR')}만원
+            </Text>
+
+            {/* 카테고리별 내역 */}
+            {dist.byCategory.map((cat) => (
+              <View
+                key={cat.categoryId}
+                style={{
+                  flexDirection: 'row',
+                  marginBottom: 3,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 8,
+                    fontWeight: 600,
+                    color: colors.primary500,
+                    width: '32%',
+                  }}
+                >
+                  {cat.label}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 8,
+                    color: colors.slate700,
+                    width: '68%',
+                  }}
+                >
+                  월 약 {cat.monthlyLossManwon.toLocaleString('ko-KR')}만원 영향
+                  {cat.affectedCategories.length > 0 &&
+                    `  (${cat.affectedCategories.map((c) => `#${c}`).join(' ')})`}
+                </Text>
+              </View>
+            ))}
+
+            {/* 중복 영향 보정 안내 (지시문 Task 1-4) */}
+            <Text
+              style={{
+                fontSize: 7,
+                color: colors.slate500,
+                marginTop: 8,
+                lineHeight: 1.5,
+              }}
+            >
+              ℹ️ {dist.note}
+            </Text>
           </View>
         )
       })()}
 
+      {/* 출처 (검증 체크리스트 7번) */}
       <Text style={{ fontSize: 7, color: colors.slate500, marginTop: 8 }}>
-        * 업종 평균 벤치마크 기준 추정치이며, 실제 결과와 다를 수 있습니다.
+        * 소상공인 월 평균 매출 벤치마크 출처: KCD 2025 Q4 통계 (직원 10인 이하
+        사업장 기준)
       </Text>
     </View>
   )
