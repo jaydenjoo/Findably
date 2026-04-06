@@ -119,3 +119,69 @@ export const REVENUE = {
   calculateRevenueImpact,
   getBenchmark,
 } as const
+
+// ─── Phase A: 유료 리포트 매출 누수 재설계 (2026-04-06) ───
+//
+// 기존 calculateRevenueImpact()는 severity만으로 insight당 고정 금액을 반환해
+// 20+ insights 합산 시 5,638만원 같은 월매출 3.4배 과장이 발생. 아래 상수/타입은
+// 총 누수 캡 + 8개 영향 카테고리 가중 분배 방식으로 교체하기 위한 기반.
+// 사용 로직: src/lib/utils/insight-aggregation.ts의 distributeRevenueLeakage()
+
+/** 소상공인 월 평균 매출 기본값 (원) — KCD 2025 Q4 통계 */
+export const BASE_MONTHLY_REVENUE = 16_400_000
+
+/** 누수 상한 비율 — 매출의 20% */
+export const LEAKAGE_CAP_RATIO = 0.2
+
+/** 월 누수 상한 (원) = BASE_MONTHLY_REVENUE × LEAKAGE_CAP_RATIO = 3,280,000 */
+export const LEAKAGE_CAP = Math.round(BASE_MONTHLY_REVENUE * LEAKAGE_CAP_RATIO)
+
+/** 8개 영향 카테고리 ID */
+export type ImpactCategoryId =
+  | 'ssl'
+  | 'lcp'
+  | 'mobile'
+  | 'schema'
+  | 'internal-links'
+  | 'images'
+  | 'eeat'
+  | 'other'
+
+/**
+ * 영향 카테고리별 가중치 (총합 = 1.0)
+ * Phase A Step 0 승인 매핑 (2026-04-06)
+ */
+export const IMPACT_CATEGORY_WEIGHTS: Record<ImpactCategoryId, number> = {
+  ssl: 0.15,
+  lcp: 0.2,
+  mobile: 0.12,
+  schema: 0.08,
+  'internal-links': 0.06,
+  images: 0.08,
+  eeat: 0.07,
+  other: 0.24,
+}
+
+/** 영향 카테고리 한국어 라벨 (UI 표시용) */
+export const IMPACT_CATEGORY_LABELS: Record<ImpactCategoryId, string> = {
+  ssl: 'SSL 보안',
+  lcp: '페이지 속도',
+  mobile: '모바일 UX',
+  schema: '구조화 데이터',
+  'internal-links': '내부 링크',
+  images: '이미지',
+  eeat: '신뢰 신호 (E-E-A-T)',
+  other: '기타',
+}
+
+/** 영향 카테고리 분류 우선순위 (다중 매칭 시 앞 항목 우선) */
+export const IMPACT_CATEGORY_PRIORITY: readonly ImpactCategoryId[] = [
+  'ssl',
+  'lcp',
+  'mobile',
+  'schema',
+  'images',
+  'internal-links',
+  'eeat',
+  'other',
+] as const
