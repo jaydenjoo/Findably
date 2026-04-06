@@ -83,6 +83,50 @@ async function handleCallback(request: NextRequest): Promise<Response> {
 
   const startTime = Date.now()
 
+  // 2.5 멱등성 가드 (2026-04-06 미스터리 1 fix):
+  // n8n이 같은 진단에 콜백을 여러 번 보내는 케이스 차단.
+  // 이미 completed/failed면 무료 분석 재실행 + DB update 폭주를 막는다.
+  // 증상: 7c0a7f6d 진단이 5분간 score가 50→53→... 매번 변함.
+  // 원인: handleCallback이 멱등성 가드 없이 saveCrawlResult+enrichCrawlData+runDiagnosis를 매번 실행.
+  try {
+    const guardClient = createAdminClient()
+    const { data: existing } = await guardClient
+      .from('diagnoses')
+      .select('status')
+      .eq('id', payload.diagnosisId)
+      .single()
+
+    if (existing?.status === 'completed') {
+      console.log(
+        '[crawl/complete] 이미 completed — 중복 콜백 무시:',
+        payload.diagnosisId
+      )
+      return successResponse({
+        skipped: true,
+        reason: 'already_completed',
+        diagnosisId: payload.diagnosisId,
+      })
+    }
+
+    if (existing?.status === 'failed') {
+      console.warn(
+        '[crawl/complete] failed 상태에 콜백 — 무시:',
+        payload.diagnosisId
+      )
+      return successResponse({
+        skipped: true,
+        reason: 'already_failed',
+        diagnosisId: payload.diagnosisId,
+      })
+    }
+  } catch (guardError) {
+    // 가드 자체 실패는 차단하지 않고 진행 (DB 접근 일시 장애 시 정상 흐름 유지)
+    console.warn(
+      '[crawl/complete] 멱등성 가드 조회 실패 — 정상 흐름 진행:',
+      guardError instanceof Error ? guardError.message : 'unknown'
+    )
+  }
+
   try {
     // 3. raw crawlResult → CrawlData 정규화
     const parsedCrawlData: CrawlData = parseCrawlV2Result({
