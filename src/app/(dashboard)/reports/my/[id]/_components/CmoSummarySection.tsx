@@ -26,7 +26,12 @@ export function CmoSummarySection({
         {qualityScore !== undefined && (
           <div className="flex shrink-0 flex-col items-center gap-1">
             <ScoreGauge score={qualityScore} size="sm" />
-            <span className="text-xs text-slate-500">품질 점수</span>
+            {/*
+              Phase A (2026-04-06): "품질 점수" → "AI 검증 품질"
+              종합 마케팅 점수(62점 등)와 CMO의 리포트 검증 품질 점수가 혼동되지
+              않도록 명확히 구분. 지시문 Task 2 점수 통일 요건의 보조 조치.
+            */}
+            <span className="text-xs text-slate-500">AI 검증 품질</span>
           </div>
         )}
         <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">

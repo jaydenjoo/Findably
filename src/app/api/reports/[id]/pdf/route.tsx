@@ -70,15 +70,23 @@ export async function GET(
       warning: '주의',
       critical: '심각',
     }
+
+    // Phase A (2026-04-06): single source of truth = analysis_data.overallScore
+    // 기존에는 diagnoses.total_score(aggregateScores 5-매크로 평균)와
+    // analysis_data.overallScore.score(engine 7-카테고리 평균)가 서로 달라서
+    // 커버는 62점 / SWOT 본문은 72점처럼 불일치 발생. 이제 analysis_data를
+    // canonical로 통일하고 DB total_score 컬럼은 레거시 데이터 fallback.
+    const canonicalOverall = diagnosis.analysis_data.overallScore
+    const canonicalScore = canonicalOverall?.score ?? diagnosis.total_score ?? 0
+    const canonicalGrade = canonicalOverall?.grade ?? diagnosis.grade ?? ''
+
     const document = (
       <ReportDocument
         data={diagnosis.analysis_data}
         url={diagnosis.url}
         createdAt={diagnosis.created_at}
-        totalScore={diagnosis.total_score ?? 0}
-        gradeLabel={
-          gradeLabels[diagnosis.grade ?? ''] ?? diagnosis.grade ?? '—'
-        }
+        totalScore={canonicalScore}
+        gradeLabel={gradeLabels[canonicalGrade] ?? canonicalGrade ?? '—'}
       />
     )
     const buffer = await generatePdfBuffer(document)
