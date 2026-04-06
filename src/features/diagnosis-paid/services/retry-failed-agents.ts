@@ -1,8 +1,14 @@
 /**
  * 유료 분석 에이전트 재시도 로직
  *
- * 기존 retryFailedAgents()에 Opus fallback 추가:
- * 1차 실패 → 2차 Opus로 재시도 → 2차도 실패 시 empty 유지
+ * Phase 3 Fix 5+/6/8 (2026-04-06):
+ * - 전체 retry 단계에 60초 race timeout (Fix 5+)
+ * - retry 병렬화: for 직렬 → Promise.allSettled (Fix 6)
+ * - Opus 2차 retry 제거: Sonnet 1회만 시도 (Fix 8)
+ *
+ * 이전 구현(Opus fallback)은 시간 폭발의 주범이었음.
+ * Opus는 60초+ 걸리고 직렬 retry 시 retry 단계만 120초+ 소비.
+ * Sonnet 1회 + 폴백(룰 기반 변환)으로 충분한 품질 확보 가능.
  */
 
 import { executeAIRequest } from '@/lib/adapters/ai'
@@ -24,14 +30,16 @@ interface ExecuteAgentWithRetryParams {
   diagnosisId: string
 }
 
+/** Retry 단계 전체 시간 한도 (Fix 5+) */
+const RETRY_PHASE_TIMEOUT_MS = 60 * 1000
+
 /**
- * 실패/빈 에이전트 재시도 (1차 Sonnet → 2차 Opus fallback)
+ * 실패/빈 에이전트 재시도 (Sonnet 1회, 병렬, 60초 한도)
  *
  * 로직:
- * 1. failedAgentIds에 해당하는 에이전트만 재실행
- * 2. 1차 재시도: Sonnet (동일 모델)
- * 3. 1차 실패 시 2차 재시도: Opus로 fallback
- * 4. 2차도 실패 시: empty 상태 유지
+ * 1. failedAgentIds 모두를 Promise.allSettled로 병렬 재실행 (Sonnet 1회)
+ * 2. 전체 retry 단계가 60초 race를 초과하면 미완료 분은 empty 유지
+ * 3. Opus fallback 제거 — runDiagnosisPaid의 룰 기반 폴백이 그 역할 수행
  *
  * @param diagnosisId - 진단 ID (로깅용)
  * @param failedAgentIds - 실패한 에이전트 ID 배열
@@ -65,14 +73,12 @@ export async function retryFailedAgentsWithFallback(
   }
 
   console.log(
-    `[retryFailedAgentsWithFallback:${diagnosisId}] ${validFailedIds.length}개 에이전트 1차 재시도 (Sonnet):`,
+    `[retryFailedAgentsWithFallback:${diagnosisId}] ${validFailedIds.length}개 에이전트 병렬 재시도 (Sonnet, 60s 한도):`,
     validFailedIds
   )
 
-  // 1차 재시도: 동일 모델(Sonnet) + 축소 토큰
-  const firstRetryResults: AIAgentResult[] = []
-
-  for (const agentId of validFailedIds) {
+  // Fix 6: 병렬 재시도 (이전: for 직렬)
+  const retryPromises = validFailedIds.map((agentId) => {
     const agentConfig = DIAGNOSIS_PAID_CONFIG.AGENTS.find(
       (a) => a.id === agentId
     )
@@ -80,81 +86,68 @@ export async function retryFailedAgentsWithFallback(
       console.warn(
         `[retryFailedAgentsWithFallback:${diagnosisId}] ${agentId} 설정 찾을 수 없음`
       )
-      continue
+      return Promise.resolve(buildEmptyResult(agentId, '에이전트 설정 누락'))
     }
 
-    try {
-      const result = await executeAgentWithRetry({
-        agentId,
-        systemPrompt: agentConfig.systemPrompt,
-        maxTokens: DIAGNOSIS_PAID_CONFIG.RETRY_MAX_TOKENS,
-        crawlData,
-        url: freeAnalysis.url,
-        context,
-        model: DIAGNOSIS_PAID_CONFIG.MODEL, // 1차: Sonnet
-        retryCount: 1,
-        diagnosisId,
-      })
-
-      firstRetryResults.push(result)
-
-      // 1차 성공 → 2차 스킵
-      if (result.status === 'completed') {
-        console.log(
-          `[retryFailedAgentsWithFallback:${diagnosisId}] ${agentId} 1차 성공 → 2차 Opus fallback 스킵`
-        )
-      } else {
-        // 1차 실패/empty → 2차 Opus fallback 시도
-        console.warn(
-          `[retryFailedAgentsWithFallback:${diagnosisId}] ${agentId} 1차 ${result.status} → 2차 Opus fallback 시작`
-        )
-
-        const secondRetryResult = await executeAgentWithRetry({
-          agentId,
-          systemPrompt: agentConfig.systemPrompt,
-          maxTokens: DIAGNOSIS_PAID_CONFIG.RETRY_MAX_TOKENS,
-          crawlData,
-          url: freeAnalysis.url,
-          context,
-          model: DIAGNOSIS_PAID_CONFIG.MODEL_OPUS, // 2차: Opus
-          retryCount: 2,
-          diagnosisId,
-        })
-
-        // 2차 결과로 1차 결과 덮어쓰기
-        const idx = firstRetryResults.findIndex((r) => r.agentId === agentId)
-        if (idx !== -1) {
-          firstRetryResults[idx] = secondRetryResult
-        }
-
-        if (secondRetryResult.status === 'completed') {
-          console.log(
-            `[retryFailedAgentsWithFallback:${diagnosisId}] ${agentId} 2차 Opus 성공`
-          )
-        } else {
-          console.warn(
-            `[retryFailedAgentsWithFallback:${diagnosisId}] ${agentId} 2차 Opus도 ${secondRetryResult.status} → empty 유지`
-          )
-        }
-      }
-    } catch (error) {
+    return executeAgentWithRetry({
+      agentId,
+      systemPrompt: agentConfig.systemPrompt,
+      maxTokens: DIAGNOSIS_PAID_CONFIG.RETRY_MAX_TOKENS,
+      crawlData,
+      url: freeAnalysis.url,
+      context,
+      model: DIAGNOSIS_PAID_CONFIG.MODEL, // Fix 8: Sonnet만 (Opus 제거)
+      retryCount: 1,
+      diagnosisId,
+    }).catch((error) => {
       console.error(
-        `[retryFailedAgentsWithFallback:${diagnosisId}] ${agentId} 재시도 중 예외:`,
+        `[retryFailedAgentsWithFallback:${diagnosisId}] ${agentId} 재시도 예외:`,
         error instanceof Error ? error.message : String(error)
       )
-      // 예외 발생 시 empty 상태 결과 추가
-      firstRetryResults.push({
+      return buildEmptyResult(
         agentId,
-        status: 'empty',
-        insights: [],
-        tokenUsage: { input: 0, output: 0 },
-        durationMs: 0,
-        error: `재시도 중 예외: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      })
-    }
-  }
+        `재시도 예외: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    })
+  })
 
-  return firstRetryResults
+  // Fix 5+: 전체 retry 단계 60초 race timeout
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const timeoutPromise = new Promise<AIAgentResult[]>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.warn(
+        `[retryFailedAgentsWithFallback:${diagnosisId}] 전체 retry 60초 한도 초과 — 미완료 에이전트는 empty 유지`
+      )
+      // 한도 초과 시 모두 empty로 처리 (개별 fetch는 background에 살아있을 수 있지만 결과는 반영 안 함)
+      resolve(
+        validFailedIds.map((id) =>
+          buildEmptyResult(id, '전체 retry 60초 한도 초과')
+        )
+      )
+    }, RETRY_PHASE_TIMEOUT_MS)
+  })
+
+  try {
+    const result = await Promise.race([
+      Promise.all(retryPromises),
+      timeoutPromise,
+    ])
+    return result
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/** empty 상태 결과 빌더 */
+function buildEmptyResult(agentId: AgentId, error: string): AIAgentResult {
+  return {
+    agentId,
+    status: 'empty',
+    insights: [],
+    tokenUsage: { input: 0, output: 0 },
+    durationMs: 0,
+    error,
+  }
 }
 
 /**

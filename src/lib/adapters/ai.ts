@@ -11,7 +11,14 @@ function getClient(): Anthropic {
     throw new Error('ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
   }
   if (!_client) {
-    _client = new Anthropic({ apiKey })
+    // Phase 3 Fix 3 (2026-04-06):
+    // - timeout 90s — Vercel maxDuration=300s, 단일 호출 90s 한도로 5에이전트 병렬 + retry 시간 예산 보장
+    // - maxRetries 0 — SDK 자동 재시도(기본 2회) 차단. 우리 retry 로직(retry-failed-agents)과 중복/충돌 방지
+    _client = new Anthropic({
+      apiKey,
+      timeout: 90_000,
+      maxRetries: 0,
+    })
   }
   return _client
 }

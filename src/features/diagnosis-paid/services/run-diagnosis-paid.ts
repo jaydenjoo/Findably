@@ -91,6 +91,15 @@ export async function runDiagnosisPaid(
   const startTime = Date.now()
 
   try {
+    // Phase 3 Fix 7 (2026-04-06):
+    // 시작 시 updated_at만 직접 갱신 → 디버깅용 timestamp 마커.
+    // transitionStatus는 동일 status 시 스킵하므로 우회.
+    // status 변경이 아닌 timestamp 마커이므로 일원화 원칙 위배 아님.
+    await supabase
+      .from('diagnoses')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', diagnosisId)
+
     // 1. 기존 진단 데이터 로드
     const { data: diagnosis, error: fetchError } = await supabase
       .from('diagnoses')
