@@ -9,14 +9,15 @@
 
 ## 1. 🟢 마지막 검증된 정상 상태 (Last Verified Good)
 
-> **⚠️ 현재 비어있음 — 다음 검증 성공 시 Jayden이 직접 기입**
-
 ```
-마지막 검증 일시: (미확정)
-Git SHA:         (미확정)
-Vercel 배포 ID:  (미확정)
-n8n workflow:    (미확정)
-검증자:          (미확정)
+마지막 검증 일시: 2026-04-06 15:04 KST
+Git SHA:         cecb651 (chore: health 라우트 + prd v1.2 + .claude/skills 무시)
+Vercel 배포 ID:  (자동 배포 — cecb651 푸시 후)
+n8n workflow:    findably-crawl-v2-production (callback URL = https://findably.kr/api/crawl/complete)
+검증자:          Jayden
+검증 시나리오:   무료 진단 end-to-end (https://findably.kr/) → 17.85초만에 completed
+                 diagnosis_id=147e37aa-5ada-44ae-aec8-33d21d12e0c1
+                 total_score=56, grade=warning, has_crawl=true, has_analysis=true
 ```
 
 ### 적용된 Supabase 마이그레이션 (정상 시점 기준)
@@ -63,36 +64,25 @@ CRON_SECRET
 
 ---
 
-## 2. 🔴 현재 상태 (Current State)
+## 2. 🟢 현재 상태 (Current State)
 
 > **자동 갱신 아님** — 세션 작업 중 상황 바뀌면 여기 기록
 
 ```
-마지막 점검 일시: 2026-04-06 12:20 KST
-Git SHA:         8f7d569 (docs: save session — CEO + Eng review 완료)
-상태:            🔴 고장 (프로덕션 분석 플로우 실패)
+마지막 점검 일시: 2026-04-06 15:04 KST
+Git SHA:         cecb651 (chore: health 라우트 + prd v1.2 + .claude/skills 무시)
+상태:            🟢 정상 (무료 진단 파이프라인 end-to-end 검증 통과)
 ```
 
-### 알려진 문제
+### 해소된 문제
 
-**P0 — 프로덕션 무료 진단 플로우 고장**
+- **P0 — 무료 진단 플로우 고장 (`status=failed` race condition)** → 커밋 `c59d9bc`에서 수정 완료. `PaidAnalyzingState`에 `if (!isPaid) return` 가드 + `trigger-analysis`에 tier 가드 추가.
+- **P0 — n8n 콜백 URL stale (`findably.vercel.app`)** → Jayden이 Elest.io workflow 콜백 URL을 `https://findably.kr/api/crawl/complete` 로 교체. Save 직후에는 반영 안 됐고, 약 30분 후 재활성화/재저장 후 17.85초 end-to-end 성공 검증.
+- **Lane A/B 미커밋 20+ 파일** → 4개 커밋(`6650180`, `efe4719`, `d114235`, `cecb651`)으로 분할 후 `origin/main` 푸시 완료.
 
-- **증상**: URL 제출 → 5분 후 `status=failed` 마킹, `crawl_data=NULL`
-- **근본 원인**: `src/app/(dashboard)/dashboard/_components/PaidAnalyzingState.tsx:98-114`의 useEffect가 `isPaid` 여부 무관하게 `/api/payment/trigger-analysis`를 호출. 호출된 라우트는 `runDiagnosisPaid()`를 실행하는데, 무료 진단은 `crawl_data`가 NULL이라 실패하고 catch 블록이 `.update({ status: 'failed' })`를 실행.
-- **증거**: pg_stat_statements에서 `SELECT status → SELECT url,crawl_data,... → UPDATE status` 순서 확인됨 (03:13:41 시점)
-- **수정 방안**: `PaidAnalyzingState`에 `if (!isPaid) return` 추가 + `trigger-analysis` 라우트에 tier 가드 추가
-- **상태**: 🔴 미수정 (Jayden 승인 대기)
+### DB 재마이그레이션 이력 (2026-04-06 이전 세션)
 
-**미커밋 변경 (Lane A/B 작업분)**
-
-- `src/features/diagnosis-free/types.ts` 외 20+ 파일
-- 신규 파일: `src/lib/adapters/email.ts`, `src/app/api/nps/`, `src/app/api/self-report/`, `src/lib/analytics/`
-- 신규 마이그레이션: `007_findably_analytics_events.sql` ~ `010_findably_self_reports_recrawl_completed.sql`
-- **상태**: 프로덕션 배포 안 됨. 로컬에만 존재.
-
-### DB 재마이그레이션 이력 (이번 세션)
-
-세션 중 내가 Findably 관련 테이블 전체를 drop 후 재생성했음:
+이전 세션에서 Findably 관련 테이블 전체를 drop 후 재생성함:
 
 ```
 findably_drop_all_v1_tables_2026_04_06  (20260406030615) — 전체 drop
@@ -100,6 +90,12 @@ findably_v2_complete_schema_2026_04_06  (20260406030732) — 통합 재생성
 ```
 
 **중요**: chatsio-v1 공유 Supabase 프로젝트이므로 `user_profiles, shops, products, optimizations, prompts, prompt_versions` 등 chatsio 테이블은 건드리지 않음.
+
+### 검증되지 않은 영역 (다음 검증 Tier로 남김)
+
+- Tier 3: 유료 진단 (선물코드 / Toss Payments) end-to-end — 이번 세션 미검증
+- Tier 4: PDF 다운로드, Resend 이메일 알림 실제 발송
+- Tier 5: Sentry / Vercel Function Logs 장시간 에러 0건 확인
 
 ---
 
@@ -246,9 +242,10 @@ mcp__claude_ai_Supabase__get_logs(service="postgres")
 
 ## 6. 📜 변경 이력
 
-| 날짜       | SHA     | 상태    | 변경 사유                                                                        | 갱신자          |
-| ---------- | ------- | ------- | -------------------------------------------------------------------------------- | --------------- |
-| 2026-04-06 | 8f7d569 | 🔴 고장 | 초기 파일 생성 — PaidAnalyzingState race condition 버그 발견, 프로덕션 고장 상태 | Claude + Jayden |
+| 날짜       | SHA     | 상태    | 변경 사유                                                                                                   | 갱신자          |
+| ---------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------- | --------------- |
+| 2026-04-06 | 8f7d569 | 🔴 고장 | 초기 파일 생성 — PaidAnalyzingState race condition 버그 발견, 프로덕션 고장 상태                            | Claude + Jayden |
+| 2026-04-06 | cecb651 | 🟢 정상 | n8n 콜백 URL 수정(`findably.vercel.app` → `findably.kr`) + Lane A/B 정리. 무료 진단 17.85초 end-to-end 성공 | Claude + Jayden |
 
 ---
 

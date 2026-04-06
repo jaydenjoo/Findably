@@ -239,6 +239,23 @@
   (3) **신제품**: 주요 벤더(Vercel, Supabase, Cloudflare 등)의 최근 6개월 출시 제품 검색 — 검색 쿼리에 현재 연도 명시
   추천을 잘못하면 Jayden이 잘못된 방향으로 며칠을 날릴 수 있음. 10분 딥리서치 > 3일 잘못된 구현
 
+### 2026-04-06 n8n 콜백 URL이 커스텀 도메인 전환 후 stale → 크롤링 파이프라인 전면 중단
+
+- **증상**: URL 제출 후 `status='crawling'`에 영구 고착. Supabase `crawl_data=NULL`, Vercel Function Logs에 `/api/crawl/complete` 요청 **0건**. 2026-04-05 커스텀 도메인 추가 이후 모든 무료 진단 실패
+- **원인**: 2026-04-05 커스텀 도메인 `findably.kr` 추가 + Vercel "Redirect to Primary Domain" 자동 활성화 후, n8n workflow "Callback Next.js" 노드가 여전히 `https://findably.vercel.app/api/crawl/complete` 를 참조. Vercel이 `findably.vercel.app` → `findably.kr`로 307 리다이렉트를 반환하는데, n8n의 axios는 리다이렉트 추적 시 POST→GET 변환 + body 손실 (learnings 2026-03-19와 동일 패턴). 결과: 콜백 시도 자체가 조용히 실패하고 Vercel 로그에 아예 기록 안 됨 (axios가 307을 에러로 처리하거나 body 없는 GET이 Zod 파싱 전에 조기 종료)
+- **해결**: Elest.io n8n workflow "Callback Next.js" 노드 URL을 `https://findably.kr/api/crawl/complete`로 교체. Save 직후에는 반영 안 되고 **재활성화 사이클(Deactivate → Activate) 또는 재저장 후 반영** (9분 후 테스트 실패, 30분 후 테스트는 17초 end-to-end 성공). 로컬 n8n JSON 3개(`findably-crawl-v2-production-fixed.json`, `workflows/findably-crawl-v2-production.json`, `workflows/findably-crawl-v2-hardcoded.json`)도 동기화
+- **규칙**: **커스텀 도메인 전환 시 외부 서비스가 참조하는 모든 콜백 URL을 전수 점검**. 검색 대상: `vercel.app`, 이전 도메인, 스테이징 도메인, localhost. 외부 서비스 범위: n8n workflow, Stripe/Toss 웹훅, GitHub Actions 시크릿, 외부 크론, 모니터링 핑, OAuth 리디렉트 URL. n8n workflow 변경 후 반드시 **Deactivate → Activate 재사이클**로 반영 확인. 검증 단서: Vercel Function Logs에서 해당 엔드포인트 요청 카운트가 의도대로 발생하는지. 0건이면 외부 서비스가 아예 호출 안 하는 것 → 콜백 노드 이전 문제 의심
+
+### 2026-04-06 값 변경 시 전체 참조처 스캔 → 제시 → 승인 → 일괄 변경 (AI 이탈 교훈)
+
+- **상황**: n8n 콜백 URL `findably.vercel.app` → `findably.kr` 변경 작업. Claude가 "Elest.io workflow + 로컬 JSON 3개"만 대상으로 판단하고 진행
+- **AI가 한 것**: Fix 1 (Elest.io URL 수정, Jayden 영역) + Fix 2 (로컬 n8n JSON 동기화)만 제시. `findably.vercel.app` 문자열이 다른 곳(src/config, src/lib/adapters, .env.example, README, docs, CLAUDE.md, 주석, 테스트 픽스처, 다른 n8n 워크플로우 버전, Vercel 환경변수)에 남아 있을 수 있는지 **사전 스캔 안 함**. 일부만 수정하는 패턴은 learnings.md G항목("부분 수정 후 재발 방지")의 반복
+- **올바른 방향**: 값 변경 요청(URL/환경변수 이름/API 키/enum 리터럴/도메인/포트/스키마 필드명/모델 ID 등) 시 **반드시 3단계**:
+  1. **Scan**: Grep/Glob으로 해당 값 + 그 값이 의존하는 이름이 참조된 모든 위치를 나열 (코드, 테스트, 설정, 문서, 주석, env 예시, CI, 외부 workflow)
+  2. **Report**: "N군데 참조: [파일:라인 리스트]" + 각 위치를 같이 변경할지 여부 권고 (같이 / 남기기 / 별도 Task)
+  3. **Approve → Change**: Jayden 승인 후에만 일괄 변경. 승인 전 어느 한 곳도 수정 금지
+- **프롬프트 교훈**: Jayden이 "X를 Y로 바꿔줘", "이 값 교체", "URL/env/키 변경" 계열 요청을 하면 **첫 액션은 항상 `Grep "X"`**. 변경 대상이 1곳뿐이어도 "스캔 결과: 1곳만 참조됨, 바로 수정해도 될까요?"로 명시 보고. 이 규칙은 feedback memory `feedback_value-change-scan`으로도 저장되어 다음 세션에서 자동 적용
+
 ---
 
 ## 🔍 에러 발생 시 디버깅 체크포인트

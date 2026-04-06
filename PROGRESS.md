@@ -686,3 +686,66 @@ pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm test
 - **날짜**: 2026-04-06
 - **세션 시간**: ~6시간 (긴 디버깅 + 딥리서치 포함)
 - **최종 커밋**: `c59d9bc` fix: 무료 진단이 trigger-analysis로 failed 마킹되는 race condition 수정
+
+---
+
+## 📌 2026-04-06 세션 (2차) — Lane A/B 정리 + n8n 콜백 복구
+
+### 완료 내역
+
+1. **Lane A/B 미커밋 정리 완료 (P0 차단 요소 해소)**
+   - `git stash && next build`로 HEAD 빌드 검증 후 4개 논리 커밋으로 분할:
+     - `6650180` feat(diagnosis-free): quick win 난이도(difficulty) 필드 추가 (16 files, 46 tests)
+     - `efe4719` feat(email): resend 어댑터 + 진단 완료 알림 발송 (5 files, 8 tests)
+     - `d114235` feat(db): analytics + self-report + nps 테이블 + api 라우트 (11 files, 27 tests)
+     - `cecb651` chore: health 라우트 + prd v1.2 + .claude/skills 무시 (3 files + .gitignore)
+   - 총 35 files, +3200 lines. 커밋별 테스트 통과(81건) + 최종 `next build` 통과. `origin/main` 푸시 완료.
+
+2. **n8n 콜백 URL 수정 (P0 차단 요소 해소)**
+   - 근본 원인: 2026-04-05 커스텀 도메인 `findably.kr` 전환 후, n8n workflow "Callback Next.js" 노드가 여전히 `https://findably.vercel.app/api/crawl/complete` 참조. Vercel이 307 리다이렉트 반환 → n8n axios가 리다이렉트 추적 시 POST→GET 변환 + body 손실 → Vercel 로그에 아예 기록 안 됨
+   - 증거: Vercel Function Logs 스크린샷 — 최근 30분 `/api/crawl/complete` 요청 0건. Supabase `diagnoses` 테이블에 90분+ 멈춘 `crawling` 레코드 2건
+   - 해결: Jayden이 Elest.io workflow URL을 `findably.kr`로 교체. 첫 시도 9분 후 테스트는 실패, ~30분 후 재저장/재활성화 후 17.85초 end-to-end 성공 검증
+   - 로컬 n8n JSON 3개 동기화 완료 (`findably-crawl-v2-production-fixed.json`, `workflows/findably-crawl-v2-production.json`, `workflows/findably-crawl-v2-hardcoded.json`)
+
+3. **문서 갱신**
+   - `docs/last-known-good.md` Section 1 (공식 정상 baseline) + Section 2 (현재 상태 🟢) + Section 6 (변경 이력) 갱신
+   - `docs/learnings.md` 2건 신규 추가:
+     - n8n 콜백 URL stale → 파이프라인 중단 (커스텀 도메인 전환 후 외부 서비스 콜백 URL 전수 점검 규칙)
+     - 값 변경 시 전체 참조처 스캔 → 제시 → 승인 → 일괄 변경 (AI 이탈 교훈 + 다음 세션 자동 적용)
+   - feedback memory `feedback_value-change-scan.md` 추가
+
+### 차단 요소 상태 (이전 세션 대비)
+
+| 항목                          | 이전    | 현재    |
+| ----------------------------- | ------- | ------- |
+| Lane A/B 미커밋 20+ 파일      | 🔴 차단 | ✅ 해소 |
+| n8n 콜백 미동작               | 🔴 차단 | ✅ 해소 |
+| 프로덕션 무료 진단 파이프라인 | 🔴 고장 | 🟢 정상 |
+
+### 검증 결과
+
+- 무료 진단 end-to-end: 17.85초 (`147e37aa-5ada-44ae-aec8-33d21d12e0c1`, findably.kr 자기 자신, total_score=56, grade=warning)
+- `crawl_data` NOT NULL, `analysis_data` NOT NULL 확인
+- 멈춰있던 2건(`695c09ff`, `0a611641`) 정리 완료
+
+### 다음 세션 할 일 (우선순위)
+
+| 우선순위 | 작업                                        | 비고                                          |
+| -------- | ------------------------------------------- | --------------------------------------------- |
+| **P1**   | Tier 3 검증 (유료 진단 end-to-end)          | 선물코드 또는 Toss Payments 테스트            |
+| **P1**   | Tier 4 검증 (PDF + Resend 이메일 실제 발송) | 이번 세션 미검증                              |
+| **P2**   | n8n watchdog (5분 stuck 감지 자동 복구)     | 다시 stale URL 같은 사고 방지용               |
+| **P2**   | Option A 마이그레이션 (n8n → Pure Vercel)   | 직전 세션 딥리서치 결론. Firecrawl 어댑터부터 |
+| **P3**   | 기존 테스트 실패 31건 정리                  | observatory v2 마이그레이션, CMO fallback     |
+
+### 이번 세션 주요 배운 점
+
+1. **커스텀 도메인 전환 시 외부 서비스 콜백 URL 전수 점검** — learnings.md에 규칙 추가
+2. **값 변경 시 Grep 먼저 → 제시 → 승인 → 일괄 변경** — feedback memory로 자동 적용
+3. **Vercel 로그 "0건"은 강력한 단서** — 에러가 없는 게 아니라 요청이 도달조차 못 한다는 뜻
+
+### 마지막 업데이트 (2차)
+
+- **날짜**: 2026-04-06
+- **최종 커밋**: `cecb651` chore: health 라우트 + prd v1.2 + .claude/skills 무시
+- **상태**: 🟢 정상 — 다음 세션부터 깨끗한 main에서 시작 가능
