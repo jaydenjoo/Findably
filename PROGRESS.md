@@ -749,3 +749,65 @@ pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm test
 - **날짜**: 2026-04-06
 - **최종 커밋**: `cecb651` chore: health 라우트 + prd v1.2 + .claude/skills 무시
 - **상태**: 🟢 정상 — 다음 세션부터 깨끗한 main에서 시작 가능
+
+---
+
+## 2026-04-06 세션 3차: Lane C 계획 수립 후 보류
+
+### 세션 범위
+
+/start → Lane C(Dashboard UX 재구성 + QuickWinCard 자기보고) 계획 수립 → Step 1 파일 파악 완료 → Jayden 보류 요청
+
+### 진행 단계
+
+| 단계    | 상태        | 비고                                             |
+| ------- | ----------- | ------------------------------------------------ |
+| 1. 계획 | ✅ 완료     | L-C1 ~ L-C4 4개 Task 분해, Jayden 최초 승인 획득 |
+| 2. 승인 | ✅ 완료     | 계획 승인 후 Step 1 시작                         |
+| 3. 구현 | ⏸️ **보류** | 코드 변경 0건. 파일 파악만 완료                  |
+| 4. 리뷰 | —           | 미시작                                           |
+
+### Step 1 파일 파악 결과 (키 발견)
+
+1. **Quick Win은 이미 Dashboard 상단 2행에 배치됨** (`DashboardContent.tsx` L211-250)
+   → 원래 계획의 "재배치" 작업 불필요. NPS 추가만 남음.
+2. **NPS/self-report API는 완전히 구현됨**
+   - `src/app/api/nps/route.ts` — POST, body={diagnosisId, score, comment?}, trackEvent 내부 호출
+   - `src/app/api/self-report/route.ts` — POST, body={diagnosisId, ruleId}, 7일 후 recrawl 예약 + trackEvent
+3. **`lib/analytics/events.ts`는 서버 전용** — `createAdminClient()` 사용. 클라이언트 이벤트(dashboard_viewed 등) 발화는 별도 API route 필요 → 이번 스코프 제외.
+4. **QuickWinCard는 Server Component + 전체 `<Link>` 래핑** (`src/components/dashboard/QuickWinCard.tsx` L27)
+   → `'use client'` 변환 + 버튼 내부 `preventDefault + stopPropagation` 필요.
+
+### 수정된 계획 (보류 시점 기준)
+
+| Task | 제목                                         | 요약                                                                                    |
+| ---- | -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| L-C1 | NPSSection 신규 + DashboardContent 하단 삽입 | `'use client'`, 0-10 버튼, POST /api/nps, 제출 후 감사 메시지 숨김                      |
+| L-C2 | QuickWinCard에 "고쳤어요" 자기보고 버튼      | `canSelfReport?: boolean` prop, Link 유지 + 버튼 stopPropagation, POST /api/self-report |
+| L-C3 | Unit 테스트 (NPSSection, QuickWinCard)       | Vitest 7개+, fetch mock, 상태 전환 검증                                                 |
+| L-C4 | 통합 검증 + 커밋 2개 분리                    | tsc → lint → test → build. feat(dashboard): NPS / feat(quick-win): 자기보고             |
+
+### 재개 시 바로 시작 가능 (Step 1 → Step 3로)
+
+- 파일 파악 이미 완료. 다음 세션은 **Step 3 (L-C1 NPSSection 구현)** 부터 바로 시작.
+- 읽어야 할 파일: 이미 컨텍스트에 있음 (DashboardContent, QuickWinCard, analytics/events, /api/nps, /api/self-report)
+- 대략 예상 소요: L-C1 30분 → L-C2 30분 → L-C3 30분 → L-C4 20분 = **총 ~2시간**
+
+### 이번 세션 변경 파일
+
+- **0건** (파일 읽기만 수행, 코드 변경 없음)
+- PROGRESS.md 이 섹션 추가만
+
+### 다음 세션 할 일
+
+| 우선순위 | 작업                              | 비고                        |
+| -------- | --------------------------------- | --------------------------- |
+| **P0**   | Lane C 구현 재개 (L-C1부터)       | 계획 이미 승인됨, 바로 구현 |
+| **P1**   | Tier 3/4 검증 (유료 + PDF/이메일) | 2차 세션에서 미뤄둔 검증    |
+| **P2**   | n8n watchdog                      | stuck 자동 복구             |
+
+### 마지막 업데이트 (3차)
+
+- **날짜**: 2026-04-06
+- **최종 커밋**: `da8c1c4` docs: save session 2차 — lane a/b 정리 + n8n 콜백 복구 기록
+- **상태**: ⏸️ Lane C 구현 보류 (계획 완료, 승인 완료, 구현 대기)
