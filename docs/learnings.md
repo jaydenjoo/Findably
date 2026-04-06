@@ -354,3 +354,31 @@
 □ 4. 환경변수 추가 → Vercel 대시보드에도 추가했는지 확인
 □ 5. 설정 변경 → "일부만 수정"하지 말고 전체 일관성 확인
 ```
+
+---
+
+### 2026-04-06 중요 표시값의 Single Source of Truth 부재 → 리포트 내 점수 불일치
+
+- **증상**: 유료 리포트 PDF 1페이지 커버(62점)와 2페이지 SWOT 본문(72점)이 서로 다른 종합 점수를 표시. 같은 진단의 같은 사용자가 같은 페이지에서 2개 숫자를 본다
+- **원인**: 2개의 점수 계산 경로가 독립적으로 저장됨:
+  - 경로 A: `engine.ts evaluate()` → 7 카테고리 단순 가중 평균 → `analysis_data.overallScore.score` (JSON 안)
+  - 경로 B: `score-aggregator.ts aggregateScores()` → 7 카테고리를 5 매크로(SEO/GEO/Perf/AI/Sec)로 재매핑 후 가중 평균 → `diagnoses.total_score` DB 컬럼
+  - `run-diagnosis.ts:70`에서 `total_score: aggregated.totalScore` 저장 → 두 값이 구조적으로 다름
+  - PDF route는 `diagnoses.total_score` 참조 / 대시보드 SwotSection의 generate-swot.ts는 `analysis_data.overallScore.score` 참조 → 같은 리포트 안에 두 값 동시 등장
+  - 추가로 CMO가 `executive_summary`에 자유 텍스트로 또 다른 점수를 환각 생성 가능 (프롬프트에 점수 관련 가드 없음)
+- **해결**: (1) `analysis_data.overallScore.score`를 canonical로 확정, PDF route도 이 경로 우선 사용 (DB 컬럼은 fallback). (2) CMO 프롬프트 `<guardrails>`에 "전달된 점수 그대로 인용, 재계산/추정 금지" 2줄 추가. (3) `CmoSummarySection`의 "품질 점수" 라벨을 "AI 검증 품질"로 변경해 종합 점수와 혼동 방지
+- **규칙**: **중요 표시값은 반드시 single source of truth를 1곳 확정**하고 모든 표시 경로가 동일 필드를 참조해야 한다. DB 컬럼 + JSON 필드에 "비슷하지만 다른" 값을 동시에 저장하면 언젠가 반드시 불일치가 발생한다. 특히 AI가 자유 텍스트로 생성하는 필드(cmoSummary, executive_summary 등)에 "종합 점수 N점" 같은 숫자를 넣게 되면 환각으로 인한 불일치가 추가된다 → 프롬프트 guardrails로 **"재계산 금지 + 전달값 그대로 인용"** 명시 필수. 디버깅 단서: 같은 진단의 서로 다른 섹션에서 다른 숫자가 보이면 (1) 참조 필드 경로 차이 (2) AI 환각 두 가지를 동시에 의심할 것
+
+### 2026-04-06 AI 자유 생성 insights 배열 기반 매출 계산 — rule-id 직접 매핑 함정
+
+- **증상**: Task 1 매출 누수 재설계 계획 시 "rule-id별 가중치 0.15/0.20/..." 매핑을 먼저 떠올렸으나, 실제 리포트 코드를 읽어보니 매출 누수 카드는 `AIInsight[]` 배열을 받아 렌더링하는 구조였음. `AIInsight` 타입에 `rule-id` 필드 없음 → rule-id 기반 매핑을 직접 적용 불가
+- **원인**: 무료 분석(diagnosis-free)은 rule 기반이라 rule-id가 데이터에 명시되지만, 유료 분석(diagnosis-paid)은 AI 5개 에이전트가 `AIInsight`를 자유 텍스트로 생성한다. `AIInsight.category`는 7개 `CategoryId` 중 하나만 저장되고 rule-id는 없음. 즉 "이 insight가 어느 rule에서 유래했는지" 추적 불가능
+- **해결**: (1) rule-id 매핑은 참고용 문서로만 두고, (2) `classifyInsight()` 함수가 insight의 `title + description`을 정규식 키워드 매칭으로 8개 영향 카테고리에 분류, (3) 매칭 실패 시 `other` fallback + 우선순위 매칭(ssl > lcp > mobile > ...)으로 다중 키워드 케이스 처리, (4) dev 모니터링용 `otherRatio` 출력으로 키워드 부족 시 실증 기반 확장
+- **규칙**: **AI 자유 생성 데이터를 후처리할 때는 엄격한 ID 기반 매핑 대신 키워드 휴리스틱 + fallback 카테고리**를 쓴다. 규칙 기반 시스템(`rule-id` + config)과 AI 기반 시스템(`insight[]`)이 공존하면 "규칙 레이어에 저장된 메타데이터가 AI 출력에 자동 반영되지 않는다" → 두 시스템을 잇는 **추론 레이어(classify 함수)가 반드시 필요**. 키워드 매칭은 추측으로 늘리지 말고 실제 데이터로 `other` 비율 확인 후 확장. 설계 시 "이 데이터는 어느 레이어에서 생성되는가"를 먼저 확인하고 매핑 구조를 잡을 것
+
+### 2026-04-06 계획 수립 전 지시문 정독 누락 → 범위만 담긴 얕은 제안 (AI 이탈 교훈)
+
+- **상황**: `/start` 직후 Jayden이 유료 리포트 검수 Phase A 진행 여부를 물었을 때, Claude는 `docs/paid-report-audit-v1.md` 지시문을 **읽지 않고** PROGRESS.md 요약과 memory만 보고 "Phase A = Task 1+2+3, Step 1은 rule-id 스캔" 수준의 **범위 분류만** 담긴 제안을 올렸다. Jayden이 "이거 내용대로 계획을 세웠나?"라고 직접 지적해서야 누락을 인정하고 지시문을 정독했다
+- **AI가 한 것**: (1) 지시문 파일이 명시적으로 박제되어 있는데도 Read 생략, (2) memory/PROGRESS 요약을 "계획"으로 오인, (3) Task 1-1~1-5 세부 요구사항(캡 적용, 가중치 배분, 중복 보정 문구, 금액 표현 방식), Task 2 세부(62/72 어느게 정확한지 확인), Task 3 세부(근본 원인 통합 + 복수 태그), 검증 체크리스트 7개를 모두 "계획"에서 누락, (4) 결과적으로 "Phase 범위 제안"을 "전면 계획 제출"로 보고
+- **올바른 방향**: "이 지시문대로 구현 계획 세워줘" 같은 요청이 들어오면 **첫 행동은 반드시 해당 파일 Read**. PROGRESS/memory 요약은 보조 컨텍스트일 뿐 원본이 아니다. 계획에는 지시문의 (1) 모든 세부 요구사항이 어느 파일/함수로 매핑되는지 (2) 검증 체크리스트 각 항목이 어떻게 확인되는지 (3) 리스크/의존성을 빠짐없이 담아야 한다
+- **프롬프트 교훈**: Jayden이 "~ 지시문대로 계획 세워줘", "~ 파일 기준으로 작업해줘" 같은 파일 참조 요청을 하면 **Claude는 즉시 해당 파일을 Read하고, 지시문의 모든 항목을 계획 표로 매핑해서 제출**해야 한다. 요약에서 "큰 틀"만 뽑아서 제안하는 패턴은 지시문의 세부 요구사항을 누락시키고 "계획"이 아닌 "범위 분류"에 그친다. 자동 적용 규칙: 파일 경로가 사용자 메시지에 등장하면 **그 파일 Read가 첫 tool call**

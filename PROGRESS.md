@@ -920,3 +920,124 @@ Lane C 재개 → L-C1~L-C4 전부 완료 → 프로덕션 배포 → Lane C 실
 - **날짜**: 2026-04-06 17:10 KST
 - **최종 커밋**: `5e8fea1` chore: save session 4차 — lane c 배포 + 검증 + tier 3/4 확인
 - **상태**: 📋 Phase A 구현 대기 (계획 확정, 지시문 박제 완료)
+
+---
+
+## 2026-04-06 세션 6차: 유료 리포트 검수 Phase A 구현 + 배포 완료 ✅
+
+### 세션 범위
+
+/start → 지시문 정독 → 전면 계획 수립 → Step 0 매핑 승인 → Step 1~5 구현 → Step 7 검증 → Step 8 배포
+
+### 현재 위치
+
+- **Epic**: 유료 리포트 신뢰도 복구
+- **Task**: Phase A (Task 1 + 2 + 3)
+- **상태**: 🟢 **구현 + 배포 완료** — Jayden 수동 검증 대기
+
+### 완료 Step
+
+| Step | 내용                                                       | 상태    |
+| ---- | ---------------------------------------------------------- | ------- |
+| 0    | rule-id × 8개 Impact Category 매핑 승인 (67개 rule 전수)   | ✅ 완료 |
+| 1    | config/revenue.ts 확장 + insight-aggregation.ts + 44 tests | ✅ 완료 |
+| 2    | TotalLeakageCard 전면 재작성                               | ✅ 완료 |
+| 3    | AIInsightsSection dedupe + 영향 카테고리 뱃지              | ✅ 완료 |
+| 4    | PdfBridgeSection + PdfInsights PDF 동기화                  | ✅ 완료 |
+| 5    | PDF 점수 단일화 + CMO guardrails + "AI 검증 품질" 라벨     | ✅ 완료 |
+| 7    | 통합 검증 (tsc + lint + vitest + build)                    | ✅ 완료 |
+| 8    | 3커밋 분할 → push → Vercel 수동 배포                       | ✅ 완료 |
+
+### 핵심 커밋
+
+| SHA       | 제목                                                              |
+| --------- | ----------------------------------------------------------------- |
+| `be117f4` | feat(config): phase a — 매출 누수 캡 + 가중 분배 로직 기반        |
+| `06883ec` | feat(report): phase a — 누수 카드 캡/가중/중복통합 적용 (web+pdf) |
+| `f4548d6` | fix(report): phase a — overallScore 단일화 + CMO 임의 점수 가드   |
+
+### 파일 변경
+
+- **총 11개 파일, +950줄**
+- 신규 3개: `src/lib/utils/insight-aggregation.ts` (297줄), `src/config/__tests__/revenue.test.ts` (106줄), `src/lib/utils/__tests__/insight-aggregation.test.ts` (416줄)
+- 수정 8개: revenue.ts, diagnosis-paid.ts, TotalLeakageCard, AIInsightsSection, CmoSummarySection, PdfBridgeSection, PdfInsights, pdf/route.tsx
+
+### 지시문 Task 커버리지
+
+| Task                | 상태       | 비고                                       |
+| ------------------- | ---------- | ------------------------------------------ |
+| 1. 매출 누수 재설계 | ✅ 완료    | 5,638만원 과장 → 캡 328만원 이내           |
+| 2. 종합 점수 단일화 | ✅ 완료    | analysis_data.overallScore.score canonical |
+| 3. 중복 항목 통합   | ✅ 완료    | dedupeInsightsByImpactCategory             |
+| 4. 빈 섹션 처리     | ⏭️ Phase B | 승인된 분리                                |
+| 5. 가이드 스택 보정 | ⏭️ Phase C | 승인된 분리                                |
+| 업종/규모 선택 UI   | ⏭️ Phase D | 승인된 분리                                |
+
+### 검증 결과
+
+| 검증                     | 결과                                     |
+| ------------------------ | ---------------------------------------- |
+| `tsc --noEmit`           | ✅ 0 errors                              |
+| `eslint` (수정 11파일)   | ✅ 0 errors, 1 pre-existing warning      |
+| `vitest` (신규 44 tests) | ✅ 44 passed                             |
+| `vitest` (전체 714)      | 🟡 683 passed / 31 failed (pre-existing) |
+| `next build`             | ✅ 44 routes 빌드 성공                   |
+| `vercel --prod`          | ✅ 58초 배포, https://findably.kr        |
+
+### 핵심 설계 결정
+
+1. **AI insights 레이어 기반 매출 계산** — rule-id 직접 매핑 대신 title 키워드 매칭(`classifyInsight`)으로 8개 Impact Category 분류. 이유: AI가 자유 생성한 insights는 rule-id 필드가 없음
+2. **재정규화 가중 분배** — 활성 카테고리만의 가중치 합으로 각 금액 계산 → 항상 `cap` 이내 유지. 1개 카테고리만 있어도 cap 100% 소진, 8개 전부 있어도 원래 비율 유지
+3. **`analysis_data.overallScore.score` canonical 확정** — DB `total_score` 컬럼은 fallback으로만. `engine.evaluate()` 7-카테고리 평균이 single source of truth
+4. **CMO guardrails 2줄 추가** — executive_summary에 임의 점수 언급 금지로 환각 차단
+
+### Jayden 수동 검증 대기 항목 (P0)
+
+**① 기존 진단 `5878eca6` 재렌더 육안 확인**
+
+- 매출 누수 카드 캡 이내 (월 328만원 이하)
+- "매출의 20% 수준" + "월매출 1,640만원 기준" 병기
+- "개선된 추정 로직 적용" 뱃지
+- 카테고리별 내역 + `#technical` 해시태그
+- 중복 보정 문구 "ℹ️..."
+- AI 인사이트 카드 감소 + "SSL 보안" 영향 카테고리 뱃지
+- 카드에서 💰 매출 영향 블록 제거 확인
+
+**② PDF 다운로드**
+
+- 1페이지 커버 점수 = SWOT 본문 점수 (동일값)
+- 2페이지 PdfBridgeSection = 웹 TotalLeakageCard 동일 금액
+
+**③ 새 진단 1건 실행 (선물 코드)**
+
+- cmoSummary에 "대략 N점" 같은 임의 점수 언급 없는지
+- executive_summary 품질 저하 없는지
+
+### 다음 세션 할 일
+
+| 우선순위 | 작업                                                         |
+| -------- | ------------------------------------------------------------ |
+| **P0**   | Jayden 수동 검증 결과 확인 → Phase A 완료 확정 or hotfix     |
+| **P1**   | Phase B 착수 (Task 4 — 빈 섹션 처리)                         |
+| **P2**   | Legacy `calculateRevenueImpact` + `INDUSTRY_BENCHMARKS` 제거 |
+| **P3**   | Phase C 착수 (Task 5 — 가이드 스택 보정)                     |
+| **P3**   | pre-existing 31 test 정리 (observatory/ssl-labs/fallback)    |
+| **P3**   | Phase D 착수 (업종/규모 선택 UI)                             |
+
+### 알려진 미결 사항
+
+1. **기존 진단 5878eca6의 cmoSummary에 박힌 환각 점수** — DB 원본은 그대로. 새 진단으로 해결 (CMO guardrails 반영)
+2. **Legacy dead code** — `calculateRevenueImpact`, `INDUSTRY_BENCHMARKS`, `getBenchmark`, `SEVERITY_IMPACT_RATE` 호출자 0개 (grep 확인). Phase A에서는 유지, 별도 cleanup Task로 분리
+3. **전체 vitest 31 failed** — 모두 pre-existing (observatory v1→v2, ssl-labs, save-crawl-result, CMO fallback, generate-swot, generateCmoSummaryFallback). 이 숫자는 Phase A 이전과 일치
+4. **Vercel 자동 배포 미작동** — 수동 배포로 우회 중, 루트 원인 미파악 (2026-04-06 4차 세션부터 동일 이슈)
+
+### 차단 요소
+
+**없음** — Phase A 배포 완료, 검증 대기 단계
+
+### 마지막 업데이트 (6차 — Phase A 배포 완료)
+
+- **날짜**: 2026-04-06 저녁 KST
+- **최종 커밋**: `f4548d6` fix(report): phase a — overallScore 단일화 + CMO 임의 점수 언급 가드
+- **프로덕션**: https://findably.kr (Vercel 수동 배포 완료)
+- **상태**: 🟢 Phase A 구현 + 배포 완료, Jayden 수동 검증 대기
