@@ -19,6 +19,7 @@ export const geoRules: RuleDefinition[] = [
     maxPoints: 15,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'medium',
     isEvaluable: hasLlmsTxt,
     evaluate: (data) => {
       if (data.llms_txt!.exists) {
@@ -42,6 +43,7 @@ export const geoRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'info',
     quickWinEligible: true,
+    difficulty: 'medium',
     isEvaluable: (data) =>
       data.llms_txt !== null &&
       data.llms_txt.exists &&
@@ -89,6 +91,7 @@ export const geoRules: RuleDefinition[] = [
     maxPoints: 15,
     severity: 'critical',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasRobotsTxt,
     evaluate: (data) => {
       const status = data.robots_txt!.ai_bots['GPTBot']
@@ -113,6 +116,7 @@ export const geoRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasRobotsTxt,
     evaluate: (data) => {
       const status = data.robots_txt!.ai_bots['ClaudeBot']
@@ -137,6 +141,7 @@ export const geoRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasRobotsTxt,
     evaluate: (data) => {
       const status = data.robots_txt!.ai_bots['PerplexityBot']
@@ -270,6 +275,7 @@ export const geoRules: RuleDefinition[] = [
     maxPoints: 5,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const desc = data.layer1!.meta.description
@@ -339,6 +345,7 @@ export const geoRules: RuleDefinition[] = [
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: true,
+    difficulty: 'medium',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const { total, without_alt } = data.layer1!.images
@@ -366,6 +373,7 @@ export const geoRules: RuleDefinition[] = [
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const canonical = data.layer1!.meta.canonical

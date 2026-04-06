@@ -11,6 +11,7 @@ export const contentRules: RuleDefinition[] = [
     maxPoints: 15,
     severity: 'critical',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const title = data.layer1!.meta.title
@@ -31,6 +32,7 @@ export const contentRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: (data) =>
       data.layer1 !== null && data.layer1.meta.title !== null,
     evaluate: (data) => {
@@ -61,6 +63,7 @@ export const contentRules: RuleDefinition[] = [
     maxPoints: 15,
     severity: 'critical',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const desc = data.layer1!.meta.description
@@ -84,6 +87,7 @@ export const contentRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: (data) =>
       data.layer1 !== null && data.layer1.meta.description !== null,
     evaluate: (data) => {
@@ -209,6 +213,7 @@ export const contentRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'medium',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const { total, without_alt } = data.layer1!.images
@@ -234,6 +239,7 @@ export const contentRules: RuleDefinition[] = [
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: true,
+    difficulty: 'medium',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const largeImages = data.layer1!.images.large_images
@@ -302,6 +308,7 @@ export const contentRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'medium',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const broken = data.layer1!.links.broken

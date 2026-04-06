@@ -6,6 +6,7 @@ import type {
   PlatformCitationScore,
   AIPlatform,
   AICitationSignals,
+  QuickWinDifficulty,
 } from '@/features/diagnosis-free/types'
 import { SCORING } from '@/config/scoring'
 
@@ -162,6 +163,7 @@ interface RawQuickWin {
   points?: number
   maxPoints?: number
   source?: string
+  difficulty?: QuickWinDifficulty
 }
 
 /** 원시 impact/severity/points → 숫자 impact 변환 */
@@ -189,6 +191,7 @@ function normalizeQuickWins(raw: unknown): OverallScore['quickWins'] {
     message: item.message ?? '',
     impact: resolveImpact(item),
     source: (item.source === 'ai' ? 'ai' : 'rule') as 'rule' | 'ai',
+    difficulty: item.difficulty ?? 'medium',
   }))
 }
 

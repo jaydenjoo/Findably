@@ -676,6 +676,7 @@ const quickWins: QuickWin[] = [
       'robots.txt에서 GPTBot, ClaudeBot, PerplexityBot을 허용하면 AI 검색 엔진에 노출될 수 있습니다.',
     impact: 25,
     source: 'rule',
+    difficulty: 'easy',
   },
   {
     ruleId: 'tech-002-canonical',
@@ -686,6 +687,7 @@ const quickWins: QuickWin[] = [
       'Canonical URL을 추가하면 중복 콘텐츠 문제를 해결하고 SEO가 개선됩니다.',
     impact: 20,
     source: 'rule',
+    difficulty: 'easy',
   },
   {
     ruleId: 'content-004-content-length',
@@ -696,6 +698,7 @@ const quickWins: QuickWin[] = [
       '페이지 콘텐츠를 2,000자 이상으로 확대하면 검색 순위 개선에 도움이 됩니다.',
     impact: 18,
     source: 'rule',
+    difficulty: 'medium',
   },
   {
     ruleId: 'social-ai-001-og-tags',
@@ -705,6 +708,7 @@ const quickWins: QuickWin[] = [
     message: 'SNS 공유 시 미리보기를 개선하려면 OG 태그를 추가하세요.',
     impact: 12,
     source: 'rule',
+    difficulty: 'easy',
   },
   {
     ruleId: 'mobile-002-touch-targets',
@@ -714,6 +718,7 @@ const quickWins: QuickWin[] = [
     message: '모바일 사용성을 위해 버튼/링크 크기를 44x44px 이상으로 만드세요.',
     impact: 10,
     source: 'rule',
+    difficulty: 'medium',
   },
 ]
 

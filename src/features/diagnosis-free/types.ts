@@ -29,6 +29,8 @@ export interface RuleDefinition {
   maxPoints: number
   severity: RuleSeverity
   quickWinEligible: boolean
+  /** 수정 난이도 (quickWinEligible: true일 때 설정, 미설정 시 'medium') */
+  difficulty?: QuickWinDifficulty
   /** 평가에 필요한 데이터가 존재하는지 확인 */
   isEvaluable: (data: CrawlData) => boolean
   /** 룰 평가 (isEvaluable 통과 후 호출) */
@@ -48,6 +50,8 @@ export interface RuleResult {
   severity: RuleSeverity
   message: string
   quickWinEligible: boolean
+  /** 수정 난이도 (quickWinEligible: true일 때 의미 있음) */
+  difficulty?: QuickWinDifficulty
 }
 
 // ─── 카테고리 점수 ───
@@ -80,6 +84,9 @@ export interface OverallScore {
 
 // ─── Quick Win ───
 
+/** 수정 난이도 (easy: HTML 속성 1줄, medium: 콘텐츠/구조, hard: 기술적 개선) */
+export type QuickWinDifficulty = 'easy' | 'medium' | 'hard'
+
 export interface QuickWin {
   ruleId: string
   ruleName: string
@@ -89,6 +96,8 @@ export interface QuickWin {
   impact: number
   /** 출처: 룰 기반 or AI 기반 */
   source: 'rule' | 'ai'
+  /** 수정 난이도 */
+  difficulty: QuickWinDifficulty
 }
 
 // ─── 매크로 점수 (5-Score 집계) ───

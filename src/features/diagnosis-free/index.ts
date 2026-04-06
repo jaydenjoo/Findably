@@ -20,6 +20,7 @@ export type {
   OverallScore,
   PlatformCitationScore,
   QuickWin,
+  QuickWinDifficulty,
   ReportReliability,
   RuleDefinition,
   RuleEvaluation,

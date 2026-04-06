@@ -29,6 +29,7 @@ function evaluateRule(rule: RuleDefinition, data: CrawlData): RuleResult {
       message:
         SKIPPED_MESSAGES[rule.category] ?? SKIPPED_MESSAGES['default'] ?? '',
       quickWinEligible: rule.quickWinEligible,
+      difficulty: rule.difficulty,
     }
   }
 
@@ -44,6 +45,7 @@ function evaluateRule(rule: RuleDefinition, data: CrawlData): RuleResult {
     severity: rule.severity,
     message: evaluation.message,
     quickWinEligible: rule.quickWinEligible,
+    difficulty: rule.difficulty,
   }
 }
 
@@ -119,6 +121,7 @@ export function evaluate(data: CrawlData): OverallScore {
       message: r.message,
       impact: r.maxPoints,
       source: 'rule' as const,
+      difficulty: r.difficulty ?? 'medium',
     }))
 
   return {

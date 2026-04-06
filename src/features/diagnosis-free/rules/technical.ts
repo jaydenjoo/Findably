@@ -14,6 +14,7 @@ export const technicalRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const lang = data.layer1!.html_lang
@@ -37,6 +38,7 @@ export const technicalRules: RuleDefinition[] = [
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const charset = data.layer1!.meta.charset
@@ -60,6 +62,7 @@ export const technicalRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const viewport = data.layer1!.meta.viewport
@@ -83,6 +86,7 @@ export const technicalRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const canonical = data.layer1!.meta.canonical
@@ -107,6 +111,7 @@ export const technicalRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'medium',
     isEvaluable: hasRobotsTxt,
     evaluate: (data) => {
       if (data.robots_txt!.exists) {
@@ -130,6 +135,7 @@ export const technicalRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'medium',
     isEvaluable: hasSitemap,
     evaluate: (data) => {
       if (data.sitemap!.exists) {
@@ -204,6 +210,7 @@ export const technicalRules: RuleDefinition[] = [
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasRobotsTxt,
     evaluate: (data) => {
       const urls = data.robots_txt!.sitemap_urls

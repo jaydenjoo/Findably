@@ -13,6 +13,7 @@ export const mobileRules: RuleDefinition[] = [
     maxPoints: 15,
     severity: 'critical',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasMobile,
     evaluate: (data) => {
       if (data.mobile!.viewport_configured) {

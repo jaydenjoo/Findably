@@ -116,6 +116,7 @@ export const performanceRules: RuleDefinition[] = [
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: true,
+    difficulty: 'hard',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const bytes = data.layer1!.page_size_bytes

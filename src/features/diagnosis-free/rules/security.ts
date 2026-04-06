@@ -93,6 +93,7 @@ export const securityRules: RuleDefinition[] = [
     maxPoints: 5,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'hard',
     isEvaluable: (data) =>
       data.layer3 !== null &&
       data.layer3.ssl !== null &&

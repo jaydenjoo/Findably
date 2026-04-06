@@ -10,6 +10,7 @@ export const socialAiRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const ogTitle = data.layer1!.meta.og['og:title']
@@ -34,6 +35,7 @@ export const socialAiRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const ogDesc = data.layer1!.meta.og['og:description']
@@ -58,6 +60,7 @@ export const socialAiRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
       const ogImage = data.layer1!.meta.og['og:image']
@@ -82,6 +85,7 @@ export const socialAiRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'info',
     quickWinEligible: true,
+    difficulty: 'medium',
     isEvaluable: (data) => data.llms_txt !== null,
     evaluate: (data) => {
       if (data.llms_txt!.exists) {
@@ -105,6 +109,7 @@ export const socialAiRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasRobotsTxt,
     evaluate: (data) => {
       const status = data.robots_txt!.ai_bots['GPTBot']
@@ -129,6 +134,7 @@ export const socialAiRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasRobotsTxt,
     evaluate: (data) => {
       const status = data.robots_txt!.ai_bots['ClaudeBot']
@@ -153,6 +159,7 @@ export const socialAiRules: RuleDefinition[] = [
     maxPoints: 5,
     severity: 'info',
     quickWinEligible: true,
+    difficulty: 'easy',
     isEvaluable: hasRobotsTxt,
     evaluate: (data) => {
       const status = data.robots_txt!.ai_bots['PerplexityBot']

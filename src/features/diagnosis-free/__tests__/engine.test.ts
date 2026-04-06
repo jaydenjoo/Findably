@@ -160,7 +160,7 @@ describe('Quick Win 식별', () => {
     expect(result.quickWins).toEqual([])
   })
 
-  it('should map QuickWin fields correctly', () => {
+  it('should map QuickWin fields correctly including difficulty', () => {
     mockRules.push(
       createRule({
         id: 'title-missing',
@@ -169,6 +169,7 @@ describe('Quick Win 식별', () => {
         maxPoints: 8,
         severity: 'critical',
         quickWinEligible: true,
+        difficulty: 'easy',
         evaluate: () => ({ passed: false, message: '타이틀이 없습니다' }),
       })
     )
@@ -184,7 +185,24 @@ describe('Quick Win 식별', () => {
       message: '타이틀이 없습니다',
       impact: 8,
       source: 'rule',
+      difficulty: 'easy',
     })
+  })
+
+  it('should default difficulty to medium when not set on rule', () => {
+    mockRules.push(
+      createRule({
+        id: 'no-difficulty',
+        quickWinEligible: true,
+        evaluate: () => ({ passed: false, message: '실패' }),
+        // difficulty 미설정 — 하위 호환
+      })
+    )
+
+    const result = evaluate(createMockCrawlData())
+    const qw = result.quickWins[0]!
+
+    expect(qw.difficulty).toBe('medium')
   })
 })
 
