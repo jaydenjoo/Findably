@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      self_reports: {
+        Row: {
+          id: string
+          user_id: string
+          diagnosis_id: string
+          rule_id: string
+          reported_at: string
+          recrawl_scheduled_at: string
+          recrawl_completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          diagnosis_id: string
+          rule_id: string
+          reported_at?: string
+          recrawl_scheduled_at: string
+          recrawl_completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          diagnosis_id?: string
+          rule_id?: string
+          reported_at?: string
+          recrawl_scheduled_at?: string
+          recrawl_completed_at?: string | null
+        }
+        Relationships: []
+      }
+      nps_responses: {
+        Row: {
+          id: string
+          user_id: string
+          diagnosis_id: string
+          score: number
+          comment: string | null
+          submitted_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          diagnosis_id: string
+          score: number
+          comment?: string | null
+          submitted_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          diagnosis_id?: string
+          score?: number
+          comment?: string | null
+          submitted_at?: string
+        }
+        Relationships: []
+      }
+      analytics_events: {
+        Row: {
+          id: string
+          user_id: string | null
+          event: string
+          properties: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          event: string
+          properties?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          event?: string
+          properties?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
       gift_codes: {
         Row: {
           id: string
