@@ -3,12 +3,18 @@ import { z } from 'zod'
 import { withAuth } from '@/lib/api/with-auth'
 import { successResponse, errorResponse } from '@/lib/api/response'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { ACCESS } from '@/config/access-control'
 
 /**
  * POST /api/payment/redeem-code
  *
  * 선물 코드 검증 + 유료 진단 레코드 생성
  * 유효한 코드 → createPayment과 동일하게 유료 레코드 생성
+ *
+ * Admin 우회 (2026-04-06): ACCESS.ADMIN_EMAILS에 등록된 계정은
+ * 같은 코드를 무제한 재사용 가능. 사용 흔적도 남기지 않아 max_uses
+ * 카운터에 영향 없음. 일반 사용자는 기존과 동일하게 1회 제한 + DB
+ * 유니크 제약 적용.
  */
 
 const redeemSchema = z.object({
@@ -31,6 +37,12 @@ export async function POST(request: NextRequest): Promise<Response> {
     const supabase = createAdminClient()
     const codeUpper = body.code.trim().toUpperCase()
 
+    // Admin 우회 판정 — ACCESS.ADMIN_EMAILS에 등록된 계정은 코드 무제한 재사용
+    // (as const 배열의 좁은 리터럴 타입 회피용 캐스팅)
+    const isAdmin = (ACCESS.ADMIN_EMAILS as readonly string[]).includes(
+      user.email ?? ''
+    )
+
     // 2. 코드 조회 + 유효성 검증
     const { data: giftCode, error: codeError } = await supabase
       .from('gift_codes')
@@ -43,7 +55,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       return errorResponse('유효하지 않은 코드입니다', 400)
     }
 
-    // 만료 확인
+    // 만료 확인 (admin도 만료된 코드는 사용 불가 — 실수 방지)
     if (
       giftCode.expires_at &&
       new Date(giftCode.expires_at as string) < new Date()
@@ -51,21 +63,26 @@ export async function POST(request: NextRequest): Promise<Response> {
       return errorResponse('만료된 코드입니다', 400)
     }
 
-    // 사용 횟수 초과 확인
-    if ((giftCode.used_count as number) >= (giftCode.max_uses as number)) {
+    // 사용 횟수 초과 확인 — admin은 우회
+    if (
+      !isAdmin &&
+      (giftCode.used_count as number) >= (giftCode.max_uses as number)
+    ) {
       return errorResponse('사용 횟수를 초과한 코드입니다', 400)
     }
 
-    // 3. 중복 사용 확인 (같은 유저가 같은 코드)
-    const { data: existingUse } = await supabase
-      .from('gift_code_uses')
-      .select('id')
-      .eq('gift_code_id', giftCode.id)
-      .eq('user_id', user.id)
-      .maybeSingle()
+    // 3. 중복 사용 확인 (같은 유저가 같은 코드) — admin은 우회
+    if (!isAdmin) {
+      const { data: existingUse } = await supabase
+        .from('gift_code_uses')
+        .select('id')
+        .eq('gift_code_id', giftCode.id)
+        .eq('user_id', user.id)
+        .maybeSingle()
 
-    if (existingUse) {
-      return errorResponse('이미 사용한 코드입니다', 400)
+      if (existingUse) {
+        return errorResponse('이미 사용한 코드입니다', 400)
+      }
     }
 
     // 4. 무료 진단 조회 + 소유권 확인
@@ -110,22 +127,26 @@ export async function POST(request: NextRequest): Promise<Response> {
       return errorResponse('유료 분석 생성에 실패했습니다', 500)
     }
 
-    // 6. 코드 사용 기록 + used_count 증가
-    await supabase.from('gift_code_uses').insert({
-      gift_code_id: giftCode.id,
-      user_id: user.id,
-      diagnosis_id: paidDiag.id,
-    })
+    // 6. 코드 사용 기록 + used_count 증가 — admin은 우회 (DB 유니크 제약 위반 방지 + max_uses 카운터 보호)
+    if (!isAdmin) {
+      await supabase.from('gift_code_uses').insert({
+        gift_code_id: giftCode.id,
+        user_id: user.id,
+        diagnosis_id: paidDiag.id,
+      })
 
-    await supabase
-      .from('gift_codes')
-      .update({ used_count: (giftCode.used_count as number) + 1 })
-      .eq('id', giftCode.id)
+      await supabase
+        .from('gift_codes')
+        .update({ used_count: (giftCode.used_count as number) + 1 })
+        .eq('id', giftCode.id)
+    }
 
     return successResponse({
       diagnosisId: paidDiag.id,
       code: codeUpper,
-      message: '선물 코드가 적용되었습니다',
+      message: isAdmin
+        ? '선물 코드가 적용되었습니다 (admin 무제한)'
+        : '선물 코드가 적용되었습니다',
     })
   })
 }
