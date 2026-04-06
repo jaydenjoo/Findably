@@ -403,3 +403,48 @@
 - **AI가 한 것**: (1) 지시문 파일이 명시적으로 박제되어 있는데도 Read 생략, (2) memory/PROGRESS 요약을 "계획"으로 오인, (3) Task 1-1~1-5 세부 요구사항(캡 적용, 가중치 배분, 중복 보정 문구, 금액 표현 방식), Task 2 세부(62/72 어느게 정확한지 확인), Task 3 세부(근본 원인 통합 + 복수 태그), 검증 체크리스트 7개를 모두 "계획"에서 누락, (4) 결과적으로 "Phase 범위 제안"을 "전면 계획 제출"로 보고
 - **올바른 방향**: "이 지시문대로 구현 계획 세워줘" 같은 요청이 들어오면 **첫 행동은 반드시 해당 파일 Read**. PROGRESS/memory 요약은 보조 컨텍스트일 뿐 원본이 아니다. 계획에는 지시문의 (1) 모든 세부 요구사항이 어느 파일/함수로 매핑되는지 (2) 검증 체크리스트 각 항목이 어떻게 확인되는지 (3) 리스크/의존성을 빠짐없이 담아야 한다
 - **프롬프트 교훈**: Jayden이 "~ 지시문대로 계획 세워줘", "~ 파일 기준으로 작업해줘" 같은 파일 참조 요청을 하면 **Claude는 즉시 해당 파일을 Read하고, 지시문의 모든 항목을 계획 표로 매핑해서 제출**해야 한다. 요약에서 "큰 틀"만 뽑아서 제안하는 패턴은 지시문의 세부 요구사항을 누락시키고 "계획"이 아닌 "범위 분류"에 그친다. 자동 적용 규칙: 파일 경로가 사용자 메시지에 등장하면 **그 파일 Read가 첫 tool call**
+
+### 2026-04-06 외부 콜백 라우트에 멱등성 가드 부재 → DB write 폭주 + score 변동
+
+- **증상**: 무료 진단 7c0a7f6d가 status='completed'인데도 5분간 6번+ update. score가 50 → 53 → ... 매번 다른 값으로 저장됨. updated_at이 30~80초마다 갱신. Jayden 측 화면이 polling cache 충돌로 갱신 안 됨
+- **원인**: `/api/crawl/complete`의 `handleCallback`이 페이로드 검증 후 status 확인 없이 `saveCrawlResult + enrichCrawlData + runDiagnosis`를 매번 실행. n8n측이 같은 진단에 콜백을 여러 번 보내면 무료 분석 전체가 매번 재실행됨. `transitionStatus`는 completed→analyzing 차단하지만 그 이전의 `crawl_data` UPDATE는 이미 발생 (멱등성 결여). PageSpeed/SSL/Observatory 외부 API 결과 변동이 매번 다른 score로 반영됨
+- **해결**: 페이로드 검증 직후 status 조회 → completed/failed면 early return. 가드 자체 실패 시(DB 장애)는 정상 흐름 유지로 안전성 보장. 검증: 새 진단 638f2f45가 25초만에 정상 종료(이전 130~301초 → 1/5~1/12), update 1회만 발생
+- **규칙**: **외부 서비스(n8n, Stripe, Toss 등)가 콜백하는 라우트는 반드시 멱등성 가드가 필요하다**. 외부 측 retry 정책이나 timeout은 우리가 통제 못하고, 같은 콜백이 N번 도착할 수 있다고 가정해야 한다. 가드 위치: 페이로드 검증 직후 + DB 변경 전. 가드 조건: status가 terminal state(completed/failed)면 early return + 200 응답(외부 서비스가 또 retry 안 하도록). 가드 실패 시(DB 장애)는 차단하지 말고 진행 — 최악의 경우 폭주이지만 정상 흐름 우선
+
+### 2026-04-06 Vercel maxDuration 단순 상향만으로는 시간 누적 문제 해결 불가
+
+- **증상**: trigger-analysis 라우트가 maxDuration=120 → 504 timeout 발생. Fix 1로 maxDuration=300으로 상향했더니 이번엔 405초+ 경과해도 미완료. Vercel 한도 자체가 아닌 **누적 시간 자체가 문제**
+- **원인**: 5에이전트 race(90s) + retry(직렬, Opus fallback 포함)가 60s+120s+ + CMO(30s) + aggregateResults(외부 API)가 누적되면 200~300초+ 가능. 한도를 늘려도 retry가 더 길어지면 또 hit. **시간 한도(maxDuration)는 안전망일 뿐, 본질은 시간 예산 재배분**
+- **해결**: Phase 3 Fix 5개 일괄 적용:
+  1. SDK 클라이언트에 timeout 명시(`timeout: 90_000, maxRetries: 0`) — SDK 자체 abort + 자동 재시도 차단
+  2. retry 전체 단계에 race timeout 추가 — 무한정 시간 잡아먹기 차단
+  3. retry for 직렬 → Promise.allSettled 병렬 — 2개 이상 실패 시 시간 N배 절감
+  4. Opus 2차 fallback 제거 — Opus는 60초+ 걸리고 시간 폭발의 주범
+  5. 시작 시 updated_at 직접 갱신 — 디버깅 마커로 process_seconds=0 미스터리 해결
+- **규칙**: **Vercel maxDuration이 hit하면 답은 한도 상향이 아니라 시간 예산 재배분**. 각 단계(전처리, 메인 작업, 후처리)가 한도의 30~50% 이내에 끝나도록 설계. retry는 반드시 (1) 전체 시간 한도 (2) 병렬화 (3) 비싼 fallback(Opus 등) 제거 3가지를 적용. SDK 기본값 600초 같은 큰 timeout은 Vercel 환경과 불일치하므로 명시적으로 짧게 설정. SDK 자동 재시도(maxRetries 기본 2회)와 우리 retry 로직이 중복되지 않도록 SDK 측은 0으로 막고 우리가 통제
+
+### 2026-04-06 transitionStatus가 동일 상태 시 noop → updated_at 갱신 안 됨, 디버깅 불가
+
+- **증상**: 진단 process_seconds(updated_at - created_at)가 0초로 표시됨. runDiagnosisPaid가 분명히 실행되고 있는데 DB의 updated_at이 created_at과 정확히 같음. 진단이 어느 단계까지 갔는지 외부에서 추적 불가
+- **원인**: `transitionStatus()` 함수가 동일 status 호출 시 멱등성을 위해 early return (line 86-92). 진단이 이미 'analyzing' 상태에서 또 'analyzing'으로 transition하면 DB write 자체가 일어나지 않음. updated_at도 갱신 안 됨. 이게 디버깅 마커로 활용 불가능한 원인
+- **해결**: 시작 시점에 transitionStatus 우회하여 supabase.update({ updated_at: ... }) 직접 호출. status 변경이 아닌 timestamp 마커이므로 transitionStatus 일원화 원칙 위배 아님
+- **규칙**: 상태 전이 함수가 멱등성을 위해 동일 상태 시 noop이라면 **timestamp 마커 용도로 활용 불가**. 디버깅용 timestamp 갱신이 필요하면 (1) 별도 supabase.update 직접 호출 (2) 또는 transitionStatus에 `forceTimestampUpdate` 옵션 추가. 멱등성과 디버깅 가능성은 별개 문제이므로 한 함수가 둘 다 책임지면 안 됨
+
+### 2026-04-06 단일 fix 검증 후 추가 fix 결정 패턴 — root cause 분리 측정의 가치 (방법론)
+
+- **상황**: trigger-analysis 504 발견 후 Fix 1(maxDuration 120→300) 단독 적용 → 검증 → 부족 확인 → Phase 3 Fix 3+5+6+7+8 일괄 적용 → 검증 → 멱등성 가드 fix 별도 적용. 단계적 검증으로 각 fix의 효과를 분리 측정할 수 있었음
+- **AI가 한 것**: (1) 처음에 가설 트리에서 H7(socket idle) 유력으로 봤으나 실제는 H10(maxDuration hit) + H11(시간 누적) + Mystery 1(멱등성 부재) 3개가 복합 원인이었음. 만약 5개 fix를 처음부터 일괄 적용했다면 어느 것이 효과 있는지 분리 측정 불가. (2) Fix 1만 단독 적용 후 검증 단계에서 "Fix 1만으로 부족"이 확정되어 Phase 3 Fix 5개로 확대 결정. (3) 멱등성 가드(Mystery 1)는 검증 중 발견되어 별도 적용 — 만약 일괄에 포함됐으면 다른 fix와 효과 분리 불가
+- **올바른 방향**: 큰 변경(5개+ fix)이 필요해 보여도 **가장 가벼운 fix 1개 → 검증 → 결과 보고 → 추가 fix 결정** 사이클을 돌리는 것이 root cause 확정에 더 빠르다. "한 번에 다 고치자"는 유혹은 검증 결과가 모호해지고, 부작용 발생 시 어느 변경이 원인인지 분리 못하는 결과를 낳는다
+- **규칙**: 프로덕션 디버깅에서 fix를 적용할 때 **(1) 가설 트리 작성 → (2) 가장 영향 작은 fix 1개 우선 적용 → (3) 배포 + 검증 → (4) 결과에 따라 추가 fix 결정** 사이클을 따라야 한다. 예외: 가설이 100% 확정되고 여러 fix가 서로 독립적이며 각각 효과가 명확할 때만 일괄 적용. Findably의 Phase 3 Fix 5개는 일괄 적용했지만, 그 전 Fix 1로 한도만 늘려보고 부족함을 확정한 후의 결정이었음
+
+### 2026-04-06 Supabase MCP 실시간 모니터링으로 폭주 패턴 발견 (디버깅 도구)
+
+- **상황**: trigger-analysis 504 조사 중 Supabase 진단 테이블의 process_seconds, updated_at, score를 30초~60초 간격으로 폴링 쿼리하여 추적. 7c0a7f6d 진단이 completed인데도 33초~80초마다 update가 발생하고 score가 50 → 53 → ... 변하는 패턴 발견 → handleCallback 멱등성 부재 확정
+- **방법**: MCP execute_sql로 같은 진단 ID를 SELECT만 하면서 시간 차이 비교. SQL 한 줄에 EXTRACT(EPOCH FROM (NOW() - updated_at)) AS seconds_since_last_update, EXTRACT(EPOCH FROM (updated_at - created_at)) AS process_seconds 같은 metric을 함께 출력하면 변화 패턴이 한눈에 보임
+- **규칙**: 프로덕션 이슈 추적 시 **DB의 변화 패턴 자체가 결정적 단서**가 될 수 있다. 단일 시점 SELECT보다 (1) 같은 row를 1~5분 간격으로 여러 번 쿼리 (2) 매번 NOW() 기반 metric을 함께 출력 (3) updated_at, score, status 등의 변화를 표로 비교. 변화 패턴이 일정 주기(예: 33초)면 cron 의심, 불규칙이면 외부 콜백 retry 의심. 이 패턴은 코드 read만으로는 절대 발견 불가하고, 실시간 DB 관찰이 필수
+
+### 2026-04-06 stuck 화면 디버깅 — 백엔드 → 프론트엔드 격리 진단 (방법론)
+
+- **상황**: Jayden이 onboarding/url 화면에서 "분석 시작" 후 작업중 표시 stuck. n8n에서는 작업 완료. Supabase 확인 → 638f2f45 진단이 25초만에 completed로 정상 종료. 즉 백엔드는 완벽하게 작동했지만 화면이 안 갱신됨
+- **해석**: 백엔드 로그/DB가 정상이면 **문제는 프론트엔드**이다. 가능한 원인은 (1) Server Action 응답 못 받음 (2) redirect 작동 안 함 (3) Server Component cache stale (4) JS 에러로 form submit 자체가 안 일어남 (5) 다른 진단 ID polling 중
+- **규칙**: stuck 화면 디버깅 시 **반드시 백엔드 상태(DB, 로그)를 먼저 확인**. 백엔드가 정상이면 코드 read 대상은 (1) Server Action 코드 (2) Form 컴포넌트 (3) router.refresh() 또는 redirect 호출 (4) Server Component cache 무효화. 백엔드 비정상이면 외부 API/n8n/auth 등을 의심. 두 영역을 동시에 의심하면 시간 낭비 — **백엔드 → 프론트엔드 순서 격리**가 가장 빠르다

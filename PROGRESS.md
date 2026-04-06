@@ -1117,4 +1117,108 @@ admin 계정만 무제한 재사용 가능하도록 우회 추가.
 - **날짜**: 2026-04-06 저녁 KST
 - **최종 커밋**: `c67d2dc` feat(payment): admin 계정의 선물 코드 무제한 재사용 허용
 - **프로덕션**: https://findably.kr (Vercel 수동 배포 완료)
+
+---
+
+## 📍 Session 8차 (2026-04-06 야간) — 유료 분석 시간 예산 재배분 + 미스터리 1 fix
+
+### 현재 위치
+
+- **Epic**: Phase 3 (유료 분석 안정화) + Mystery 1 (handleCallback 멱등성)
+- **Task**: form submit stuck 조사 진행 중 (Phase 4 plan 제출 후 승인 대기)
+- **상태**: **진행중** — 핵심 fix 3개 배포 완료, form stuck 별도 조사 필요
+
+### 이번 세션 완료 내역
+
+#### 1. Phase 3 Fix 1 — `trigger-analysis maxDuration 120 → 300` (`58079f9`)
+
+- 1차 fix 시도. Vercel Pro 최대치로 한도만 상향
+- 검증 결과: **부족** — 405초+ 경과해도 미완료. 시간 누적 자체가 300초 초과
+
+#### 2. Phase 3 Fix 3+5+6+7+8 — 시간 예산 재배분 (`6bdbea0`)
+
+- **Fix 3** (`ai.ts`): Anthropic 클라이언트 `timeout: 90_000, maxRetries: 0` 명시
+- **Fix 5+** (`retry-failed-agents.ts`): 전체 retry 단계 60초 race timeout
+- **Fix 6** (`retry-failed-agents.ts`): for 직렬 → `Promise.allSettled` 병렬
+- **Fix 7** (`run-diagnosis-paid.ts`): 시작 시 `updated_at` 직접 갱신 (디버깅 마커)
+- **Fix 8** (`retry-failed-agents.ts`): Opus 2차 fallback 제거 (Sonnet 1회만)
+- 시간 예산: 10s setup + 90s 5에이전트 + 60s retry + 60s aggregate + 10s save = **230s ≪ 300s**
+
+#### 3. Mystery 1 Fix — `handleCallback` 멱등성 가드 (`8300d97`)
+
+- **증상**: 7c0a7f6d 무료 진단(completed)이 5분간 6번+ update, score가 50→53→... 매번 변함
+- **원인**: `/api/crawl/complete`의 `handleCallback`이 status 확인 없이 `saveCrawlResult + enrichCrawlData + runDiagnosis`를 매번 실행
+- **fix**: 페이로드 검증 직후 status 조회 → `completed/failed`면 early return
+- **검증**: 638f2f45 새 진단 → **25초만에** completed (이전 130~301초), update 1회
+
+#### 4. 1차 실패 원인 깊이 조사 완료
+
+- Phase 1 (코드 read): trigger-analysis `maxDuration=120`, GLOBAL_TIMEOUT 90s, per-agent timeout 없음, SDK 기본 600s 확인
+- Phase 2 (Anthropic console + Vercel logs 캡처):
+  - `req_011CZnKvtHbMvuw7n32f0bMg`: sonnet competitors, input 6035, output 4096, **50.473s**, code 499 client disconnect
+  - Vercel 504 + `Task timed out after 120 seconds` 확정
+  - Memory 274MB / 8.9GB (OOM 아님)
+- 가설 H10/H11 100% 확정: 시간 누적이 120초 + (Fix 1 후) 300초도 초과
+
+#### 5. 진단 파이프라인 모니터링 패턴 정립
+
+- Supabase MCP로 process_seconds, updated_at 변화 실시간 추적
+- 33초마다 update 발생 패턴 → 멱등성 가드 부재 발견
+- 638f2f45로 fix 효과 검증 완료
+
+### 진행 중 (다음 세션 시작 시점)
+
+#### form submit stuck 조사 (Plan v2 제출 후 승인 대기)
+
+- **증상**: Jayden이 21:10:52에 `/onboarding/url` 화면에서 "작업중" 표시
+- **상황**: 638f2f45 진단은 21:05:50에 정상 종료(25초). 5분 후 새 진단 0건
+- **가설**:
+  - H1a: submit-url Server Action 내부 hang (n8n 호출 await)
+  - H1b: action 내부 redirect 작동 안 함
+  - H1c: 새 진단 가드 (이미 completed 있음)
+  - H2: dashboard가 638f2f45 인식 못해 onboarding/url로 redirect
+  - H3: 브라우저 측 JS 에러로 form submit 안 됨
+  - H4: n8n 호출 timeout
+- **다음 단계**:
+  - Phase 1: 코드 read (submit-url action, dashboard/page.tsx, UrlForm)
+  - Phase 2: Jayden 측 console + network 캡처
+  - Phase 3: Vercel Function Logs (`/onboarding/url`, `/api/crawl/trigger`)
+  - Phase 4: Supabase 추가 진단
+
+### 검증 지표 (8차 세션)
+
+| 진단                      | tier | process_seconds | update 횟수 | 평가        |
+| ------------------------- | ---- | --------------- | ----------- | ----------- |
+| 7c0a7f6d (멱등성 가드 전) | free | 301s            | 6+          | 🚨 폭주     |
+| 638f2f45 (멱등성 가드 후) | free | **25s**         | **1**       | ✅ 정상     |
+| 90ac126c (Phase 3 fix 전) | paid | 1376s (23분)    | ?           | 🚨 미스터리 |
+
+### 다음 세션 할 일
+
+| 우선순위 | 작업                                                                                     |
+| -------- | ---------------------------------------------------------------------------------------- |
+| **P0**   | form submit stuck Plan v2 진행 (Phase 1~5)                                               |
+| **P0**   | Phase 3 fix 종합 검증 — 새 paid 진단으로 4분 이내 완료 확인                              |
+| **P1**   | Mystery 2 조사 — Lambda 죽은 후 background fetch가 어떻게 살아남아 update까지 도달하는가 |
+| **P1**   | PaidAnalyzingState 자동 재시도 가능성 확인 (23분 처리 미스터리)                          |
+| **P2**   | n8n workflow측 retry 정책 점검 (옵션 B)                                                  |
+| **P2**   | Phase B 착수 (Task 4 빈 섹션 처리)                                                       |
+
+### 차단 요소
+
+- **form submit stuck** — Jayden이 새 진단 시작 못함 → Phase 3 종합 검증 차단
+- 우회: dashboard 직접 URL 이동(`https://findably.kr/dashboard`)으로 화면 정리는 가능
+
+### 8차 세션 커밋 (4건)
+
+1. `58079f9` fix(diagnosis-paid): trigger-analysis maxDuration 120 → 300
+2. `6bdbea0` fix(diagnosis-paid): phase 3 fix 3/5+/6/7/8 — 시간 예산 재배분
+3. `8300d97` fix(crawl): add idempotency guard to handleCallback (mystery 1 fix)
+4. (이번 save commit — PROGRESS.md + learnings.md)
+
+### 마지막 업데이트 (8차)
+
+- **날짜**: 2026-04-06 야간 KST
+- **최종 코드 커밋**: `8300d97` fix(crawl): add idempotency guard to handleCallback (mystery 1 fix)
+- **프로덕션**: https://findably.kr (Vercel 자동 배포 진행)
 - **상태**: 🟢 admin 무제한 적용 + 배포 완료, Phase A 검증 대기
