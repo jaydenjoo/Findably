@@ -1,0 +1,738 @@
+{
+  "name": "Findably Crawl v3 — Production (Hardened)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "findably-crawl-v3",
+        "authentication": "headerAuth",
+        "options": {
+          "responseMode": "responseNode"
+        }
+      },
+      "id": "trigger-001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-600, 400],
+      "webhookId": "findably-crawl-v3-webhook",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2AU0uE6dugIibiB2",
+          "name": "findably-webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'accepted', diagnosisId: $('Validate & Set Variables').first().json.diagnosisId, requestId: $('Validate & Set Variables').first().json.requestId }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "respond-001",
+      "name": "Respond 202 Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-160, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ——— 입력 검증 + 변수 설정 + 고유 requestId 생성 ———\nconst body = $input.first().json.body || $input.first().json;\n\nconst diagnosisId = body.diagnosisId;\nconst url = body.url;\n\n// 필수 파라미터 검증\nif (!diagnosisId || typeof diagnosisId !== 'string') {\n  throw new Error(`Invalid diagnosisId: ${diagnosisId}`);\n}\nif (!url || typeof url !== 'string' || !url.startsWith('http')) {\n  throw new Error(`Invalid URL: ${url}`);\n}\n\n// 고유 requestId 생성 (멱등성 키로 사용)\nconst requestId = `${diagnosisId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;\n\nreturn [{\n  json: {\n    diagnosisId,\n    url,\n    requestId,\n    startedAt: new Date().toISOString(),\n  }\n}];"
+      },
+      "id": "validate-001",
+      "name": "Validate & Set Variables",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-380, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.firecrawl.dev/v1/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $credentials.firecrawlApiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ url: $('Validate & Set Variables').first().json.url, formats: ['markdown', 'html'], onlyMainContent: true, timeout: 30000 }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "a1-firecrawl-scrape",
+      "name": "A1: Firecrawl Scrape",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [80, -120],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "continueOnFail": true,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "FIRECRAWL_CRED_ID",
+          "name": "firecrawl-api"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "⚠️ Credential에서 API 키 참조. 평문 하드코딩 금지 (learnings #13)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.firecrawl.dev/v1/map",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $credentials.firecrawlApiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ url: $('Validate & Set Variables').first().json.url }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "a2-firecrawl-map",
+      "name": "A2: Firecrawl Map",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [80, 20],
+      "continueOnFail": true,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "FIRECRAWL_CRED_ID",
+          "name": "firecrawl-api"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={{ encodeURIComponent($('Validate & Set Variables').first().json.url) }}&strategy=mobile&key={{ $credentials.googleApiKey }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "b1-pagespeed-mobile",
+      "name": "B1: PageSpeed Mobile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [80, 160],
+      "continueOnFail": true,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "GOOGLE_API_CRED_ID",
+          "name": "google-api-key"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "⚠️ Google API 키는 Credential에서. 키 권한에 PageSpeed API 추가 확인 (learnings #25)"
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={{ encodeURIComponent($('Validate & Set Variables').first().json.url) }}&strategy=desktop&key={{ $credentials.googleApiKey }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "b2-pagespeed-desktop",
+      "name": "B2: PageSpeed Desktop",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [80, 300],
+      "continueOnFail": true,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "GOOGLE_API_CRED_ID",
+          "name": "google-api-key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.ssllabs.com/api/v3/analyze?host={{ $('Validate & Set Variables').first().json.url.replace(/^https?:\\/\\//, '').split('/')[0] }}&publish=off&fromCache=on&maxAge=72",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "b3-ssl-labs",
+      "name": "B3: SSL Labs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [80, 440],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "=https://observatory-api.mdn.mozilla.net/api/v2/scan?host={{ encodeURIComponent(new URL($('Validate & Set Variables').first().json.url).hostname) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "b4-observatory",
+      "name": "B4: Observatory v2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [80, 580],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "continueOnFail": true,
+      "notesInFlow": true,
+      "notes": "✅ v2 API 사용 (v1 서비스 종료됨, learnings #23). URL: observatory-api.mdn.mozilla.net/api/v2/scan"
+    },
+    {
+      "parameters": {
+        "url": "={{ ($('Validate & Set Variables').first().json.url || '').replace(/\\/+$/, '') }}/robots.txt",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 5000
+        }
+      },
+      "id": "c1-robots",
+      "name": "C1: robots.txt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [80, 720],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "={{ ($('Validate & Set Variables').first().json.url || '').replace(/\\/+$/, '') }}/sitemap.xml",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 5000
+        }
+      },
+      "id": "c2-sitemap",
+      "name": "C2: sitemap.xml",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [80, 860],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "={{ ($('Validate & Set Variables').first().json.url || '').replace(/\\/+$/, '') }}/llms.txt",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 5000
+        }
+      },
+      "id": "c3-llms",
+      "name": "C3: llms.txt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [80, 1000],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "={{ ($('Validate & Set Variables').first().json.url || '').replace(/\\/+$/, '') }}/llms-full.txt",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 5000
+        }
+      },
+      "id": "c4-llms-full",
+      "name": "C4: llms-full.txt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [80, 1140],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ——— Normalize: 각 소스의 결과를 CrawlData 구조로 조합 ———\n// 인시던트 학습 반영: 실행 시간 추적 + 에러 상세 기록\n\nconst getNodeResult = (nodeName) => {\n  try {\n    const result = $(nodeName).first()?.json ?? null;\n    // 에러 객체인지 확인\n    if (result && (result.error || result.code === 'ERR_' || result.statusCode >= 400)) {\n      return { _error: true, _nodeName: nodeName, ...result };\n    }\n    return result;\n  } catch (e) {\n    return { _error: true, _nodeName: nodeName, _message: e.message };\n  }\n};\n\nconst vars = $('Validate & Set Variables').first().json;\nconst startedAt = new Date(vars.startedAt);\nconst completedAt = new Date();\nconst durationMs = completedAt - startedAt;\n\n// Group A: Firecrawl\nconst scrape = getNodeResult('A1: Firecrawl Scrape');\nconst map = getNodeResult('A2: Firecrawl Map');\n\n// Group B: Performance + Security\nconst psMobile = getNodeResult('B1: PageSpeed Mobile');\nconst psDesktop = getNodeResult('B2: PageSpeed Desktop');\nconst ssl = getNodeResult('B3: SSL Labs');\nconst obs = getNodeResult('B4: Observatory v2');\n\n// Group C: Basic fetch\nconst robots = getNodeResult('C1: robots.txt');\nconst sitemap = getNodeResult('C2: sitemap.xml');\nconst llms = getNodeResult('C3: llms.txt');\nconst llmsFull = getNodeResult('C4: llms-full.txt');\n\n// dataCompleteness 계산\nconst sources = [\n  { name: 'firecrawl_scrape', ok: !!scrape && !scrape._error && !scrape.error },\n  { name: 'firecrawl_map', ok: !!map && !map._error && !map.error },\n  { name: 'pagespeed_mobile', ok: !!psMobile && !psMobile._error && !psMobile.error },\n  { name: 'pagespeed_desktop', ok: !!psDesktop && !psDesktop._error && !psDesktop.error },\n  { name: 'ssl_labs', ok: !!ssl && !ssl._error && !ssl.error },\n  { name: 'observatory', ok: !!obs && !obs._error && !obs.error },\n  { name: 'robots_txt', ok: !!robots && !robots._error && (robots.statusCode === undefined || robots.statusCode < 400) },\n  { name: 'sitemap_xml', ok: !!sitemap && !sitemap._error && (sitemap.statusCode === undefined || sitemap.statusCode < 400) },\n  { name: 'llms_txt', ok: !!llms && !llms._error && (llms.statusCode === undefined || llms.statusCode < 400) },\n];\n\nconst successCount = sources.filter(s => s.ok).length;\nconst dataCompleteness = Math.round((successCount / sources.length) * 100);\n\n// 실패한 소스의 에러 상세 기록 (모니터링용)\nconst errorDetails = sources.filter(s => !s.ok).map(s => {\n  const nodeResult = { firecrawl_scrape: scrape, firecrawl_map: map, pagespeed_mobile: psMobile, pagespeed_desktop: psDesktop, ssl_labs: ssl, observatory: obs, robots_txt: robots, sitemap_xml: sitemap, llms_txt: llms }[s.name];\n  return {\n    source: s.name,\n    error: nodeResult?._message || nodeResult?.error || nodeResult?.message || `HTTP ${nodeResult?.statusCode || 'unknown'}`,\n  };\n});\n\nreturn [{\n  json: {\n    diagnosisId: vars.diagnosisId,\n    url: vars.url,\n    requestId: vars.requestId,\n    dataCompleteness,\n    durationMs,\n    durationSec: Math.round(durationMs / 1000),\n    successSources: sources.filter(s => s.ok).map(s => s.name),\n    failedSources: sources.filter(s => !s.ok).map(s => s.name),\n    errorDetails,\n    crawlResult: {\n      firecrawl_scrape: scrape,\n      firecrawl_map: map,\n      pagespeed_mobile: psMobile,\n      pagespeed_desktop: psDesktop,\n      ssl_labs: ssl,\n      observatory: obs,\n      robots_txt: robots,\n      sitemap_xml: sitemap,\n      llms_txt: llms,\n      llms_full_txt: llmsFull,\n    },\n    crawled_at: completedAt.toISOString(),\n  }\n}];"
+      },
+      "id": "normalize-001",
+      "name": "Normalize Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 480]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-completeness",
+              "leftValue": "={{ $json.dataCompleteness }}",
+              "rightValue": 30,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ]
+        }
+      },
+      "id": "quality-gate-001",
+      "name": "Quality Gate (≥30%)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [680, 480],
+      "notesInFlow": true,
+      "notes": "dataCompleteness < 30%면 콜백 보내지 않고 에러 알림. Firecrawl + PageSpeed 중 하나라도 성공해야 의미 있는 진단 가능"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $credentials.findablyCallbackUrl || 'https://findably.kr/api/crawl/complete' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $credentials.findablyBearerToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Request-Id",
+              "value": "={{ $json.requestId }}"
+            },
+            {
+              "name": "X-N8n-Execution-Id",
+              "value": "={{ $execution.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ diagnosisId: $json.diagnosisId, url: $json.url, requestId: $json.requestId, dataCompleteness: $json.dataCompleteness, durationSec: $json.durationSec, successSources: $json.successSources, failedSources: $json.failedSources, errorDetails: $json.errorDetails, crawlResult: $json.crawlResult }) }}",
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          }
+        }
+      },
+      "id": "callback-001",
+      "name": "Callback Next.js",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [920, 400],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 10000,
+      "continueOnFail": true,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "FINDABLY_CALLBACK_CRED_ID",
+          "name": "findably-callback"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "✅ Fix: (1) redirect 비활성화 — 308 POST→GET 변환 방지 (learnings #12), (2) retry 3회 + 10초 간격, (3) X-Request-Id 헤더로 멱등성 지원, (4) 토큰 Credential 참조"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ——— 콜백 결과 검증 ———\nconst callbackResult = $input.first().json;\nconst vars = $('Validate & Set Variables').first().json;\nconst normalizedData = $('Normalize Results').first().json;\n\n// 콜백 성공 여부 판별\nconst isSuccess = callbackResult && !callbackResult.error && callbackResult.statusCode >= 200 && callbackResult.statusCode < 400;\n\n// 308 redirect 감지 (learnings #12 — trailing slash 문제)\nconst isRedirect = callbackResult?.statusCode === 308 || callbackResult?.statusCode === 301 || callbackResult?.statusCode === 302;\n\nreturn [{\n  json: {\n    diagnosisId: vars.diagnosisId,\n    url: vars.url,\n    requestId: vars.requestId,\n    callbackSuccess: isSuccess,\n    callbackRedirect: isRedirect,\n    callbackStatusCode: callbackResult?.statusCode || 'unknown',\n    callbackError: callbackResult?.error || null,\n    dataCompleteness: normalizedData.dataCompleteness,\n    durationSec: normalizedData.durationSec,\n    failedSources: normalizedData.failedSources,\n    errorDetails: normalizedData.errorDetails,\n    executionId: $execution.id,\n    timestamp: new Date().toISOString(),\n  }\n}];"
+      },
+      "id": "verify-callback-001",
+      "name": "Verify Callback Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1140, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-callback-success",
+              "leftValue": "={{ $json.callbackSuccess }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "callback-check-001",
+      "name": "Callback OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1360, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ——— 성공 로그 ———\nconst data = $input.first().json;\nconsole.log(`✅ Crawl SUCCESS: diagnosisId=${data.diagnosisId}, completeness=${data.dataCompleteness}%, duration=${data.durationSec}s, failed=[${data.failedSources.join(',')}]`);\nreturn [$input.first()];"
+      },
+      "id": "log-success-001",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1580, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ——— 콜백 실패 에러 알림 생성 ———\nconst data = $input.first().json;\nconst errorMsg = [\n  `🚨 CALLBACK FAILED`,\n  `DiagnosisId: ${data.diagnosisId}`,\n  `URL: ${data.url}`,\n  `Callback Status: ${data.callbackStatusCode}`,\n  `Redirect Detected: ${data.callbackRedirect}`,\n  `Error: ${JSON.stringify(data.callbackError)}`,\n  `Completeness: ${data.dataCompleteness}%`,\n  `Duration: ${data.durationSec}s`,\n  `Execution: ${data.executionId}`,\n  `Time: ${data.timestamp}`,\n].join('\\n');\n\nconsole.error(errorMsg);\n\nreturn [{\n  json: {\n    ...data,\n    alertType: 'callback_failed',\n    alertMessage: errorMsg,\n  }\n}];"
+      },
+      "id": "alert-callback-fail-001",
+      "name": "Alert: Callback Failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1580, 480]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ——— 데이터 품질 부족 에러 알림 ———\nconst data = $('Normalize Results').first().json;\nconst vars = $('Validate & Set Variables').first().json;\n\nconst errorMsg = [\n  `⚠️ LOW DATA QUALITY — Callback Skipped`,\n  `DiagnosisId: ${vars.diagnosisId}`,\n  `URL: ${vars.url}`,\n  `Completeness: ${data.dataCompleteness}% (threshold: 30%)`,\n  `Failed Sources: ${data.failedSources.join(', ')}`,\n  `Error Details:`,\n  ...data.errorDetails.map(e => `  - ${e.source}: ${e.error}`),\n  `Duration: ${data.durationSec}s`,\n  `Execution: ${$execution.id}`,\n].join('\\n');\n\nconsole.error(errorMsg);\n\nreturn [{\n  json: {\n    diagnosisId: vars.diagnosisId,\n    url: vars.url,\n    alertType: 'low_quality',\n    alertMessage: errorMsg,\n    dataCompleteness: data.dataCompleteness,\n    failedSources: data.failedSources,\n    errorDetails: data.errorDetails,\n    executionId: $execution.id,\n    timestamp: new Date().toISOString(),\n  }\n}];"
+      },
+      "id": "alert-quality-fail-001",
+      "name": "Alert: Low Quality",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 620]
+    },
+    {
+      "parameters": {
+        "content": "## 🛡️ Findably Crawl v3 — Hardened\n\n### 인시던트 학습 반영 사항:\n1. ✅ API 키/토큰 → Credential 참조 (learnings #13, #25)\n2. ✅ Callback redirect 비활성화 (learnings #12 — 308 POST→GET 방지)\n3. ✅ Callback retry 3회 + 10초 간격 추가\n4. ✅ Observatory v1 → v2 URL 변경 (learnings #23)\n5. ✅ X-Request-Id 헤더 → 멱등성 키 (learnings #40)\n6. ✅ Quality Gate — 완전성 30% 미만 시 콜백 스킵\n7. ✅ 콜백 결과 검증 + 실패 시 알림\n8. ✅ 실행 시간 추적 (durationMs/durationSec)\n9. ✅ 에러 상세 기록 (errorDetails 배열)\n\n### 필수 설정 (n8n에서 수동):\n- Credential 'firecrawl-api' 생성 → firecrawlApiKey 필드\n- Credential 'google-api-key' 생성 → googleApiKey 필드\n- Credential 'findably-callback' 생성 → findablyBearerToken + findablyCallbackUrl 필드\n- Error Workflow 설정 → 모니터링 워크플로우 연결",
+        "height": 520,
+        "width": 400
+      },
+      "id": "note-001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-620, -200]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate & Set Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Set Variables": {
+      "main": [
+        [
+          {
+            "node": "Respond 202 Accepted",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "A1: Firecrawl Scrape",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "A2: Firecrawl Map",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "B1: PageSpeed Mobile",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "B2: PageSpeed Desktop",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "B3: SSL Labs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "B4: Observatory v2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "C1: robots.txt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "C2: sitemap.xml",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "C3: llms.txt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "C4: llms-full.txt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A1: Firecrawl Scrape": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A2: Firecrawl Map": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B1: PageSpeed Mobile": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B2: PageSpeed Desktop": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B3: SSL Labs": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B4: Observatory v2": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C1: robots.txt": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C2: sitemap.xml": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C3: llms.txt": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C4: llms-full.txt": {
+      "main": [
+        [
+          {
+            "node": "Normalize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Results": {
+      "main": [
+        [
+          {
+            "node": "Quality Gate (≥30%)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quality Gate (≥30%)": {
+      "main": [
+        [
+          {
+            "node": "Callback Next.js",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert: Low Quality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback Next.js": {
+      "main": [
+        [
+          {
+            "node": "Verify Callback Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Callback Result": {
+      "main": [
+        [
+          {
+            "node": "Callback OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback OK?": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert: Callback Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "saveExecutionProgress": true,
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "findably"
+    },
+    {
+      "name": "crawling"
+    },
+    {
+      "name": "v3-production"
+    },
+    {
+      "name": "hardened"
+    }
+  ]
+}
