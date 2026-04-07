@@ -20,21 +20,55 @@ import { sendDiagnosisCompleteEmail } from '@/lib/adapters/email'
 import { SCORING } from '@/config/scoring'
 
 /**
- * n8n v2 콜백 페이로드 스키마
+ * n8n 콜백 페이로드 스키마 (v2 + v3.2 호환)
  *
- * dataCompleteness: 0-100 (성공 소스 / 전체 소스 × 100)
- * successSources: 성공한 소스 이름 배열
- * failedSources: 실패한 소스 이름 배열
- * crawlResult: 각 소스의 raw 응답 (정규화 전)
+ * v2 필수 필드:
+ *   diagnosisId, url, dataCompleteness, successSources, failedSources, crawlResult
+ *
+ * v3.2 신규 필드 (모두 optional — v2 하위 호환):
+ *   requestId:    n8n 멱등성 키 — 워크플로우 측 추적용
+ *   status:       'success' | 'partial' | 'quality_rejected' (Quality Gate 결과)
+ *   durationSec:  크롤링 소요 시간
+ *   errorDetails: 실패 소스의 상세 에러 [{ source, error }]
+ *   reason:       quality_rejected 시 사유 문자열
+ *
+ * crawlResult는 quality_rejected 시 v3.2가 보내지 않으므로 optional.
+ * → refine으로 "non-rejected는 crawlResult 필수" 검증.
+ *
+ * ※ Schema↔SQL 설계 주의 (Phase 2 모니터링 도입):
+ *   findably_crawl_executions 테이블의 request_id UNIQUE INDEX와 error_details JSONB
+ *   컬럼은 n8n 워크플로우 v3.2의 "Save to crawl_executions" 노드가 직접 INSERT한다.
+ *   → 이 라우트는 requestId/errorDetails를 파싱만 하고 DB 저장은 하지 않는다.
+ *   → 멱등성은 diagnoses.status('completed'/'failed') 기반 가드로 처리 (line 137~).
+ *   → /admin/monitor 대시보드(Phase 4)는 findably_crawl_executions에서 직접 조회.
  */
-const completePayloadSchema = z.object({
-  diagnosisId: z.string().uuid('diagnosisId must be a valid UUID'),
-  url: z.string().url('url must be a valid URL'),
-  dataCompleteness: z.number().min(0).max(100),
-  successSources: z.array(z.string()),
-  failedSources: z.array(z.string()),
-  crawlResult: z.record(z.string(), z.unknown()),
-})
+const completePayloadSchema = z
+  .object({
+    diagnosisId: z.string().uuid('diagnosisId must be a valid UUID'),
+    url: z.string().url('url must be a valid URL'),
+    dataCompleteness: z.number().min(0).max(100),
+    successSources: z.array(z.string()),
+    failedSources: z.array(z.string()),
+    crawlResult: z.record(z.string(), z.unknown()).optional(),
+    // v3.2 신규 (v2 호환: 모두 optional)
+    // ─ 아래 5개 필드는 검증/로깅 용도로만 사용. DB 저장은 n8n이 직접 수행.
+    requestId: z.string().optional(),
+    status: z.enum(['success', 'partial', 'quality_rejected']).optional(),
+    durationSec: z.number().optional(),
+    errorDetails: z
+      .array(
+        z.object({
+          source: z.string(),
+          error: z.string(),
+        })
+      )
+      .optional(),
+    reason: z.string().optional(),
+  })
+  .refine((data) => data.status === 'quality_rejected' || !!data.crawlResult, {
+    message: 'crawlResult is required unless status is quality_rejected',
+    path: ['crawlResult'],
+  })
 
 type CompletePayload = z.infer<typeof completePayloadSchema>
 
@@ -66,6 +100,18 @@ async function handleCallback(request: NextRequest): Promise<Response> {
     !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
   ) {
     return errorResponse('인증 실패', 401)
+  }
+
+  // 1.5. Monitor probe 필터 (n8n Monitor v2.1 Health Check)
+  // 인증된 모니터가 'X-Monitor-Probe: true' 헤더로 liveness만 확인할 때
+  // 실제 크롤링 처리/DB write 없이 즉시 200 반환.
+  // → monitor 대시보드에서 healthy 표시 (400 warning 우회).
+  if (request.headers.get('x-monitor-probe') === 'true') {
+    return successResponse({
+      status: 'probe_ok',
+      route: '/api/crawl/complete',
+      timestamp: new Date().toISOString(),
+    })
   }
 
   // 2. 페이로드 파싱
@@ -127,11 +173,73 @@ async function handleCallback(request: NextRequest): Promise<Response> {
     )
   }
 
+  // 2.6. 품질 게이트 실패 처리 (v3.2 Quality Gate → Fail Callback)
+  // Firecrawl 스크랩 실패 또는 dataCompleteness < 30 시 quality_rejected.
+  // crawlResult가 없거나 불완전하므로 진단 엔진 실행하지 않고 즉시 failed 마킹.
+  if (payload.status === 'quality_rejected') {
+    const reason =
+      payload.reason ??
+      `크롤링 품질 미달 (completeness ${payload.dataCompleteness}%)`
+    console.warn('[crawl/complete] quality_rejected:', {
+      diagnosisId: payload.diagnosisId,
+      dataCompleteness: payload.dataCompleteness,
+      failedSources: payload.failedSources,
+      reason,
+    })
+
+    await markDiagnosisFailed(payload.diagnosisId, reason)
+
+    // markDiagnosisFailed는 silent failure 패턴 (Promise<void> + 내부 try/catch).
+    // DB 장애로 마킹이 실패하면 진단이 'crawling'에 영구 고착되므로
+    // 직접 status를 재조회하여 검증. 실패 시 500 반환 → n8n retry 유도.
+    try {
+      const verifyClient = createAdminClient()
+      const { data: postMark } = await verifyClient
+        .from('diagnoses')
+        .select('status')
+        .eq('id', payload.diagnosisId)
+        .single()
+
+      if (postMark?.status !== 'failed') {
+        console.error('[crawl/complete] markDiagnosisFailed silent failure:', {
+          diagnosisId: payload.diagnosisId,
+          currentStatus: postMark?.status,
+        })
+        return errorResponse('진단 실패 마킹 실패 — retry 필요', 500)
+      }
+    } catch (verifyError) {
+      console.error(
+        '[crawl/complete] mark 검증 조회 실패:',
+        verifyError instanceof Error ? verifyError.message : 'unknown'
+      )
+      return errorResponse('진단 실패 마킹 검증 실패 — retry 필요', 500)
+    }
+
+    return successResponse({
+      saved: false,
+      diagnosed: false,
+      status: 'quality_rejected',
+      dataCompleteness: payload.dataCompleteness,
+      failedSources: payload.failedSources,
+      reason,
+    })
+  }
+
+  // 여기 도달 시 refine() 보장으로 crawlResult 존재. TS 좁히기 용 방어.
+  if (!payload.crawlResult) {
+    console.error(
+      '[crawl/complete] crawlResult missing (refine bypass):',
+      payload.diagnosisId
+    )
+    return errorResponse('잘못된 페이로드 구조', 400)
+  }
+  const crawlResultInput = payload.crawlResult
+
   try {
     // 3. raw crawlResult → CrawlData 정규화
     const parsedCrawlData: CrawlData = parseCrawlV2Result({
       url: payload.url,
-      crawlResult: payload.crawlResult,
+      crawlResult: crawlResultInput,
       dataCompleteness: payload.dataCompleteness,
       failedSources: payload.failedSources,
     })
