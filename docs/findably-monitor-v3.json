@@ -1,0 +1,342 @@
+{
+  "name": "Findably Monitor v3 — Supabase Dashboard",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger-v3",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-700, 300]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger-v3",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-700, 480]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { timestamp: new Date().toISOString() } }];"
+      },
+      "id": "prep-v3",
+      "name": "Prep",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-460, 380]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.FINDABLY_HEALTH_URL || 'https://findably.kr/api/health' }}",
+        "options": {
+          "timeout": 10000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": { "response": { "fullResponse": true } }
+        }
+      },
+      "id": "check-health-v3",
+      "name": "Check 1: Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [-200, 120],
+      "continueOnFail": true,
+      "notesInFlow": true,
+      "notes": "v3: fullResponse:true → statusCode 정확 추출. 307/308 redirect 감지용 followRedirects:false"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.FINDABLY_CALLBACK_URL || 'https://findably.kr/api/crawl/complete' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_WEBHOOK_AUTH_TOKEN }}"
+            },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Monitor-Probe", "value": "true" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ diagnosisId: 'PROBE-' + Date.now(), url: 'https://probe.monitor', _isProbe: true }) }}",
+        "options": {
+          "timeout": 15000,
+          "redirect": { "redirect": { "followRedirects": false } },
+          "response": { "response": { "fullResponse": true } }
+        }
+      },
+      "id": "check-callback-v3",
+      "name": "Check 2: Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [-200, 300],
+      "continueOnFail": true,
+      "notesInFlow": true,
+      "notes": "v3: probe 필터 (X-Monitor-Probe: true) → Next.js에서 DB 작업 없이 200 반환. route.ts:109"
+    },
+    {
+      "parameters": {
+        "url": "https://api.firecrawl.dev/v1/scrape",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {
+          "timeout": 5000,
+          "response": { "response": { "fullResponse": true } }
+        }
+      },
+      "id": "check-firecrawl-v3",
+      "name": "Check 3: Firecrawl",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [-200, 480],
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": { "id": "FIRECRAWL_CRED_ID", "name": "firecrawl-api" }
+      },
+      "notesInFlow": true,
+      "notes": "v3: import 후 UI에서 firecrawl-api credential 드롭다운으로 선택. 400/401도 healthy로 판정 (API 살아있음). ⚠️ 알려진 버그: method 미지정 시 GET 기본값 → Firecrawl 404 HTML → statusCode 추출 실패. v3.1에서 POST + 빈 body로 수정."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=google.com",
+        "options": {
+          "timeout": 10000,
+          "response": { "response": { "fullResponse": true } }
+        }
+      },
+      "id": "check-observatory-v3",
+      "name": "Check 4: Observatory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [-200, 660],
+      "continueOnFail": true,
+      "notesInFlow": true,
+      "notes": "v3: Observatory v2 POST 필수 (v1 종료됨). host=google.com은 고정 프로브 타겟"
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 4,
+        "options": {}
+      },
+      "id": "merge-wait-all-v3",
+      "name": "Wait All Checks",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [60, 380],
+      "notesInFlow": true,
+      "notes": "v3 CRITICAL: fan-in 동기화. 4개 Check 모두 완료되기 전까지 Aggregate 실행 안 됨. v3.5 crawl workflow와 동일 패턴 (mode=append, numberInputs=4). v3.1 fix: combine→append (combine은 Fields to Match 필수)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ——— Health Check 결과 집계 ———\n// v3: Wait All Checks Merge 노드 이후 실행 → 모든 Check 노드가 완료 보장됨\n// → $('노드명').first()?.json 글로벌 참조 안전\n\nconst getResult = (nodeName) => {\n  try { return $(nodeName).first()?.json ?? null; }\n  catch { return null; }\n};\n\nconst health = getResult('Check 1: Health');\nconst callback = getResult('Check 2: Callback');\nconst firecrawl = getResult('Check 3: Firecrawl');\nconst observatory = getResult('Check 4: Observatory');\n\n// ——— 판정 로직 ———\nconst checks = [];\n\n// Health\nconst hs = health?.statusCode;\nif (hs === 308 || hs === 307 || hs === 301) {\n  checks.push({ name: 'Vercel Health', status: 'critical', code: hs, detail: '도메인 redirect 감지 — 콜백 URL stale 가능성' });\n} else if (hs >= 200 && hs < 400) {\n  checks.push({ name: 'Vercel Health', status: 'healthy', code: hs, detail: '' });\n} else {\n  checks.push({ name: 'Vercel Health', status: 'critical', code: hs || 0, detail: '서비스 다운 또는 타임아웃' });\n}\n\n// Callback\nconst cs = callback?.statusCode;\nif (cs === 308 || cs === 307 || cs === 301) {\n  checks.push({ name: 'Callback URL', status: 'critical', code: cs, detail: 'POST→GET 변환 위험! URL 확인 필요' });\n} else if (cs === 401) {\n  checks.push({ name: 'Callback URL', status: 'warning', code: cs, detail: 'Bearer 토큰 만료 의심' });\n} else if (cs === 200 || cs === 202) {\n  checks.push({ name: 'Callback URL', status: 'healthy', code: cs, detail: 'Probe 응답 정상' });\n} else if (cs === 400 || cs === 422) {\n  checks.push({ name: 'Callback URL', status: 'warning', code: cs, detail: 'Probe 거부 — 라우트는 살아있음' });\n} else if (cs >= 500) {\n  checks.push({ name: 'Callback URL', status: 'critical', code: cs, detail: '서버 에러' });\n} else {\n  checks.push({ name: 'Callback URL', status: 'critical', code: cs || 0, detail: '응답 없음' });\n}\n\n// Firecrawl (auth 없이 헬스만 체크 — 401/400은 정상)\nconst fs = firecrawl?.statusCode;\nif (fs === 401 || fs === 403) {\n  checks.push({ name: 'Firecrawl API', status: 'healthy', code: fs, detail: 'API 살아있음 (auth 거부 = 정상)' });\n} else if (fs && fs < 500) {\n  checks.push({ name: 'Firecrawl API', status: 'healthy', code: fs, detail: '' });\n} else {\n  checks.push({ name: 'Firecrawl API', status: 'critical', code: fs || 0, detail: '서비스 장애' });\n}\n\n// Observatory\nconst os = observatory?.statusCode;\nif (os && os < 500) {\n  checks.push({ name: 'Observatory v2', status: 'healthy', code: os, detail: '' });\n} else {\n  checks.push({ name: 'Observatory v2', status: 'critical', code: os || 0, detail: '서비스 장애 — v1 종료 패턴 의심' });\n}\n\nconst criticalCount = checks.filter(c => c.status === 'critical').length;\nconst warningCount = checks.filter(c => c.status === 'warning').length;\nlet overallStatus = 'healthy';\nif (criticalCount > 0) overallStatus = 'critical';\nelse if (warningCount > 0) overallStatus = 'warning';\n\nreturn [{\n  json: {\n    overall_status: overallStatus,\n    critical_count: criticalCount,\n    warning_count: warningCount,\n    checks,\n    execution_id: $execution.id,\n    shouldAlert: criticalCount > 0 || warningCount > 0,\n  }\n}];"
+      },
+      "id": "aggregate-v3",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.FINDABLY_SUPABASE_URL }}/rest/v1/findably_pipeline_health",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.FINDABLY_SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.FINDABLY_SUPABASE_SERVICE_KEY }}"
+            },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ overall_status: $json.overall_status, critical_count: $json.critical_count, warning_count: $json.warning_count, checks: $json.checks, execution_id: $json.execution_id }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "save-health-v3",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [520, 380],
+      "continueOnFail": true,
+      "notesInFlow": true,
+      "notes": "v3: FINDABLY_SUPABASE_URL/SERVICE_KEY 사용. 기존 SUPABASE_URL은 autovoxflow 참조 금지. service_role key로 RLS 우회."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "should-alert-v3",
+              "leftValue": "={{ $('Aggregate Results').first().json.shouldAlert }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "alert-gate-v3",
+      "name": "Alert Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [760, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ——— 알림 생성 ———\nconst data = $('Aggregate Results').first().json;\n\nconst failedChecks = data.checks.filter(c => c.status !== 'healthy');\nconst message = [\n  `🚨 Pipeline ${data.overall_status.toUpperCase()}`,\n  `Time: ${new Date().toISOString()}`,\n  '',\n  ...failedChecks.map(c => `• ${c.name}: ${c.status} [${c.code}] — ${c.detail}`),\n].join('\\n');\n\nconst severity = data.critical_count > 0 ? 'critical' : 'warning';\n\nreturn [{\n  json: {\n    alert_type: `health_${severity}`,\n    severity,\n    message,\n  }\n}];"
+      },
+      "id": "build-alert-v3",
+      "name": "Build Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.FINDABLY_SUPABASE_URL }}/rest/v1/findably_alerts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.FINDABLY_SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.FINDABLY_SUPABASE_SERVICE_KEY }}"
+            },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alert_type: $json.alert_type, severity: $json.severity, message: $json.message }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "save-alert-v3",
+      "name": "Save Alert to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1220, 300],
+      "continueOnFail": true,
+      "notesInFlow": true,
+      "notes": "v3: Save to Supabase와 동일 패턴. findably_alerts 테이블 INSERT."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ——— Log OK (알림 없음) ———\nreturn [{ json: { status: 'healthy', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "log-ok-v3",
+      "name": "Log OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 460]
+    },
+    {
+      "parameters": {
+        "content": "## 🔍 Findably Monitor v3\n\n### v2.1 → v3 변경 사항\n\n**🔴 P0 Fix — Manual Trigger 노드 추가**\n- v2.1: Webhook 노드를 'Manual Trigger'로 오용 → 'Execute Workflow' 버튼 무반응\n- v3: 진짜 `n8n-nodes-base.manualTrigger` 노드 추가 → 수동 실행 가능\n\n**🔴 P0 Fix — Wait All Checks Merge 노드 추가**\n- v2.1: 4개 Check → Aggregate Results 직접 연결 (Merge 없음)\n  → 첫 Check 완료 시점에 Aggregate 조기 실행\n  → `$('Check 2').first()` → 'hasn't been executed' 에러 (learnings 2026-04-08 패턴)\n- v3: Wait All Checks (merge node, numberInputs=4) 추가\n  → 4개 Check 모두 완료 후 Aggregate 실행 (동기화 보장)\n\n### 데이터 흐름\n```\n[Schedule / Manual] → [Prep]\n                        │\n                        ├─→ Check 1: Health\n                        ├─→ Check 2: Callback (probe)\n                        ├─→ Check 3: Firecrawl\n                        └─→ Check 4: Observatory v2\n                               │\n                               ↓ (4 branches → Merge index 0~3)\n                       [Wait All Checks]\n                               │\n                       [Aggregate Results]\n                               │\n                       [Save to Supabase]\n                               │\n                       [Alert Needed?] ─┬─→ Build Alert → Save Alert\n                                        └─→ Log OK\n```\n\n### 🔧 사전 작업 (필수)\n\n**1. elest.io 환경변수 (docker-compose)**\n```yaml\n# 이미 있음 (재사용)\nN8N_BLOCK_ENV_ACCESS_IN_NODE: \"false\"   # $env 작동 전제조건\nN8N_WEBHOOK_AUTH_TOKEN: \"...\"\n\n# Findably 전용 (추가 필요)\nFINDABLY_HEALTH_URL: \"https://findably.kr/api/health\"\nFINDABLY_CALLBACK_URL: \"https://findably.kr/api/crawl/complete\"\nFINDABLY_SUPABASE_URL: \"https://souqwsdwabhqbbvpwfpe.supabase.co\"\nFINDABLY_SUPABASE_SERVICE_KEY: \"eyJ...\"\n```\n⚠️ 기존 SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY는 autovoxflow 가리킴 → 사용 금지\n\n**2. Credentials (n8n UI)**\n- `firecrawl-api` (httpHeaderAuth)\n  - Name: `Authorization`\n  - Value: `Bearer fc-xxx`\n- Import 후 Check 3: Firecrawl 노드 열어서 드롭다운에서 선택\n\n### 실행 방법\n1. Manual Trigger 노드 선택 → 우측 ▶ 클릭 (또는 상단 Execute Workflow)\n2. Schedule Trigger는 Active 상태에서 30분마다 자동 실행\n\n### Supabase 테이블\n- `findably_pipeline_health` — 30분마다 헬스체크 기록\n- `findably_alerts` — critical/warning 발생 시 기록\n- 뷰 3개: `findably_v_health_summary_24h`, `findably_v_crawl_success_rate_7d`, `findably_v_unacknowledged_alerts`",
+        "height": 700,
+        "width": 500
+      },
+      "id": "sticky-v3",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-720, -420]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [[{ "node": "Prep", "type": "main", "index": 0 }]]
+    },
+    "Manual Trigger": {
+      "main": [[{ "node": "Prep", "type": "main", "index": 0 }]]
+    },
+    "Prep": {
+      "main": [
+        [
+          { "node": "Check 1: Health", "type": "main", "index": 0 },
+          { "node": "Check 2: Callback", "type": "main", "index": 0 },
+          { "node": "Check 3: Firecrawl", "type": "main", "index": 0 },
+          { "node": "Check 4: Observatory", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check 1: Health": {
+      "main": [[{ "node": "Wait All Checks", "type": "main", "index": 0 }]]
+    },
+    "Check 2: Callback": {
+      "main": [[{ "node": "Wait All Checks", "type": "main", "index": 1 }]]
+    },
+    "Check 3: Firecrawl": {
+      "main": [[{ "node": "Wait All Checks", "type": "main", "index": 2 }]]
+    },
+    "Check 4: Observatory": {
+      "main": [[{ "node": "Wait All Checks", "type": "main", "index": 3 }]]
+    },
+    "Wait All Checks": {
+      "main": [[{ "node": "Aggregate Results", "type": "main", "index": 0 }]]
+    },
+    "Aggregate Results": {
+      "main": [[{ "node": "Save to Supabase", "type": "main", "index": 0 }]]
+    },
+    "Save to Supabase": {
+      "main": [[{ "node": "Alert Needed?", "type": "main", "index": 0 }]]
+    },
+    "Alert Needed?": {
+      "main": [
+        [{ "node": "Build Alert", "type": "main", "index": 0 }],
+        [{ "node": "Log OK", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Alert": {
+      "main": [
+        [{ "node": "Save Alert to Supabase", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    { "name": "findably" },
+    { "name": "monitoring" },
+    { "name": "supabase" },
+    { "name": "v3" }
+  ]
+}

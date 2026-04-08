@@ -518,3 +518,31 @@
 - **AI가 한 것**: v3.2 → v3.3 마이그레이션 시 "활성화 에러 해결"에만 집중하고 **실제 프로덕션 테스트로 end-to-end 검증을 하지 않음**. Respond 노드 제거 + onReceived 변경은 **활성화 검증만 통과**시켰고 fan-in 실행 흐름에는 영향 없음. fan-in은 v3.2부터 Merge 노드가 빠져 있었지만, v3.2의 responseNode + Respond 조합에서는 Respond 노드가 Normalize Results 이전에 실행 종료를 유도했을 가능성이 있어 증상이 달랐을 수도 있음 (또는 그 당시에는 한 번도 성공한 적이 없었을 수도 있음 — 검증 부족)
 - **올바른 방향**: **workflow 활성화 성공 ≠ 파이프라인 작동**. 두 가지는 별개. (1) 활성화는 "n8n validator가 허용하는 구조인가"만 검사 (2) 실제 작동은 "각 노드 간 데이터 흐름 + fan-in/out + 타이밍 동기화"에 달려 있음. 전자를 통과해도 후자에서 실패할 수 있음. 워크플로우 변경 후에는 **반드시 프로덕션 또는 스테이징에서 end-to-end 테스트** + DB 결과 확인까지 마쳐야 "완료" 선언 가능
 - **프롬프트 교훈**: n8n workflow 같은 외부 시스템 변경 시 "활성화 성공 = 작동"으로 축약 금지. 검증 체크리스트: (1) workflow 활성화 성공 (2) 테스트 실행 → execution 탭 "Succeeded" 확인 (3) 각 노드 output이 기대한 데이터인지 확인 (4) 후속 시스템(DB, API)의 저장/호출 결과 확인 (5) end-to-end 상태 전이 확인 (status: pending → crawling → completed). 이 중 하나라도 건너뛰면 learnings.md에 잘못된 교훈을 쓰게 되고, 다음 세션에서 같은 실수 반복. 이번 세션의 v3.3 → v3.4 → v3.5 3단계 수정 루프는 이 검증 부족의 직접적 결과였음
+
+### 2026-04-08 n8n Webhook 노드를 "Manual Trigger" 이름으로 위장 → Execute Workflow 버튼 무반응 (CRITICAL)
+
+- **증상**: Monitor v2.1 워크플로우 import 후 "Execute Workflow" 버튼 클릭해도 무반응. Console 에러 없음. 노드는 잘 그려져 있음
+- **원인**: v2.1의 "Manual Trigger" 노드가 실제로는 `n8n-nodes-base.webhook` 타입 (httpMethod POST, path findably-monitor-trigger). 이름만 "Manual Trigger"이지 **진짜 수동 트리거 노드가 아님**. n8n의 "Execute Workflow" 버튼은 `n8n-nodes-base.manualTrigger` 노드가 있을 때만 작동하고, webhook 트리거는 외부 HTTP 요청이 들어와야만 발화됨
+- **해결**: 진짜 `n8n-nodes-base.manualTrigger` 노드(`typeVersion: 1`, parameters `{}`) 추가 → 같은 "Prep" 노드로 연결 → Schedule Trigger와 Manual Trigger 2개 병렬 유지 (production cron + 수동 테스트 둘 다 지원)
+- **규칙**: **"Execute Workflow" 버튼이 무반응이면 가장 먼저 workflow에 `manualTrigger` 노드가 존재하는지 확인**. 이름("Manual Trigger")에 속지 말고 **`type` 필드**가 `n8n-nodes-base.manualTrigger`인지 검증. webhook 노드를 이름만 "Manual Trigger"로 붙이는 안티패턴을 피할 것. 수동 테스트가 필요한 모든 워크플로우는 반드시 진짜 manualTrigger 노드 1개 포함. Schedule/Webhook trigger만 있는 워크플로우는 "Execute Node" 방식(특정 trigger 노드 선택 후 ▶)으로만 수동 실행 가능
+
+### 2026-04-08 n8n Merge v3 `mode: combine`은 Fields to Match 필수 — 단순 fan-in은 `mode: append`
+
+- **증상**: Monitor v3 첫 import 후 Execute 시 "You need to define at least one pair of fields in 'Fields to Match' to match on" 에러 발생. 스택 트레이스: `combineByFields.ts:280`
+- **원인**: Merge 노드 파라미터를 `{ mode: "combine", combinationMode: "multiplex", numberInputs: 4 }`로 작성. `mode: combine`은 n8n에서 4가지 서브모드가 있고(`combineByPosition`, `combineByFields`, `combineByAll`, `combineBySql`), **기본값 또는 `combinationMode: multiplex`는 작동 안 함**. 특히 `multiplex`는 v3에서 지원 안 하는 명칭이었고, n8n이 기본값 `combineByFields`로 fallback → "Fields to Match" 요구
+- **해결**: 단순히 "4개 input 모두 완료 대기 + concatenate" 용도면 **`mode: append` + `numberInputs: N` + `options: {}`** 조합 사용. v3.5 crawl workflow의 `Wait All Sources` 노드와 동일 패턴
+- **규칙**: **n8n Merge v3에서 fan-in 동기화 목적이면 무조건 `mode: append`**. `mode: combine`은 "여러 input의 데이터를 필드 기준으로 합치는" 목적에만 사용하고 이 경우 반드시 `combineBy` 하위 옵션 명시 + "Fields to Match" 설정. 빠른 판단 기준: "input들 그대로 concat하면 되는가?" → append. "input 간 필드 매칭이 필요한가?" → combine + combineBy\*
+
+### 2026-04-08 n8n HTTP Request 노드의 `neverError: true` — 4xx/5xx 응답을 에러가 아닌 정상 응답으로 취급
+
+- **증상**: Monitor v3의 Firecrawl health check에서 POST `/v1/scrape` + 빈 body로 400 Bad Request가 돌아왔는데, n8n이 이를 **NodeApiError**로 분류 → `continueOnFail: true` 설정으로 워크플로우는 계속 진행되지만 결과 item이 error 객체(`{error, message}`) 형태 → `statusCode` 필드가 없음 → Aggregate Results의 `firecrawl?.statusCode` 접근이 undefined → `code: 0, status: critical`로 오분류
+- **원인**: n8n HTTP Request 노드(v4)는 기본적으로 4xx/5xx 응답을 "에러"로 취급. `fullResponse: true` 옵션만으로는 에러 응답의 statusCode를 정상 추출하지 못함. `continueOnFail`은 단지 "에러가 발생해도 다음 노드로 진행하라"는 플로우 제어일 뿐, 응답 데이터의 형식을 바꾸지 않음
+- **해결**: `options.response.response.neverError: true` 추가. 이 옵션은 **HTTP 응답 자체를 에러로 분류하지 않음** → 어떤 statusCode든 정상 item으로 저장되고 `$json.statusCode`, `$json.body`, `$json.headers` 모두 추출 가능. 검증: execution 13403 (neverError 없음 → critical) vs 13405 (neverError 있음 → healthy code 400)
+- **규칙**: **외부 API health check/모니터링 용도의 n8n HTTP Request 노드는 반드시 `options.response.response.neverError: true` + `fullResponse: true` 조합 사용**. 일반 업무(실제 데이터 fetch)는 default 유지(에러 시 재시도/알림). health check는 "응답 도달 = 서버 살아있음"이 판단 기준이므로 statusCode 자체가 데이터. continueOnFail과는 별개 옵션이며 병행 사용 권장. JSON 형식: `"options": { "response": { "response": { "fullResponse": true, "neverError": true } } }`
+
+### 2026-04-08 외부 API health probe는 엔드포인트가 요구하는 HTTP 메서드 준수 필수
+
+- **증상**: Monitor v3 Firecrawl 체크가 `https://api.firecrawl.dev/v1/scrape` 호출 시 404 HTML 에러 페이지 반환 → n8n이 JSON 파싱 실패 → NodeApiError: "The resource you are requesting could not be found"
+- **원인**: n8n HTTP Request 노드에서 method 미지정 시 기본값은 **GET**. 하지만 Firecrawl의 `/v1/scrape` 엔드포인트는 **POST만 허용**. GET 요청은 "route not found"로 처리되어 404 HTML 반환. JSON이 아닌 HTML 응답은 n8n이 파싱하지 못하고 전체를 에러로 분류
+- **해결**: `method: POST` 명시 + `sendBody: true, jsonBody: "={}"` 로 빈 JSON body 전송. Firecrawl은 body에 `url` 필드가 없으면 400 Bad Request ("URL must have a valid top-level domain") JSON 응답 반환 → API 살아있음 증명 + 크레딧 소모 0 + statusCode 추출 가능
+- **규칙**: **외부 API health probe 설계 시 엔드포인트의 정확한 HTTP 메서드 준수**. 체크리스트: (1) 해당 엔드포인트 공식 문서에서 method 확인 (GET/POST/HEAD 등) (2) GET 불가능한 엔드포인트를 GET으로 호출하면 HTML 에러 응답 → JSON 파싱 실패 → statusCode 추출 실패 (3) probe 목적일 경우 최소 비용 body 사용 (빈 객체 `{}` 또는 invalid field) → 400 응답 유도 + 크레딧/비용 소모 없음 (4) 응답이 JSON이 아닐 가능성이 있으면 `neverError: true` 병행

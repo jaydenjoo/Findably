@@ -1432,3 +1432,98 @@ admin 계정만 무제한 재사용 가능하도록 우회 추가.
 - **최종 커밋**: `5bcc82b` fix(crawl): n8n v3.4/v3.5 fan-in 복구 + Zod 에러 detail 노출
 - **n8n 활성 버전**: v3.5
 - **상태**: 🟢 정상 — 다음 세션부터 깨끗한 main에서 시작 가능
+
+---
+
+## 📍 Session 11차 (2026-04-08 저녁) — n8n Monitor v3.1 배포 + Published
+
+### 현재 위치
+
+- **Epic**: 모니터링 파이프라인 구축 (PRD Epic 3)
+- **Task**: n8n Monitor 워크플로우 재작성 + Supabase 기록 검증 + 자동 스케줄 활성화
+- **상태**: 🟢 **완료** — Published, 30분 주기 자동 실행 가동
+
+### 이번 세션 완료 내역
+
+1. **사전 점검 (코드/DB 모두 OK)**
+   - `supabase.findably_pipeline_health/crawl_executions/alerts` 테이블 + 3개 뷰 존재 확인 (migration 011, 012 이미 적용됨)
+   - `/api/health` 라우트 (`src/app/api/health/route.ts`) 이미 구현됨
+   - `/api/crawl/complete` probe 필터 (`route.ts:109`) 이미 구현됨 (`x-monitor-probe` 헤더 처리)
+   - n8n v2.16.0 환경변수 `N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"` 이미 설정됨 (elest.io docker-compose line 44)
+
+2. **Elest.io YAML "duplicated mapping key" 디버깅**
+   - Jayden이 `N8N_BLOCK_ENV_ACCESS_IN_NODE` 신규 추가 시도 → 이미 있어서 중복 에러
+   - 기존 값 `"false"` 확인 → 신규 줄 삭제로 해결
+
+3. **Monitor v3 신규 작성 (`docs/findably-monitor-v3.json`, 15 nodes)**
+   - v2.1의 2가지 근본 버그 수정 설계:
+     - Manual Trigger가 webhook 노드로 오용 → 진짜 `n8n-nodes-base.manualTrigger` 추가
+     - 4개 Check → Aggregate 직접 연결 → `Wait All Checks` Merge 노드(typeVersion 3) 추가
+   - v3.5 crawl workflow의 검증된 `mode: append, numberInputs` 패턴 재사용
+   - 노드 구성: Schedule/Manual Trigger → Prep → 4 Checks → Merge → Aggregate → Save → Alert gate → Build Alert/Log OK
+
+4. **v3 → v3.1 점진적 개선 (3회 연속 fix)**
+   - **Fix 1**: Merge 노드 `mode: combine` → `mode: append` (combine은 Fields to Match 필수)
+   - **Fix 2**: Firecrawl 노드 method 미지정(GET) → POST + 빈 body `{}`
+   - **Fix 3**: n8n이 400 응답을 NodeApiError로 분류 → `options.response.response.neverError: true` 추가
+
+5. **버전 파일 분리 (Jayden 요청)**
+   - `docs/findably-monitor-v3.json`: 초기 버전 보존 (Firecrawl GET 버그 있음, 문서 목적)
+   - `docs/findably-monitor-v3.1.json`: 완성본 (Import 대상)
+
+6. **Supabase INSERT 검증 (3회 수동 실행)**
+   - execution 13401 (21:16): Firecrawl GET → critical ❌
+   - execution 13403 (21:24): Firecrawl POST (neverError 없음) → critical ❌
+   - **execution 13405 (21:29)**: POST + neverError → **🟢 healthy** (4/4 체크 통과)
+
+7. **Published 전환**
+   - Jayden이 n8n UI에서 워크플로우 Published 완료
+   - 30분 주기 Schedule Trigger 활성화
+   - 다음 자동 실행: ~22:00 KST 이내
+
+### 이번 세션 변경 파일 (2건, 모두 신규)
+
+- `docs/findably-monitor-v3.json` (17,870 bytes) — 초기 v3, 버그 포함 보존본
+- `docs/findably-monitor-v3.1.json` (18,027 bytes) — 완성본, Published됨
+
+### Supabase 검증 증거
+
+| Execution | 시각 (KST)   | overall_status | Vercel     | Callback   | Firecrawl  | Observatory |
+| --------- | ------------ | -------------- | ---------- | ---------- | ---------- | ----------- |
+| 13401     | 21:16:25     | 🔴 critical    | ✅ 200     | ✅ 200     | ❌ 0       | ✅ 200      |
+| 13403     | 21:24:00     | 🔴 critical    | ✅ 200     | ✅ 200     | ❌ 0       | ✅ 200      |
+| **13405** | **21:29:08** | **🟢 healthy** | **✅ 200** | **✅ 200** | **✅ 400** | **✅ 200**  |
+
+### 다음 세션 할 일 (우선순위)
+
+| 우선순위 | 작업                                        | 비고                                                    |
+| -------- | ------------------------------------------- | ------------------------------------------------------- |
+| **P0**   | Monitor v3.1 24시간 안정성 확인             | 자동 실행 48건 누적 예상, 이상 패턴 체크                |
+| **P1**   | `/admin/monitor` 대시보드 구현 (PRD Epic 3) | `docs/findably-monitor-dashboard-spec.md` 스펙 참조     |
+| **P1**   | Observatory v2 body 누락 수정 (crawl v3.6)  | 9차 세션 잔여 P1 — completeness 89% → 100%              |
+| **P1**   | apex 도메인 www 폴백 구현                   | onboarding/url Server Action에 DNS 확인 추가            |
+| **P2**   | Slack/Email 알림 노드 추가 (선택)           | "Save Alert to Supabase" 다음에 연결, critical만 트리거 |
+| **P2**   | Phase B 유료 리포트 빈 섹션 처리 (Task 4)   | Phase A 완료 후 대기 중                                 |
+| **P3**   | Toss Payments 실 연동                       | 선물 코드와 병행                                        |
+
+### 차단 요소
+
+**없음** — Monitor v3.1 Published, 30분 주기 자동 실행 중
+
+### 배포 상태
+
+| 항목                          | 값                                     |
+| ----------------------------- | -------------------------------------- |
+| Vercel 최종 커밋              | `dd09e17` (10차 save)                  |
+| n8n 활성 워크플로우 (Crawl)   | **v3.5** (Elest.io)                    |
+| n8n 활성 워크플로우 (Monitor) | **v3.1** (Published, 신규)             |
+| 프로덕션 상태                 | 🟢 정상                                |
+| 마지막 Monitor 검증           | execution 13405 (2026-04-08 21:29 KST) |
+
+### 마지막 업데이트 (11차)
+
+- **날짜**: 2026-04-08 21:35 KST
+- **세션 시간**: ~1.5시간 (Monitor v3.1 작성 + 3단계 fix + 검증 + Published)
+- **파일 추가**: `docs/findably-monitor-v3.json`, `docs/findably-monitor-v3.1.json`
+- **n8n 활성 Monitor**: v3.1
+- **상태**: 🟢 완료 — Monitor 자동 스케줄 가동 중
