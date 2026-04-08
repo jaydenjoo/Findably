@@ -44,8 +44,21 @@ export function GiftCodeModal({
         return
       }
 
-      // 성공 → 페이지 새로고침으로 유료 분석 화면 전환
-      router.refresh()
+      // 성공 → 새 paid 진단 URL로 이동
+      // router.refresh()는 현재 URL(?id=<free>)을 유지하여 새 paid 진단으로
+      // 전환되지 않는 버그가 있었음 (2026-04-08). router.push로 교체하여
+      // dashboard/page.tsx가 새 diagnosisId를 감지 → PaidAnalyzingState 렌더 →
+      // trigger-analysis 자동 호출.
+      const newDiagnosisId = result.data?.diagnosisId
+      if (newDiagnosisId) {
+        router.push(`/dashboard?id=${newDiagnosisId}`)
+      } else {
+        // 방어적 fallback — 응답에 diagnosisId 없으면 쿼리 없는 dashboard로
+        // (1순위 fallback "진행중 진단"이 새 paid 진단을 자동 선택)
+        router.push('/dashboard')
+      }
+      // navigation 후 unmount 예정이지만, 실패 대비 로딩 상태 해제
+      setIsLoading(false)
     } catch {
       setError('네트워크 오류가 발생했습니다. 다시 시도해주세요.')
       setIsLoading(false)
