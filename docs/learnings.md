@@ -443,6 +443,27 @@
 - **방법**: MCP execute_sql로 같은 진단 ID를 SELECT만 하면서 시간 차이 비교. SQL 한 줄에 EXTRACT(EPOCH FROM (NOW() - updated_at)) AS seconds_since_last_update, EXTRACT(EPOCH FROM (updated_at - created_at)) AS process_seconds 같은 metric을 함께 출력하면 변화 패턴이 한눈에 보임
 - **규칙**: 프로덕션 이슈 추적 시 **DB의 변화 패턴 자체가 결정적 단서**가 될 수 있다. 단일 시점 SELECT보다 (1) 같은 row를 1~5분 간격으로 여러 번 쿼리 (2) 매번 NOW() 기반 metric을 함께 출력 (3) updated_at, score, status 등의 변화를 표로 비교. 변화 패턴이 일정 주기(예: 33초)면 cron 의심, 불규칙이면 외부 콜백 retry 의심. 이 패턴은 코드 read만으로는 절대 발견 불가하고, 실시간 DB 관찰이 필수
 
+### 2026-04-08 n8n v2.16.0 webhook typeVersion 2 — responseMode='responseNode' + fan-out Respond 조합 reject
+
+- **증상**: n8n 2.16.0에 v3.2 워크플로우 import 후 활성화 시도 → "Unused Respond to Webhook node found in the workflow" 에러로 차단. 워크플로우의 Validate & Set Variables 노드 fan-out 첫 분기에 "Respond 202 Accepted" 노드가 있고, 같은 fan-out에 Firecrawl 처리 분기들이 병렬로 존재
+- **원인**: n8n v2.16.0 typeVersion 2 Webhook 노드는 `responseMode='responseNode'`로 설정된 경우, fan-out된 분기 중 첫 번째 (또는 모든) 분기에 Respond 노드가 있어야 함을 강제 검증. 우리 워크플로우는 즉시 202 응답 후 백그라운드 처리 패턴을 위해 Respond 노드를 fan-out 첫 분기에 두고 나머지 분기에서 실제 작업을 했는데, n8n 검증기가 이를 "사용되지 않은 Respond 노드"로 잘못 판정. GitHub n8n 소스 확인 결과 `responseCodeProperty`가 `responseMode==='responseNode'`일 때 hide되는 코드와 연관
+- **해결**: v3.3 워크플로우 신규 작성 — Webhook Trigger options 변경 (`responseMode: responseNode → onReceived`, `responseCode: customCode (202)`, `responseData: 'accepted'`). Respond 202 Accepted 노드 자체를 제거하고 Webhook 옵션의 customCode로 즉시 202 응답. 노드 24 → 23개, fan-out 11 → 10 분기. 동일한 "즉시 응답 + 백그라운드 처리" 동작을 옵션 기반으로 구현
+- **규칙**: **n8n typeVersion 2 Webhook + 즉시 응답 + 백그라운드 fan-out 패턴**은 `responseMode='onReceived' + customCode` 조합으로 구현. `responseMode='responseNode'` + 별도 Respond 노드 패턴은 fan-out 구조에서 검증 충돌 가능. 또한 Webhook 옵션의 `customCode` 필드는 일부 n8n 버전에서 `Response Code` 드롭다운에서 "Custom" 선택 시에만 노출되므로 UI 차이 주의. n8n 워크플로우 작성/마이그레이션 시 (1) 사용자 환경의 정확한 n8n 버전 확인 우선 (2) typeVersion 2 vs 1 차이점 확인 (3) GitHub source의 displayOptions 직접 검증 — 학습 데이터에 없는 신규 검증 규칙 가능성 항상 의심
+
+### 2026-04-08 외부 SaaS 도구 학습 — 사용자 환경 버전 우선 확인 패턴 (메타 교훈)
+
+- **상황**: n8n 2.16.0(2026-04-07 stable)을 사용 중인 Jayden에게 v1.x 시절 UI 기준으로 가이드 제공. "Active/Inactive" 토글로 안내했으나 실제 화면에는 "Published/Draft" 모델이 보임. Jayden이 "네가 학습한 n8n 버전 알려줘"로 직접 지적
+- **AI가 한 것**: (1) 학습 cutoff 이후 변경된 외부 도구 UI/기능을 확인 없이 가이드 (2) 첫 에러("Unused Respond to Webhook")를 가설 트리만 돌려서 해결 시도, GitHub source 확인이 늦음 (3) Jayden이 명시적으로 "최신 버전 학습해" 요청한 후에야 정확한 정보 수집
+- **올바른 방향**: 외부 SaaS/도구(n8n, Vercel, Supabase, Firecrawl 등) 가이드 작성 시 **첫 액션은 사용자 환경 버전 확인**. 명확하지 않으면 "현재 X 버전이 뭐예요?" 한 줄 질문. 학습 데이터의 UI 스크린샷이나 옵션 명칭은 해당 시점의 정보일 뿐, 6개월~1년만 지나도 크게 달라질 수 있음 (n8n은 typeVersion 단위로 검증 규칙이 변경됨)
+- **규칙**: 외부 SaaS 도구 가이드 시 (1) 첫 액션 = 사용자 환경 버전 확인 (2) 학습 cutoff 이후 가능성 항상 의심 (3) 가이드 전 공식 changelog/release notes WebFetch로 검증 (4) GitHub source가 있는 OSS 도구는 typeVersion/displayOptions 같은 검증 규칙을 직접 read (5) "내가 학습한 버전과 사용자 버전이 다를 수 있다"는 사실을 가이드 시작 시 명시. learnings 2026-04-06 (외부 서비스 가격/제한 변경 검증)과 같은 패턴 — 모든 외부 도구는 시간에 따라 변하므로 "내가 안다"는 가정 자체를 의심
+
+### 2026-04-08 crawl_data의 blocked_reason 텍스트로 코드 흐름 정확히 추적 (디버깅 패턴)
+
+- **상황**: 무료 진단이 8초 만에 status='failed'로 마킹되고 화면에 "분석에 문제가 발생했습니다" 표시. n8n에서는 워크플로우 진행 중인 듯 보이는 상태. 화면과 n8n 상태 충돌
+- **디버깅**: Supabase MCP로 진단 row 조회 → `crawl_data` JSON 안의 `blocked_reason: "크롤링 품질 미달 (completeness 11%)"` 발견. 이 텍스트를 grep하여 `route.ts:181`의 `payload.reason ?? 크롤링 품질 미달 (completeness ${payload.dataCompleteness}%)` 정확한 생성 코드 위치 확정. 즉 quality_rejected 분기 → markDiagnosisFailed 호출 → status=failed가 정확한 흐름임을 5분 내에 확정
+- **결론**: 이건 버그가 아니라 정상 동작이었고, findably.kr 사이트 자체가 dataCompleteness 11%로 Quality Gate(30% 미만)에 걸린 것
+- **규칙**: 디버깅 시 **DB에 저장된 텍스트 메시지(reason, error_message, blocked_reason 등)를 코드에서 grep**하면 해당 메시지를 생성하는 정확한 위치를 5분 안에 찾을 수 있다. 이 패턴은 (1) "이게 어디서 실패했지?" 질문에 가설 5개 세우는 것보다 빠름 (2) 동적 보간 (`${var}`) 부분은 grep 어려우므로 고정 텍스트 prefix/suffix만 검색 (3) 메시지가 여러 곳에서 동일하게 생성되면 호출 스택을 좁히는 추가 단서(파라미터 값, 시간대) 활용. 이 패턴은 fake/real 진단 디버깅 모두에 응용 가능. 디자인 함의: **에러 메시지를 충분히 unique하게 작성**하면 향후 디버깅 비용이 크게 줄어든다 (예: "잘못된 요청"보다 "페이로드 schema 검증 실패: dataCompleteness")
+
 ### 2026-04-06 stuck 화면 디버깅 — 백엔드 → 프론트엔드 격리 진단 (방법론)
 
 - **상황**: Jayden이 onboarding/url 화면에서 "분석 시작" 후 작업중 표시 stuck. n8n에서는 작업 완료. Supabase 확인 → 638f2f45 진단이 25초만에 completed로 정상 종료. 즉 백엔드는 완벽하게 작동했지만 화면이 안 갱신됨

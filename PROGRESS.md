@@ -1222,3 +1222,101 @@ admin 계정만 무제한 재사용 가능하도록 우회 추가.
 - **최종 코드 커밋**: `8300d97` fix(crawl): add idempotency guard to handleCallback (mystery 1 fix)
 - **프로덕션**: https://findably.kr (Vercel 자동 배포 진행)
 - **상태**: 🟢 admin 무제한 적용 + 배포 완료, Phase A 검증 대기
+
+---
+
+## 📍 Session 9차 (2026-04-08) — n8n v3.3 마이그레이션 + Firecrawl 키 정정 + Phase 3-3 검증 진입
+
+### 현재 위치
+
+- **Epic**: n8n monitoring 통합 (Phase 1~3) + Phase 3-3 실제 진단 테스트
+- **Task**: Phase 3-3 진행 중 — 첫 시도(findably.kr)는 quality_rejected로 정상 동작 확인. URL 재선정 후 재테스트 대기
+- **상태**: **진행중** — v3.3 webhook + Firecrawl 인증 + quality_rejected 흐름 검증 완료, completed 시나리오 검증 대기
+
+### 이번 세션 완료 내역
+
+#### 1. n8n v3.3 workflow 작성 (`ca08b39`)
+
+- **배경**: v3.2를 elest.io n8n 2.16.0에 import 시 "Unused Respond to Webhook node" 에러
+- **원인**: n8n v2.16.0 typeVersion 2 webhook + `responseMode='responseNode'` 조합에서 fan-out 첫 분기에 Respond 노드가 있으면 reject (GitHub source 검증)
+- **fix**: Webhook Trigger options 변경
+  - `responseMode: responseNode → onReceived`
+  - `responseCode: customCode (202)` 추가
+  - `responseData: 'accepted'` 추가
+- 노드 24 → 23개 (Respond 202 Accepted 노드 제거)
+- Validate fan-out 11 → 10 분기 (Respond 분기 제거)
+- 결과: import 성공, webhook 즉시 202 응답 정상 동작
+
+#### 2. Firecrawl 401 원인 격리 + 정정
+
+- **증상**: v3.3 import + curl 테스트 후 A1/A2 노드 둘 다 401 Unauthorized
+- **격리 방법**: Jayden이 보유한 두 키를 curl로 직접 검증
+  - Test 1 (`fc-de414...bb99bc...a19a`): **HTTP 200** ✅ 유효
+  - Test 2 (`fc-de414...b0990c...d19a`): **HTTP 401** ❌ 무효
+- **원인**: elest.io의 `FIRECRAWL_API_KEY` env var에 옛 무효 키가 들어있었음. 메모리(시크릿 회전 체크리스트)에도 옛 키가 잘못 기록되어 있었음
+- **해결**: elest.io Update Config → 새 키로 교체 → Update & Restart
+- **검증**: A1(Firecrawl Scrape), A2(Firecrawl Map) 둘 다 success:true + markdown/links 데이터 정상 수신, creditsUsed:1 차감 확인
+- 메모리 정정: `project_secret-rotation-checklist.md`에 두 키 모두 기록 + 향후 회전 시 둘 다 revoke 대상 명시
+
+#### 3. Callback URL 검증 (false alarm 격리)
+
+- 첫 curl 테스트(fake diagnosisId)에서 Callback Next.js가 HTTP 400 + `callbackRedirect: true` 반환
+- **위험 신호로 보였던 단서들이 사실은 정상 동작**:
+  - HTTP 400 = fake diagnosisId가 DB FK 제약 위반 (예상된 실패)
+  - `callbackRedirect: true` = findably.kr의 HTTPS/www 정규화 redirect 흔적 (axios가 자동 추적)
+  - URL은 `https://findably.kr/api/crawl/complete` (trailing slash 없음, 정상)
+- v3.3 webhook → Firecrawl → callback까지 전체 파이프라인 정상 흐름 확인
+
+#### 4. Phase 3-3 실제 진단 첫 시도 — quality_rejected 흐름 검증
+
+- **테스트**: Jayden 본인 계정으로 findably.kr 무료 진단 시작
+- **결과**: 8초 만에 status='failed', "분석에 문제가 발생했습니다" 화면 표시
+- **원인 격리**: Supabase MCP로 진단 ID `66bc001f-df0d-4cd2-b2b7-43fa02adaf77` 조회
+  - `crawl_data.blocked_reason`: `"크롤링 품질 미달 (completeness 11%)"`
+  - 이 텍스트는 `route.ts:181`의 quality_rejected 분기 reason 생성 코드와 정확히 일치
+- **결론**: **시스템 모든 단계 정상 작동 중**. findably.kr 자체가 Firecrawl로 dataCompleteness 11%만 나옴 (공지 배너 + Next.js SSR 초기 HTML 빈약)
+- **검증된 흐름**: webhook → A1/A2 → Quality Gate → Callback Next.js → handleCallback quality_rejected 분기 → markDiagnosisFailed → 화면 에러 표시
+
+#### 5. n8n 버전 학습 보정 (Jayden 직접 지적)
+
+- 내가 학습한 n8n은 v1.x 기반, Jayden은 v2.x 사용 중
+- "Active/Inactive" → "Published/Draft" UI 모델 변경 발견
+- Jayden이 elest.io에서 n8n 2.16.0으로 명시적 업그레이드 후 학습 재요청
+- 향후 외부 SaaS 도구 학습 시 사용자 환경 버전 우선 확인 패턴 정립 필요
+
+### 진행 중 (다음 세션 시작 시점)
+
+- **Phase 3-3 재테스트** — `https://www.monthlycheck.kr/`로 무료 진단 재실행 (이전 24초 만에 정상 종료 실적 있음)
+- 통과 기준: status='completed' + total_score 산출 + dashboard 결과 표시
+- 동시 모니터링: Supabase MCP 30초 간격 폴링 + n8n Executions + Vercel Function Logs
+
+### 다음 세션 할 일
+
+| 우선순위 | 작업                                                                |
+| -------- | ------------------------------------------------------------------- |
+| **P0**   | Phase 3-3 monthlycheck.kr 재테스트 → completed 시나리오 검증        |
+| **P0**   | Phase 3-4 모니터 v2.1 활성화 (정상 실행 발생 후)                    |
+| **P1**   | Phase 3-5 24시간 안정성 모니터링 + Phase 3-6 v2 disable + 공지 해제 |
+| **P1**   | n8n v2.16.0 "Published/Draft" 모델 별도 조사 (UI/배포 영향 파악)    |
+| **P2**   | Firecrawl이 findably.kr을 11%만 크롤링하는 이유 별도 조사 (UX 개선) |
+| **P2**   | 시크릿 회전 작업 (테스트 안정화 후) — 6종 체크리스트 적용           |
+
+### 차단 요소
+
+**없음** — Firecrawl 401, callback 400 모두 정상 동작으로 격리 완료. 다음 단계는 단순 URL 변경 후 재실행
+
+### 9차 세션 커밋 (1건 — 코드)
+
+1. `ca08b39` feat(n8n): add crawl v3.3 workflow for n8n v2.16.0 compatibility
+
+### 9차 세션 메모리 업데이트
+
+- `project_secret-rotation-checklist.md` — Firecrawl 키 정정 (옛 무효/새 유효 둘 다 기록)
+- `feedback_one-line-commands.md` — 한 줄 명령어 제공 규칙 (이전 세션 생성, 이번 세션 검증)
+
+### 마지막 업데이트 (9차)
+
+- **날짜**: 2026-04-08 17:30 KST
+- **최종 코드 커밋**: `ca08b39` feat(n8n): add crawl v3.3 workflow for n8n v2.16.0 compatibility
+- **프로덕션**: https://findably.kr (사이트 공지 활성화 중 — Phase 3 안정화 후 해제)
+- **상태**: 🟢 v3.3 파이프라인 전 단계 검증 완료, completed 시나리오 검증만 남음
