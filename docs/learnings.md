@@ -546,3 +546,29 @@
 - **원인**: n8n HTTP Request 노드에서 method 미지정 시 기본값은 **GET**. 하지만 Firecrawl의 `/v1/scrape` 엔드포인트는 **POST만 허용**. GET 요청은 "route not found"로 처리되어 404 HTML 반환. JSON이 아닌 HTML 응답은 n8n이 파싱하지 못하고 전체를 에러로 분류
 - **해결**: `method: POST` 명시 + `sendBody: true, jsonBody: "={}"` 로 빈 JSON body 전송. Firecrawl은 body에 `url` 필드가 없으면 400 Bad Request ("URL must have a valid top-level domain") JSON 응답 반환 → API 살아있음 증명 + 크레딧 소모 0 + statusCode 추출 가능
 - **규칙**: **외부 API health probe 설계 시 엔드포인트의 정확한 HTTP 메서드 준수**. 체크리스트: (1) 해당 엔드포인트 공식 문서에서 method 확인 (GET/POST/HEAD 등) (2) GET 불가능한 엔드포인트를 GET으로 호출하면 HTML 에러 응답 → JSON 파싱 실패 → statusCode 추출 실패 (3) probe 목적일 경우 최소 비용 body 사용 (빈 객체 `{}` 또는 invalid field) → 400 응답 유도 + 크레딧/비용 소모 없음 (4) 응답이 JSON이 아닐 가능성이 있으면 `neverError: true` 병행
+
+### 2026-04-08 GiftCodeModal이 `router.refresh()`로 navigation 실패 → 새 paid 진단이 고아 상태
+
+- **증상**: 대시보드(`?id=<free>`)에서 "상세 분석 받기" → 기프트 코드 입력 → 로딩 스피너가 영원히 돌고 `/dashboard?id=<new paid>`로 이동하지 않음. 새로고침하면 `?id=<free>` URL 유지되어 무료 리포트로 돌아감. DB에는 새 paid 진단(예: `adfe3390`)이 생성됐지만 `process_seconds=0` (created_at == updated_at)이고 5 에이전트 모두 pending — 즉 **trigger-analysis가 아예 호출되지 않음**
+- **원인**: `redeem-code` API는 새 paid 진단을 INSERT 한 뒤 응답에 `{ diagnosisId: paidDiag.id }` 를 포함하는데, `GiftCodeModal.handleSubmit()`(src/app/(dashboard)/dashboard/\_components/GiftCodeModal.tsx:48)이 이 값을 무시하고 `router.refresh()`만 호출. `router.refresh()`는 현재 URL(`/dashboard?id=<free>`)을 유지한 채 서버 컴포넌트만 재요청 → dashboard/page.tsx가 여전히 `id=<free>`로 조회 → 기존 무료 리포트 재렌더 → 새 paid 진단은 완전한 고아 상태. `PaidAnalyzingState`로 navigation 되지 않으므로 `useEffect` 안의 `trigger-analysis` fetch가 발화 안 됨 → `runDiagnosisPaid` 시작 자체 불가
+- **해결**: `router.refresh()` → `router.push(\`/dashboard?id=${result.data.diagnosisId}\`)`. 응답에 `diagnosisId`가 없는 방어적 케이스는 `router.push('/dashboard')`로 fallback (dashboard fallback 1순위 "진행 중 진단" 쿼리가 새 paid 진단을 자동 선택). 커밋 `22f693a`배포 후 Playwright로 완전 재현 성공 — 대시보드 → 코드 입력 →`/dashboard?id=<new>` 이동 → PaidAnalyzingState 렌더 → 5-Agent + CMO 170초 완료
+- **규칙**: **Modal/Form에서 API가 새 리소스 ID를 반환하는 경우, `router.refresh()`가 아닌 `router.push(\`/new-path?id=${newId}\`)`로 navigation**. `router.refresh()`는 **현재 URL의 server component 데이터만 재검증**하고 URL은 그대로 유지 — 새 리소스로 전환해야 할 때는 잘못된 도구. 판단 기준: (1) 응답이 새 ID/경로를 포함하면 → `router.push` (2) 기존 페이지의 데이터만 최신화하면 → `router.refresh`. 또한 `isLoading` 상태 해제를 success path에도 명시 추가해서 navigation 실패 시 모달이 무한 로딩에 갇히지 않도록 방어
+
+### 2026-04-08 Supabase auth.users SQL INSERT 시 GoTrue Go 구조체 호환성 — NOT NULL empty string 필드
+
+- **증상**: 테스트 계정 생성 목적으로 `auth.users`에 직접 INSERT (pgcrypto crypt+bcrypt 비밀번호 + auth.identities 동시 삽입). `password_matches = true` 확인했는데 Supabase signIn 시 "이메일 또는 비밀번호를 확인해주세요" 500 에러. Auth 로그: `error finding user: sql: Scan error on column index 3, name "confirmation_token": converting NULL to string is unsupported`
+- **원인**: Supabase GoTrue(Go)의 user 구조체가 `confirmation_token`, `recovery_token`, `email_change_token_new/current`, `email_change`, `phone_change`, `phone_change_token`, `reauthentication_token` 필드를 **`sql.NullString`이 아닌 `string`으로 스캔**. PostgreSQL default가 NULL인데 Go는 NULL을 `string`으로 변환 불가 → scan error → "user not found"로 응답. DB에 유저가 있어도 GoTrue는 NULL 필드 때문에 유저를 "못 찾음"
+- **해결**: 생성 후 8개 토큰 필드를 `COALESCE(field, '')`로 빈 문자열 업데이트:
+  ```sql
+  UPDATE auth.users SET
+    confirmation_token = COALESCE(confirmation_token, ''),
+    recovery_token = COALESCE(recovery_token, ''),
+    email_change_token_new = COALESCE(email_change_token_new, ''),
+    email_change_token_current = COALESCE(email_change_token_current, ''),
+    email_change = COALESCE(email_change, ''),
+    phone_change = COALESCE(phone_change, ''),
+    phone_change_token = COALESCE(phone_change_token, ''),
+    reauthentication_token = COALESCE(reauthentication_token, '')
+  WHERE id = '<user_id>';
+  ```
+- **규칙**: **Supabase `auth.users`에 SQL로 직접 INSERT할 때는 위 8개 토큰 필드를 반드시 `''` (빈 문자열)로 설정**하거나 INSERT 이후 UPDATE로 보정. Supabase Dashboard 또는 Supabase Admin SDK의 `auth.admin.createUser()`는 이 필드를 자동으로 빈 문자열로 설정하므로 문제 없음. 직접 SQL INSERT 하는 경우만 해당. 디버깅 단서: auth 로그에서 `Scan error on column index N, name "xxx_token": converting NULL to string` 패턴이 보이면 이 문제

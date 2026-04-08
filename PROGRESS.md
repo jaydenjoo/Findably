@@ -1527,3 +1527,115 @@ admin 계정만 무제한 재사용 가능하도록 우회 추가.
 - **파일 추가**: `docs/findably-monitor-v3.json`, `docs/findably-monitor-v3.1.json`
 - **n8n 활성 Monitor**: v3.1
 - **상태**: 🟢 완료 — Monitor 자동 스케줄 가동 중
+
+---
+
+## 📍 Session 12차 (2026-04-08 저녁 ~ 04-09 자정) — GiftCodeModal 핫픽스 + Task 1/2 + Phase A 전체 검증
+
+### 현재 위치
+
+- **Epic**: 프로덕션 버그 수정 + 유료 리포트 Phase A 검증 + Playwright 자동 테스트 인프라
+- **Task**: GiftCodeModal navigation 버그 핫픽스 + Observatory v3.6 + DNS www 폴백 + Phase A 육안 검증
+- **상태**: 🟢 **완료** — 3개 커밋 배포 + 핫픽스 Playwright 완전 검증 + Phase A 8/8 확인
+
+### 이번 세션 완료 내역
+
+#### 1. GiftCodeModal navigation 버그 발견 + 핫픽스 배포 (`22f693a`)
+
+- **상황**: Jayden이 ADMIN-0709 코드 입력 후 로딩 스피너가 영원히 돌고 대시보드로 전환 안 됨. 새 paid 진단(`adfe3390`)이 DB에 생성됐지만 `process_seconds=0`, 5 에이전트 모두 pending으로 고아 상태
+- **원인**: `GiftCodeModal.handleSubmit()`이 `router.refresh()`를 호출하여 현재 URL(`/dashboard?id=<free>`)을 유지 → dashboard/page.tsx가 여전히 `id=<free>`로 조회 → 새 paid 진단으로 navigation 안 됨 → PaidAnalyzingState 미렌더 → trigger-analysis 미호출
+- **수정**: `router.refresh()` → `router.push(\`/dashboard?id=${result.data.diagnosisId}\`)`, 응답에 id 없으면 `/dashboard`로 방어적 fallback
+- **커밋**: `22f693a` fix(payment): gift code redeem이 새 paid 진단으로 navigation 안 되던 버그 수정
+- **배포**: origin/main push 완료, Vercel 자동 배포
+
+#### 2. 테스트 계정 생성 + Supabase auth 직접 INSERT 이슈 해결
+
+- `findably-qa@test.local` / `FindablyQA-Test2026!` (User ID `62e83a2b-8beb-44c0-93c0-13e67cc8910a`)
+- Supabase MCP로 auth.users + auth.identities 직접 INSERT
+- **GoTrue Scan error** 해결: `confirmation_token` 등 8개 토큰 필드를 COALESCE로 빈 문자열 업데이트해야 로그인 가능 (learnings 기록)
+
+#### 3. Task 1 — n8n crawl v3.6 (Observatory v2 body) 커밋 (`a7a4cbc`)
+
+- `docs/findably-crawl-v3-production-v3.6.json` 신규 848줄
+- B4 Observatory v2 노드에 `sendBody: true` + `jsonBody: { host }` + `neverError + fullResponse` 추가
+- data_completeness 89% → 100% 달성 목표 (Jayden n8n import 후 검증)
+
+#### 4. Task 2 — apex 도메인 → www 자동 폴백 커밋 (`996b10a`)
+
+- 신규: `src/features/onboarding/utils/dns-resolve.ts` — `resolveHostname` + `resolveWithWwwFallback` (Promise.race 2초 타임아웃)
+- 신규: `src/features/onboarding/utils/__tests__/dns-resolve.test.ts` — 11 tests 통과 (`vi.hoisted` + `default` export 패턴)
+- 수정: `submit-url.ts` — Zod 검증 후 DNS 확인 → www 폴백 시 `wwwFallback=1` redirect param
+- 수정: `analyzing/page.tsx` — `wwwFallback=1` 감지 시 info 배너 렌더링
+
+#### 5. Playwright 자동 테스트 인프라 구축 + 피드백 메모리 저장
+
+- `feedback_playwright-self-test.md` — 테스트 요청 시 Claude가 직접 Playwright로 실행하며 진행 (Jayden에게 수동 테스트 위임 금지)
+- `project_test-url.md` 업데이트 — 기본 테스트 URL `https://findably.kr/` (monthlycheck.kr은 edge-case만)
+
+#### 6. Playwright 자동 테스트 — 전체 플로우 검증
+
+**무료 진단 end-to-end (2회)**:
+
+- `7802233d` — 신규 계정, 53초 완료 (73점, AI 인용 40점, Quick Win 5개)
+- `a2fe28bb` — 기존 진단 있는 상태, 새 진단 정상 생성
+- **버그 2 재현 실패 (2/2 정상)** — Jayden 케이스는 일회성 브라우저/네트워크 이슈로 결론
+
+**GiftCodeModal 핫픽스 검증**:
+
+- `QA-PLAYWRIGHT-TEST` 테스트 코드 생성 (5회 사용 가능, 2027-12 만료)
+- 코드 입력 → `/dashboard?id=6dbb271c-...` navigation 정상
+- PaidAnalyzingState 렌더 → trigger-analysis 호출 (콘솔 로그 확인)
+- 5 에이전트 + CMO 170초 완료
+- `gift_code_uses` 1건 정상 INSERT (일반 사용자 플로우)
+
+**Phase A 상세 리포트 육안 검증 (`6dbb271c`, 8/8 통과)**:
+| # | 항목 | 결과 |
+|---|------|------|
+| 1 | 매출 누수 캡 적용 (월 328만원, 매출 20%) | ✅ |
+| 2 | 카테고리별 가중 분배 (8개 영역 #technical/#geo/#content 등) | ✅ |
+| 3 | 중복 보정 문구 "ℹ️ 각 항목의 추정 영향은 독립적으로 합산..." | ✅ |
+| 4 | 출처 표기 "KCD 2025 Q4 통계" | ✅ |
+| 5 | 1페이지 커버 점수 = SWOT 본문 점수 (둘 다 73점) | ✅ |
+| 6 | CMO executive_summary 환각 점수 언급 없음 | ✅ |
+| 7 | AI 인사이트 dedupe + 영향 카테고리 뱃지 (기타/#seo 등) | ✅ |
+| 8 | 인사이트 카드에서 💰 매출 영향 블록 제거 | ✅ |
+| + | CMO 비즈니스 언어 비유 ("마치 간판에 상호명을 두 번 쓴 것과 같습니다") | ✅ |
+| + | 전문가용 접기 (📊 상세 지표) | ✅ |
+| + | 90일 로드맵 우선순위 3기준 설명 블록 | ✅ |
+
+#### 7. learnings.md 3건 추가
+
+- GiftCodeModal router.refresh 버그 → router.push로 교체 규칙
+- Supabase auth.users 직접 INSERT 시 GoTrue 토큰 필드 빈 문자열 보정 필수
+- (Task 1/2 관련 이슈는 기존 learnings에 포함)
+
+### 이번 세션 커밋 (3건)
+
+1. `22f693a` fix(payment): gift code redeem이 새 paid 진단으로 navigation 안 되던 버그 수정
+2. `a7a4cbc` feat(n8n): crawl v3.6 — Observatory v2 body에 host JSON 추가
+3. `996b10a` feat(onboarding): apex 도메인 → www 자동 폴백 + 분석 대기 화면 안내
+
+### 다음 세션 할 일 (우선순위)
+
+| 우선순위 | 작업                                                           | 비고                                                      |
+| -------- | -------------------------------------------------------------- | --------------------------------------------------------- |
+| **P0**   | Jayden이 n8n v3.6 import → Published → 프로덕션 테스트         | data_completeness 100% 달성 확인                          |
+| **P0**   | Jayden이 Vercel 대시보드에서 22f693a/a7a4cbc/996b10a 배포 확인 | 자동 배포 미작동 시 수동 `vercel --prod`                  |
+| **P1**   | DNS www 폴백 프로덕션 검증                                     | `monthlycheck.kr` (apex, A 없음) 입력 시 www 자동 전환    |
+| **P1**   | 버그 2 Jayden 케이스 추가 조사                                 | Vercel 배포 시각 vs 스크린샷 22:31:44 대조                |
+| **P2**   | Phase B 착수 (Task 4 빈 섹션 처리)                             | Phase A 완료 확정 후                                      |
+| **P2**   | learnings 2건 추가 검토                                        | 버그 2 케이스 (재현 실패) + Playwright 자동 테스트 전환점 |
+| **P3**   | Phase C/D, 기존 31 테스트 실패, 토스 실 연동 등                | 기존 백로그                                               |
+
+### 차단 요소
+
+**없음** — 3개 커밋 push 완료, 핫픽스 Playwright 검증 + Phase A 전체 통과
+
+### 마지막 업데이트 (12차)
+
+- **날짜**: 2026-04-09 00:30 KST
+- **세션 시간**: ~4시간 (조사 + 디버깅 + 핫픽스 + 검증 + 커밋 + 문서)
+- **최종 커밋**: `996b10a` feat(onboarding): apex 도메인 → www 자동 폴백 + 분석 대기 화면 안내
+- **배포 대기**: 3개 커밋 Vercel 자동 배포 확인 필요
+- **테스트 계정**: `findably-qa@test.local` / `FindablyQA-Test2026!`
+- **상태**: 🟢 완료 — Playwright 인프라 확립 + 핫픽스 검증 + Phase A 전체 통과
