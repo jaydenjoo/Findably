@@ -120,11 +120,21 @@ async function handleCallback(request: NextRequest): Promise<Response> {
     const body = (await request.json()) as Record<string, unknown>
     payload = completePayloadSchema.parse(body)
   } catch (error) {
-    console.error(
-      '[crawl/complete] 페이로드 검증 실패:',
-      error instanceof Error ? error.message : error
-    )
-    return errorResponse('잘못된 요청', 400)
+    // 2026-04-08: Zod 에러 detail을 응답에 포함 — n8n Callback Next.js Output에서
+    // 정확한 검증 실패 원인을 즉시 확인 가능. 블라인드 디버깅 루프 차단용.
+    const detail =
+      error instanceof z.ZodError
+        ? error.issues
+            .map(
+              (issue: z.ZodIssue) =>
+                `${issue.path.join('.') || '<root>'}: ${issue.message}`
+            )
+            .join('; ')
+        : error instanceof Error
+          ? error.message
+          : 'unknown'
+    console.error('[crawl/complete] 페이로드 검증 실패:', detail)
+    return errorResponse(`잘못된 요청: ${detail}`, 400)
   }
 
   const startTime = Date.now()
