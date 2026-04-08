@@ -1320,3 +1320,115 @@ admin 계정만 무제한 재사용 가능하도록 우회 추가.
 - **최종 코드 커밋**: `ca08b39` feat(n8n): add crawl v3.3 workflow for n8n v2.16.0 compatibility
 - **프로덕션**: https://findably.kr (사이트 공지 활성화 중 — Phase 3 안정화 후 해제)
 - **상태**: 🟢 v3.3 파이프라인 전 단계 검증 완료, completed 시나리오 검증만 남음
+
+---
+
+## 📌 2026-04-08 세션 10차 — n8n v3.3 fan-in 버그 디버깅 + v3.5 안정화
+
+> 전 세션에서 "v3.3 마이그레이션 완료"로 save됐으나, 실제 프로덕션 테스트 결과 크롤링 파이프라인이 전면 failure 상태로 드러남. 6시간 디버깅 + Pure Vercel 딥리서치 + n8n v3.5 복구로 완전 정상화.
+
+### 현재 위치
+
+- **Epic**: 프로덕션 복구 + n8n 아키텍처 안정화
+- **Task**: n8n v3.5 최종 안정화 + 테스트 검증
+- **상태**: 🟢 **완전 복구** — findably.kr 진단 end-to-end 성공
+
+### 이번 세션 완료 내역
+
+1. **n8n v3.3 fan-in 버그 근본 원인 발견**
+   - 증상: 프로덕션 테스트 시 `data_completeness=11%`, 7초만에 failed, "Cannot assign to read only property 'name' of object 'Error: Node XX hasn't been executed'" 8건
+   - 원인: 10개 fan-out 분기(A1~C4)가 **Merge 노드 없이 Normalize Results로 직접 연결됨**. A1이 가장 먼저 끝나자 Normalize Results가 첫 번째 실행되며 나머지 9개 노드 출력을 참조 → n8n 2.16.0의 read-only Error 객체 에러 → try/catch가 못 잡음 → 나머지 8개 소스 "not executed" 처리
+   - **이전 2026-04-08 learnings 항목 "v3.3 Respond 노드 제거" 교훈은 잘못된 진단이었음**. 진짜 원인은 fan-in Merge 노드 누락 (이번 세션에서 learnings.md에 정정 기록)
+
+2. **딥리서치: Pure Vercel 이전 검증 (3개 에이전트 병렬)**
+   - **Explore**: Findably 크롤링 파이프라인 이미 78% Pure Vercel 준비됨 발견 — fetchers/parsers 모두 Pure TypeScript, `fallback-crawl-pipeline.ts`에 실증 코드 존재, Playwright 의존성 0건, n8n은 단순 HTTP 프록시 역할만
+   - **Vercel 공식 문서**: Pro maxDuration **800초** (2026-04 기준), Fluid Compute 2025-04-23 기본 활성화, I/O 대기 CPU 무과금
+   - **대안 플랫폼 재검증**: Inngest Pro 실제 **$75/월** (전 세션 $25 오인 정정), Trigger.dev v3 $50/월 no timeout, Supabase Edge Functions Pro 포함(CPU 2초 제한), Cloudflare Workflows $5/월+. 결론: Findably 워크로드에는 **Pure Vercel이 유일한 최적해**
+
+3. **n8n v3.4 생성 — fan-in Merge 노드 추가**
+   - `docs/findably-crawl-v3-production-v3.4.json` (신규, 37,998 bytes, 24 nodes)
+   - `Wait All Sources` 노드 추가 (`n8n-nodes-base.merge` v3, mode=append, numberInputs=10)
+   - 10개 fan-out 분기의 connections를 Normalize Results 대신 Merge 노드로 재배선 (index 0~9)
+   - 로컬 검증 8개 항목 전부 통과
+
+4. **v3.4 테스트 결과 — fan-in 해결됐으나 Callback Next.js 400 에러 발생**
+   - `findably_crawl_executions`: `data_completeness: 89%` ✅ (11% → 89% 수직 상승)
+   - `diagnoses`: status=crawling 고착, crawl_data=null ❌
+   - 원인: Callback Next.js 노드가 `/api/crawl/complete`에 POST → Next.js가 **Zod 검증 실패로 400 Bad Request** 반환
+   - 추가 진단: Zod 스키마의 `errorDetails[].error: z.string()` 요구. 하지만 Normalize Results가 Observatory 같은 외부 API 에러를 **객체 그대로** 전달 → 타입 mismatch
+
+5. **n8n v3.5 생성 — errorDetails string 강제 변환**
+   - `docs/findably-crawl-v3-production-v3.5.json` (신규, 38,388 bytes, 24 nodes)
+   - v3.4 기반 + Normalize Results의 Code 노드 jsCode 패치
+   - `errorDetails[].error`를 `typeof rawErr === 'string' ? rawErr : JSON.stringify(rawErr)` 로 강제 변환
+   - null/undefined 케이스도 `'unknown error'`로 안전 처리
+
+6. **Next.js route.ts 수정 — Zod 에러 detail 응답 노출**
+   - `src/app/api/crawl/complete/route.ts:117-134` 수정
+   - 400 응답 메시지에 Zod issues의 path + message를 모두 포함
+   - 목적: 블라인드 디버깅 루프 차단. 다음 실패 시 즉시 원인 확정 가능
+   - `z.ZodError.issues` (Zod v4 API) 사용, `z.ZodIssue` 타입 명시
+
+7. **커밋 `5bcc82b` 푸시**
+   - `fix(crawl): n8n v3.4/v3.5 fan-in 복구 + Zod 에러 detail 노출`
+   - 3 files changed, 1691 insertions(+), 5 deletions(-)
+   - Vercel 자동 배포
+
+8. **프로덕션 재테스트 — 1차 실패 (테스트 URL 잘못 선택)**
+   - URL: `https://monthlycheck.kr` (apex, A 레코드 없음)
+   - 결과: `data_completeness=22%`, status=failed, 7개 소스 DNS 실패
+   - 조사: `dig` 확인 → `monthlycheck.kr` A 레코드 없음, `www.monthlycheck.kr`만 존재
+   - v3.5는 정상 작동 (duration 60초, fan-in + errorDetails + Callback 플로우 전부 정상). **apex 도메인 DNS 부재 케이스** 확인
+
+9. **프로덕션 재테스트 — 2차 완전 성공** 🏆
+   - URL: `https://findably.kr` (정상 도메인)
+   - `diagnoses.522e8c3f`: status=**completed**, total_score=**63**, has_crawl=true, **has_analysis=true**, proc_sec=54s
+   - `findably_crawl_executions.13379`: status=**success**, data_completeness=**89%**, success_sources 8개, failed_sources 1개(observatory만)
+   - 스크린샷으로 Callback Next.js statusCode=**200** + `saved: true` 확인
+
+10. **회색 선 이슈 조사 및 해소**
+    - Jayden이 A1, A2 → Wait All Sources 연결선이 회색으로 표시되는 것 문의
+    - 원인 확정: **n8n UI 시각화 특성**. `$('노드명').first().json` 글로벌 참조 패턴 사용 시 파이프 데이터 흐름이 없는 것처럼 렌더링됨
+    - 증거: Callback Next.js Input 탭도 "No fields - items exist but they're empty" 표시되지만 Output은 status 200 + saved true. 같은 원리
+    - 실제 데이터는 글로벌 참조로 정상 전달됨. 기능적 100% 정상
+
+### 세션 중 발견한 3개 부수 이슈 (긴급도별)
+
+| #   | 이슈                                        | 긴급도  | 영향                                   | 해결 방향                                                               |
+| --- | ------------------------------------------- | ------- | -------------------------------------- | ----------------------------------------------------------------------- |
+| 1   | Observatory v2 API body 누락                | 🟡 중   | completeness 89% 고정, 점수 1~2점 감점 | `B4: Observatory v2` 노드 body를 `{"host": "{{도메인}}"}` JSON으로 명시 |
+| 2   | apex 도메인 www 폴백 미구현                 | 🟡 중   | `monthlycheck.kr` 같은 케이스 UX 혼란  | onboarding/url 단계에서 DNS 사전 확인 + www 자동 제안                   |
+| 3   | crawl_executions.callback_status 미업데이트 | 🟢 낮음 | 모니터링 품질만 영향, 기능 무관        | Verify Callback Result 노드 update 로직 점검                            |
+
+### 다음 세션 할 일 (우선순위)
+
+| 우선순위 | 작업                                                | 예상 시간 | 비고                                         |
+| -------- | --------------------------------------------------- | --------- | -------------------------------------------- |
+| **P1**   | Observatory v2 body 누락 수정 (v3.6)                | 20~30분   | completeness 89% → 100% 달성                 |
+| **P1**   | apex 도메인 www 폴백 구현                           | 40~60분   | onboarding/url Server Action에 DNS 확인 추가 |
+| **P2**   | Pure Vercel 이전 Phase 1 (병행 구축)                | 1일       | 이번 세션 딥리서치 결론. 78% 준비됨          |
+| **P2**   | crawl_executions.callback_status 업데이트 로직 점검 | 20분      | Verify Callback Result 노드                  |
+| **P3**   | PRD v1.2 배포 후 검증 (LCP, 카카오톡, Schema)       | 40분      | 이전 세션 보류                               |
+| **P3**   | Toss Payments 실 연동                               | 2시간     | 선물 코드와 병행                             |
+
+### 차단 요소
+
+**없음** — 프로덕션 완전 정상, 다음 작업 즉시 시작 가능
+
+### 배포 상태
+
+| 항목              | 값                              |
+| ----------------- | ------------------------------- |
+| Vercel 최종 커밋  | `5bcc82b`                       |
+| n8n 활성 workflow | **v3.5** (Elest.io)             |
+| 프로덕션 상태     | 🟢 정상                         |
+| 테스트 완료 URL   | findably.kr (total_score 63)    |
+| 마지막 검증       | 2026-04-08 19:37 KST (522e8c3f) |
+
+### 마지막 업데이트 (10차)
+
+- **날짜**: 2026-04-08 19:45 KST
+- **세션 시간**: ~6시간 (디버깅 + 딥리서치 + v3.4/v3.5 생성 + 3회 테스트)
+- **최종 커밋**: `5bcc82b` fix(crawl): n8n v3.4/v3.5 fan-in 복구 + Zod 에러 detail 노출
+- **n8n 활성 버전**: v3.5
+- **상태**: 🟢 정상 — 다음 세션부터 깨끗한 main에서 시작 가능

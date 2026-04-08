@@ -469,3 +469,52 @@
 - **상황**: Jayden이 onboarding/url 화면에서 "분석 시작" 후 작업중 표시 stuck. n8n에서는 작업 완료. Supabase 확인 → 638f2f45 진단이 25초만에 completed로 정상 종료. 즉 백엔드는 완벽하게 작동했지만 화면이 안 갱신됨
 - **해석**: 백엔드 로그/DB가 정상이면 **문제는 프론트엔드**이다. 가능한 원인은 (1) Server Action 응답 못 받음 (2) redirect 작동 안 함 (3) Server Component cache stale (4) JS 에러로 form submit 자체가 안 일어남 (5) 다른 진단 ID polling 중
 - **규칙**: stuck 화면 디버깅 시 **반드시 백엔드 상태(DB, 로그)를 먼저 확인**. 백엔드가 정상이면 코드 read 대상은 (1) Server Action 코드 (2) Form 컴포넌트 (3) router.refresh() 또는 redirect 호출 (4) Server Component cache 무효화. 백엔드 비정상이면 외부 API/n8n/auth 등을 의심. 두 영역을 동시에 의심하면 시간 낭비 — **백엔드 → 프론트엔드 순서 격리**가 가장 빠르다
+
+### 2026-04-08 n8n fan-in은 반드시 Merge 노드 필수 — "hasn't been executed" 패턴 (CRITICAL)
+
+- **증상**: v3.3 프로덕션에서 `data_completeness=11%`, 7초만에 failed. `findably_crawl_executions.error_details`에 `"Cannot assign to read only property 'name' of object 'Error: Node 'A2: Firecrawl Map' hasn't been executed'"` 패턴 8건. success는 firecrawl_scrape 1건만, 나머지 8개 소스 전부 "not executed" 처리
+- **원인**: v3.3 workflow에서 10개 fan-out 분기(A1~C4 Firecrawl/PageSpeed/SSL/Observatory/robots/sitemap/llms)가 **Merge 노드 없이** 곧바로 Normalize Results(Code 노드)로 합류. n8n의 fan-in 규칙: **Merge 노드가 없으면 대상 노드는 각 입력마다 독립 실행**. A1이 가장 빨리 끝나자(~1.8초) Normalize Results가 1번째 실행되며 `$('A2: Firecrawl Map').first()?.json` 같은 글로벌 참조로 아직 실행 안 된 노드를 조회 → n8n이 `Error: Node hasn't been executed` 던짐. 추가로 **n8n 2.16.0에서 Error 객체가 read-only로 바뀌어** try/catch가 에러를 변형/rethrow하려다 `"Cannot assign to read only property 'name'"` 2차 에러 발생 → 무한 에러 체인
+- **해결**: v3.4 JSON 생성 시 **Wait All Sources Merge 노드**(`n8n-nodes-base.merge` typeVersion 3, mode=append, numberInputs=10) 추가. 10개 fan-out 분기의 connections를 Normalize Results 대신 Merge 노드의 index 0~9로 재배선. Merge → Normalize Results 연결 추가. 결과: 11% → 89% 수직 상승
+- **규칙**: **n8n에서 여러 분기가 하나의 Code/Function 노드로 합류할 때는 반드시 Merge 노드를 경유**. Merge가 "모든 입력이 도착할 때까지 대기" 역할을 수행. 직접 연결하면 대상 노드가 "입력마다" 독립 실행되어 가장 빠른 분기 완료 시점에 발화함. 설계 원칙: **fan-in이 필요하면 항상 Merge**. Code 노드의 `$('노드명').first()?.json` 글로벌 참조는 해당 노드가 **이미 실행 완료 상태**일 때만 작동. 추가로 n8n 2.x 계열은 Error 객체가 read-only여서 try/catch가 에러를 잡아도 rethrow/변형 시 2차 에러 발생 가능 → 구조적으로 "에러가 발생하지 않도록 설계"해야 함 (사후 try/catch 방어보다 사전 Merge 노드 배치가 우선)
+
+### 2026-04-08 Zod schema의 z.string() 필드에 외부 API 에러 객체 주입 시 400 (CRITICAL)
+
+- **증상**: v3.4 workflow로 fan-in 해결 후 테스트 시 `findably_crawl_executions.status=success, data_completeness=89%`가 정상 저장됐지만 `diagnoses.status=crawling` 고착, `crawl_data=null`. Callback Next.js 노드가 `/api/crawl/complete`에 POST → **400 Bad Request**. 에러 메시지 "Bad request - request failed"
+- **원인**: Next.js `completePayloadSchema`의 `errorDetails: z.array(z.object({ source: z.string(), error: z.string() }))`가 `error` 필드를 **string으로만 허용**. 그런데 Normalize Results Code 노드는 `error: nodeResult?._message || nodeResult?.error || nodeResult?.message || HTTP ${statusCode}`로 생성하는데, 외부 API(Observatory, Google PageSpeed 등)가 에러를 **중첩 객체**로 반환하면(`{error: {code: 400, message: "..."}}`) `nodeResult.error`가 object 타입이 되어 그대로 errorDetails에 들어감 → Zod `z.string()` 검증에서 탈락 → 400. v3.3 시절에는 fan-in 버그로 errorDetails가 아예 생성되지 못해 이 2차 버그가 **가려져 있었음**. v3.4로 fan-in 고치자 비로소 드러남 (**순차적 버그 노출 패턴**)
+- **해결**: v3.5 생성 시 Normalize Results jsCode에서 error를 string으로 강제 변환:
+  ```js
+  const rawErr =
+    nodeResult?._message ||
+    nodeResult?.error ||
+    nodeResult?.message ||
+    `HTTP ${nodeResult?.statusCode || 'unknown'}`
+  const errStr =
+    typeof rawErr === 'string'
+      ? rawErr
+      : rawErr == null
+        ? 'unknown error'
+        : (() => {
+            try {
+              return JSON.stringify(rawErr)
+            } catch {
+              return String(rawErr)
+            }
+          })()
+  return { source: s.name, error: errStr }
+  ```
+  동시에 Next.js `route.ts`의 Zod catch 블록에서 400 응답에 `error.issues.map(i => \`${i.path.join('.')}: ${i.message}\`).join('; ')` 형식의 detail을 포함시켜 다음 검증 실패 시 원인을 즉시 확인할 수 있도록 함 (블라인드 디버깅 루프 차단)
+- **규칙**: **외부 API 에러를 string 필드에 담을 때는 항상 `typeof rawErr === 'string'` 체크 후 JSON.stringify fallback**. 외부 API 응답 형식은 벤더마다 다르고 업데이트될 수 있으므로 "에러는 항상 string"이라는 가정 금지. 추가 규칙: **Zod 검증 실패 응답에는 반드시 `error.issues`의 path+message를 포함**. `"잘못된 요청"`처럼 generic 메시지만 반환하면 외부 호출자(n8n, 외부 웹훅)가 원인을 알 수 없어 디버깅이 블라인드 루프에 빠짐. Zod v4에서는 `error.errors` → `error.issues`로 API 변경됨 주의. TypeScript 명시적 타입 `(issue: z.ZodIssue)` 필요
+
+### 2026-04-08 n8n UI 연결선/Input 탭 "회색/비어있음" ≠ 데이터 흐름 문제 (false alarm 방지)
+
+- **증상**: v3.5 테스트 성공 후 Jayden이 "A1, A2 → Wait All Sources 연결선이 회색으로 보이는데 정상인가?" 문의. Callback Next.js 노드를 클릭했을 때도 Input 탭에 "No fields - item(s) exist, but they're empty" 표시
+- **원인**: Findably workflow는 Normalize Results와 Callback Next.js 모두 **`$('노드명').first()?.json` 글로벌 참조** 패턴을 사용. 즉 파이프 직접 전달이 아닌 "글로벌 execution context에서 직접 노드 결과 가져오기" 방식. n8n UI는 "파이프에 실제 item이 흘러가는가"를 기준으로 시각화하기 때문에, 글로벌 참조만 쓰는 노드는 파이프가 비어있어 **UI에서 회색/"No fields"로 렌더링**되지만 **실제 데이터는 정상 흐름**. 결정적 증거: 같은 execution에서 `diagnoses.status=completed`, `total_score=63`, `has_analysis=true` + Callback Next.js Output statusCode=200 + body.success=true + saved=true
+- **해결**: 워크플로우 수정 불필요. Jayden에게 (1) 데이터 흐름은 실제 실행 결과(`crawl_executions`, `diagnoses`)로 검증 (2) UI의 회색/empty 표시는 글로벌 참조 패턴의 시각화 부작용으로 설명. 엘리베이터 비유: Merge는 "10명 모두 올 때까지 문 대기"(타이밍 동기화)만 하고, 실제 데이터는 각자 1층으로 전화(글로벌 참조)로 전달 → 엘리베이터 입력 파이프(UI)는 비어있지만 기능은 정상
+- **규칙**: **n8n UI의 "연결선 색상"이나 "Input 탭 비어있음"은 데이터 흐름 여부의 1차 판단 근거가 아님**. 판단 순서: (1) **실제 실행 결과 데이터**(DB, 외부 API 응답, Callback statusCode)를 먼저 확인 (2) 데이터가 정상이면 UI는 시각화 특성 (3) 데이터가 비정상일 때만 UI를 2차 단서로 사용. 이 규칙을 어기면 "정상 작동 중인 워크플로우를 고친다고 뜯어고쳐서 진짜 문제를 만드는" 패턴 발생. `$('노드명').first()?.json` 글로벌 참조는 n8n의 공식 기능이며, 이 패턴을 쓰면 파이프 시각화는 비활성처럼 보이는 게 정상
+
+### 2026-04-08 이전 잘못된 진단 정정 — v3.3 Respond 노드 제거는 표면적 해결이었음 (메타 교훈)
+
+- **상황**: learnings.md 2026-04-08 "n8n v2.16.0 webhook typeVersion 2 — responseMode='responseNode' + fan-out Respond 조합 reject" 항목은 "Respond 202 노드를 제거하고 `responseMode: onReceived + customCode: 202`로 변경"을 해결책으로 기록했음. 하지만 실제로 그 변경으로 활성화 에러는 사라졌지만 **프로덕션 크롤링이 fan-in 버그로 완전히 작동 불능** 상태였고, 이번 세션에서 진짜 원인(Merge 노드 누락)을 발견함
+- **AI가 한 것**: v3.2 → v3.3 마이그레이션 시 "활성화 에러 해결"에만 집중하고 **실제 프로덕션 테스트로 end-to-end 검증을 하지 않음**. Respond 노드 제거 + onReceived 변경은 **활성화 검증만 통과**시켰고 fan-in 실행 흐름에는 영향 없음. fan-in은 v3.2부터 Merge 노드가 빠져 있었지만, v3.2의 responseNode + Respond 조합에서는 Respond 노드가 Normalize Results 이전에 실행 종료를 유도했을 가능성이 있어 증상이 달랐을 수도 있음 (또는 그 당시에는 한 번도 성공한 적이 없었을 수도 있음 — 검증 부족)
+- **올바른 방향**: **workflow 활성화 성공 ≠ 파이프라인 작동**. 두 가지는 별개. (1) 활성화는 "n8n validator가 허용하는 구조인가"만 검사 (2) 실제 작동은 "각 노드 간 데이터 흐름 + fan-in/out + 타이밍 동기화"에 달려 있음. 전자를 통과해도 후자에서 실패할 수 있음. 워크플로우 변경 후에는 **반드시 프로덕션 또는 스테이징에서 end-to-end 테스트** + DB 결과 확인까지 마쳐야 "완료" 선언 가능
+- **프롬프트 교훈**: n8n workflow 같은 외부 시스템 변경 시 "활성화 성공 = 작동"으로 축약 금지. 검증 체크리스트: (1) workflow 활성화 성공 (2) 테스트 실행 → execution 탭 "Succeeded" 확인 (3) 각 노드 output이 기대한 데이터인지 확인 (4) 후속 시스템(DB, API)의 저장/호출 결과 확인 (5) end-to-end 상태 전이 확인 (status: pending → crawling → completed). 이 중 하나라도 건너뛰면 learnings.md에 잘못된 교훈을 쓰게 되고, 다음 세션에서 같은 실수 반복. 이번 세션의 v3.3 → v3.4 → v3.5 3단계 수정 루프는 이 검증 부족의 직접적 결과였음
