@@ -153,17 +153,17 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/findably_pipeline_health",
+        "url": "={{ $env.FINDABLY_SUPABASE_URL }}/rest/v1/findably_pipeline_health",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "={{ $env.FINDABLY_SUPABASE_SERVICE_KEY }}"
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "=Bearer {{ $env.FINDABLY_SUPABASE_SERVICE_KEY }}"
             },
             { "name": "Content-Type", "value": "application/json" },
             { "name": "Prefer", "value": "return=representation" }
@@ -181,7 +181,7 @@
       "position": [440, 380],
       "continueOnFail": true,
       "notesInFlow": true,
-      "notes": "v2.1 Fix: $credentials → $env. service_role key 사용 → RLS 우회. n8n 환경변수 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 설정 필수 (elest.io 기존 변수와 통일, 2026-04-08)"
+      "notes": "v2.1 Fix: $credentials → $env. ⚠️ FINDABLY_SUPABASE_URL/FINDABLY_SUPABASE_SERVICE_KEY 사용 (2026-04-08 발견: elest.io 기존 SUPABASE_URL은 autovoxflow를 가리킴. Findably는 chatsio-v1 souqwsdwabhqbbvpwfpe 사용). service_role key → RLS 우회"
     },
     {
       "parameters": {
@@ -220,17 +220,17 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/findably_alerts",
+        "url": "={{ $env.FINDABLY_SUPABASE_URL }}/rest/v1/findably_alerts",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "={{ $env.FINDABLY_SUPABASE_SERVICE_KEY }}"
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "=Bearer {{ $env.FINDABLY_SUPABASE_SERVICE_KEY }}"
             },
             { "name": "Content-Type", "value": "application/json" },
             { "name": "Prefer", "value": "return=minimal" }
@@ -262,7 +262,7 @@
     },
     {
       "parameters": {
-        "content": "## 🔍 Findably Monitor v2.1 — Auth Fixed\n\n### v2 → v2.1 변경 사항 (외부 검증 후 P0+P1 fix)\n\n**🔴 P0 Fix — `$credentials.xxx` 표현식 미작동**\nn8n 표현식에서 $credentials 패턴 미지원 → 4개 노드 인증 실패. 외부 검증으로 발견.\n\n수정:\n- Check 2 Callback: $env.N8N_WEBHOOK_AUTH_TOKEN 사용\n- Check 3 Firecrawl: httpHeaderAuth credential 사용\n- Save to Supabase: $env.SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (elest.io 기존 변수)\n- Save Alert to Supabase: 동일\n\n**🟠 P1 Fix**\n- Check 4 Observatory: method:POST 추가 (GET은 405)\n- 모든 health check 노드: fullResponse:true 추가 (statusCode 정확 추출)\n- Aggregate Results: 200/202를 정상으로 인식, 401을 'healthy'로 (Firecrawl auth 거부)\n\n### 데이터 흐름:\n```\nn8n (30분마다)\n  → Check 1~4 endpoint 병렬 체크\n  → Aggregate Results\n  → Supabase findably_pipeline_health INSERT\n  → 이상 시 Build Alert + findably_alerts INSERT\n```\n\n### 🔧 n8n Elest.io 사전 작업\n\n**1. Credentials (n8n GUI)**:\n- `firecrawl-api` (httpHeaderAuth)\n  - Header Name: Authorization\n  - Header Value: Bearer fc-xxx\n\n**2. 환경변수 (elest.io docker-compose environment 섹션)**:\n2026-04-08 elest.io 기존 변수 분석 결과 — 이미 등록된 것 활용:\n```yaml\n# 이미 elest.io에 있음 (재사용)\nN8N_BLOCK_ENV_ACCESS_IN_NODE: \"false\"\nSUPABASE_URL: ${SUPABASE_URL}                  # chatsio-v1\nSUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}\nN8N_WEBHOOK_AUTH_TOKEN: \"...\"                  # = Vercel N8N_WEBHOOK_SECRET\n\n# 새로 추가 필요 (2개)\nFINDABLY_CALLBACK_URL: \"https://findably.kr/api/crawl/complete\"\nFINDABLY_HEALTH_URL: \"https://findably.kr/api/health\"\n```\n\n### 🚨 CRITICAL: $env 작동 조건 (이거 안 하면 v2.1 전체 작동 불가)\n\nn8n 2.0+에서 `$env.VARIABLE` 표현식은 **기본적으로 차단**됨.\n공식 GitHub 소스 확정 (2026-04-07 외부 검증):\n`packages/workflow/src/workflow-data-proxy-env-provider.ts`\n```\nisEnvAccessBlocked = process.env.N8N_BLOCK_ENV_ACCESS_IN_NODE !== 'false'\n```\n→ 미설정/true=차단 / **false=허용**\n\n**Elest.io 적용 (필수)**:\n1. Elest.io 대시보드 → n8n 인스턴스 → Environment Variables\n2. 추가: `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`\n3. n8n 재시작\n4. 검증: 새 Code 노드에서 `return [{ json: { test: $env.PATH } }]` 실행\n\n**🔴 이거 안 하면 v2.1의 모든 $env가 빈 문자열 → 헬스체크 전체 실패**\n\n### 대시보드에서 사용할 뷰:\n- `v_health_summary_24h`\n- `v_crawl_success_rate_7d`\n- `v_unacknowledged_alerts`\n\n### 주의:\n- service_role key는 RLS 우회 → n8n 환경변수에만 저장\n- Slack 알림 필요 시 Save Alert 뒤에 Slack 노드 추가",
+        "content": "## 🔍 Findably Monitor v2.1 — Auth Fixed\n\n### v2 → v2.1 변경 사항 (외부 검증 후 P0+P1 fix)\n\n**🔴 P0 Fix — `$credentials.xxx` 표현식 미작동**\nn8n 표현식에서 $credentials 패턴 미지원 → 4개 노드 인증 실패. 외부 검증으로 발견.\n\n수정:\n- Check 2 Callback: $env.N8N_WEBHOOK_AUTH_TOKEN 사용\n- Check 3 Firecrawl: httpHeaderAuth credential 사용\n- Save to Supabase: $env.FINDABLY_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (elest.io 기존 변수)\n- Save Alert to Supabase: 동일\n\n**🟠 P1 Fix**\n- Check 4 Observatory: method:POST 추가 (GET은 405)\n- 모든 health check 노드: fullResponse:true 추가 (statusCode 정확 추출)\n- Aggregate Results: 200/202를 정상으로 인식, 401을 'healthy'로 (Firecrawl auth 거부)\n\n### 데이터 흐름:\n```\nn8n (30분마다)\n  → Check 1~4 endpoint 병렬 체크\n  → Aggregate Results\n  → Supabase findably_pipeline_health INSERT\n  → 이상 시 Build Alert + findably_alerts INSERT\n```\n\n### 🔧 n8n Elest.io 사전 작업\n\n**1. Credentials (n8n GUI)**:\n- `firecrawl-api` (httpHeaderAuth)\n  - Header Name: Authorization\n  - Header Value: Bearer fc-xxx\n\n**2. 환경변수 (elest.io docker-compose environment 섹션)**:\n2026-04-08 검증 결과 — elest.io 기존 SUPABASE_URL은 autovoxflow를 가리킴. Findably 전용 변수 분리:\n```yaml\n# 이미 elest.io에 있음 (재사용 OK)\nN8N_BLOCK_ENV_ACCESS_IN_NODE: \"false\"\nN8N_WEBHOOK_AUTH_TOKEN: \"...\"     # = Vercel N8N_WEBHOOK_SECRET\n\n# 새로 추가 필요 (4개) — Findably 전용\nFINDABLY_CALLBACK_URL: \"https://findably.kr/api/crawl/complete\"\nFINDABLY_HEALTH_URL: \"https://findably.kr/api/health\"\nFINDABLY_SUPABASE_URL: \"https://souqwsdwabhqbbvpwfpe.supabase.co\"\nFINDABLY_SUPABASE_SERVICE_KEY: \"eyJ...\"   # = Vercel SUPABASE_SERVICE_ROLE_KEY (chatsio-v1의 키)\n```\n⚠️ 기존 SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY 사용 금지 — autovoxflow eiwwucujknmubsswipjd를 가리킴.\n\n### 🚨 CRITICAL: $env 작동 조건 (이거 안 하면 v2.1 전체 작동 불가)\n\nn8n 2.0+에서 `$env.VARIABLE` 표현식은 **기본적으로 차단**됨.\n공식 GitHub 소스 확정 (2026-04-07 외부 검증):\n`packages/workflow/src/workflow-data-proxy-env-provider.ts`\n```\nisEnvAccessBlocked = process.env.N8N_BLOCK_ENV_ACCESS_IN_NODE !== 'false'\n```\n→ 미설정/true=차단 / **false=허용**\n\n**Elest.io 적용 (필수)**:\n1. Elest.io 대시보드 → n8n 인스턴스 → Environment Variables\n2. 추가: `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`\n3. n8n 재시작\n4. 검증: 새 Code 노드에서 `return [{ json: { test: $env.PATH } }]` 실행\n\n**🔴 이거 안 하면 v2.1의 모든 $env가 빈 문자열 → 헬스체크 전체 실패**\n\n### 대시보드에서 사용할 뷰:\n- `v_health_summary_24h`\n- `v_crawl_success_rate_7d`\n- `v_unacknowledged_alerts`\n\n### 주의:\n- service_role key는 RLS 우회 → n8n 환경변수에만 저장\n- Slack 알림 필요 시 Save Alert 뒤에 Slack 노드 추가",
         "height": 720,
         "width": 480
       },
