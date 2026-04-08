@@ -277,10 +277,13 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
             },
             { "name": "Content-Type", "value": "application/json" },
             { "name": "Prefer", "value": "return=minimal" }
@@ -300,7 +303,7 @@
       "position": [680, 480],
       "continueOnFail": true,
       "notesInFlow": true,
-      "notes": "v3.2 Fix: $credentials → $env. n8n 환경변수 SUPABASE_URL, SUPABASE_SERVICE_KEY 설정 필수. PRD F6: 모든 크롤 실행을 findably_crawl_executions에 기록. continueOnFail로 INSERT 실패해도 콜백은 진행. unique(request_id)로 멱등성 보장."
+      "notes": "v3.2 Fix: $credentials → $env. n8n 환경변수 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 설정 필수 (elest.io 기존 변수와 통일, 2026-04-08). PRD F6: 모든 크롤 실행을 findably_crawl_executions에 기록. continueOnFail로 INSERT 실패해도 콜백은 진행. unique(request_id)로 멱등성 보장."
     },
     {
       "parameters": {
@@ -340,7 +343,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.FINDABLY_CALLBACK_SECRET }}"
+              "value": "=Bearer {{ $env.N8N_WEBHOOK_AUTH_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -383,7 +386,7 @@
       "waitBetweenTries": 10000,
       "continueOnFail": true,
       "notesInFlow": true,
-      "notes": "v3.2 Fix: $credentials → $env (FINDABLY_CALLBACK_URL, FINDABLY_CALLBACK_SECRET). (1) redirect 비활성화 — 308 POST→GET 변환 방지 (learnings #12), (2) retry 3회 + 10초 간격, (3) X-Request-Id 헤더로 멱등성 지원, (4) fullResponse:true → Verify 노드가 statusCode 검증"
+      "notes": "v3.2 Fix: $credentials → $env (FINDABLY_CALLBACK_URL, N8N_WEBHOOK_AUTH_TOKEN — elest.io 기존 변수 재활용, Vercel N8N_WEBHOOK_SECRET와 동일 값, 2026-04-08). (1) redirect 비활성화 — 308 POST→GET 변환 방지 (learnings #12), (2) retry 3회 + 10초 간격, (3) X-Request-Id 헤더로 멱등성 지원, (4) fullResponse:true → Verify 노드가 statusCode 검증"
     },
     {
       "parameters": {
@@ -394,7 +397,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.FINDABLY_CALLBACK_SECRET }}"
+              "value": "=Bearer {{ $env.N8N_WEBHOOK_AUTH_TOKEN }}"
             },
             {
               "name": "Content-Type",
@@ -512,7 +515,7 @@
     },
     {
       "parameters": {
-        "content": "## 🛡️ Findably Crawl v3.2 — Production (Auth Fixed)\n\n### v3.1 → v3.2 변경 사항 (외부 검증 후 P0+P1 fix):\n\n**🔴 P0 Fix — `$credentials.xxx` 표현식 미작동 (7개 노드)**\nn8n 표현식에서 `{{ $credentials.field }}` 패턴은 지원 안 됨 → undefined → API 인증 전체 실패. 외부 검증(2026-04-07, n8n 2.16.0 기준)으로 발견.\n\n수정:\n- A1, A2 Firecrawl: headerParameters Authorization 제거 → httpHeaderAuth credential이 자동 헤더 주입\n- B1, B2 PageSpeed: URL의 `&key={{ $credentials.googleApiKey }}` → `&key={{ $env.GOOGLE_API_KEY }}`\n- Save to crawl_executions: Supabase URL/Key를 $env로\n- Callback Next.js, Fail Callback Next.js: Bearer 토큰 + URL을 $env로\n\n**🟠 P1 Fix**\n- B4 Observatory v2: `\"method\": \"POST\"` 추가 (GET은 405)\n- respondToWebhook: typeVersion 1.1 → 1.5\n\n### 🔧 n8n Elest.io 사전 작업 (Jayden 직접):\n\n**1. Credentials (n8n GUI → Credentials → New)**:\n- `firecrawl-api` (httpHeaderAuth 타입)\n  - Header Name: `Authorization`\n  - Header Value: `Bearer fc-xxxxxxxxxxxxx`\n\n**2. 환경변수 (Elest.io n8n 인스턴스 환경변수 설정)**:\n```\nGOOGLE_API_KEY=AIzaSyXXXXXXXXX\nSUPABASE_URL=https://souqwsdwabhqbbvpwfpe.supabase.co\nSUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\nFINDABLY_CALLBACK_SECRET=<랜덤 시크릿>\nFINDABLY_CALLBACK_URL=https://findably.kr/api/crawl/complete\n```\n\n### 🚨 CRITICAL: $env 작동 조건 (이거 안 하면 v3.2 전체 작동 불가)\n\nn8n 2.0+에서 `$env.VARIABLE` 표현식은 **기본적으로 차단**됨.\n공식 GitHub 소스 확정 (2026-04-07 외부 검증):\n`packages/workflow/src/workflow-data-proxy-env-provider.ts`\n```\nisEnvAccessBlocked = process.env.N8N_BLOCK_ENV_ACCESS_IN_NODE !== 'false'\n```\n→ 미설정/true=차단 / **false=허용**\n\n**Elest.io 적용 (필수)**:\n1. Elest.io 대시보드 → n8n 인스턴스 → Environment Variables\n2. 추가: `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`\n3. n8n 재시작\n4. 검증: n8n GUI에서 새 Code 노드 만들고\n   `return [{ json: { test: $env.PATH } }]` 실행 → PATH 값 표시되면 OK\n\n**🔴 이거 안 하면 v3.2의 모든 $env가 빈 문자열 → API 인증 전체 실패**\n\n### v3 → v3.1 → v3.2 통합 변경 이력:\n\n**v3.1 변경 (5가지)**:\n1. Callback Next.js: fullResponse:true 추가\n2. Normalize: crawlStatus 결정 로직\n3. Quality Gate: crawlStatus 기반 분기\n4. Save to crawl_executions 노드 신규 (PRD F6)\n5. Fail Callback Next.js 신규\n\n**v3.2 변경 (7가지)** — 본 파일\n6. A1, A2 Firecrawl: httpHeaderAuth 사용\n7. B1, B2 PageSpeed: $env 사용\n8. Save: $env 사용\n9. Callback, Fail Callback: $env 사용\n10. B4 Observatory: POST 메서드 추가\n11. respondToWebhook: typeVersion 1.5\n12. 모든 sticky note에 v3.2 변경 이력\n\n### 백엔드 요구사항 (Phase 1):\n- /api/crawl/complete schema에 새 필드 받기:\n  requestId, status, durationSec, successSources, failedSources, errorDetails\n- status='quality_rejected' 처리 → diagnoses.status='failed' + 사용자 안내\n\n### 인시던트 학습 반영 (총 14건):\n1-12. v3.1 학습 사례 (생략)\n13. 🆕 #32 외부 서비스 변경 검증 — n8n typeVersion + $credentials syntax 외부 검증\n14. 🆕 n8n 2.0+ 환경변수 접근 옵션 (N8N_BLOCK_ENV_ACCESS_IN_NODE)",
+        "content": "## 🛡️ Findably Crawl v3.2 — Production (Auth Fixed)\n\n### v3.1 → v3.2 변경 사항 (외부 검증 후 P0+P1 fix):\n\n**🔴 P0 Fix — `$credentials.xxx` 표현식 미작동 (7개 노드)**\nn8n 표현식에서 `{{ $credentials.field }}` 패턴은 지원 안 됨 → undefined → API 인증 전체 실패. 외부 검증(2026-04-07, n8n 2.16.0 기준)으로 발견.\n\n수정:\n- A1, A2 Firecrawl: headerParameters Authorization 제거 → httpHeaderAuth credential이 자동 헤더 주입\n- B1, B2 PageSpeed: URL의 `&key={{ $credentials.googleApiKey }}` → `&key={{ $env.GOOGLE_API_KEY }}`\n- Save to crawl_executions: Supabase URL/Key를 $env로\n- Callback Next.js, Fail Callback Next.js: Bearer 토큰 + URL을 $env로\n\n**🟠 P1 Fix**\n- B4 Observatory v2: `\"method\": \"POST\"` 추가 (GET은 405)\n- respondToWebhook: typeVersion 1.1 → 1.5\n\n### 🔧 n8n Elest.io 사전 작업 (Jayden 직접):\n\n**1. Credentials (n8n GUI → Credentials → New)**:\n- `firecrawl-api` (httpHeaderAuth 타입)\n  - Header Name: `Authorization`\n  - Header Value: `Bearer fc-xxxxxxxxxxxxx`\n\n**2. 환경변수 (Elest.io n8n docker-compose environment 섹션)**:\n2026-04-08 elest.io 기존 변수 분석 결과 — 이미 등록된 것 활용 + 새로 추가는 3개만:\n```yaml\n# 이미 elest.io에 있음 (재사용)\nN8N_BLOCK_ENV_ACCESS_IN_NODE: \"false\"          # 이미 등록\nSUPABASE_URL: ${SUPABASE_URL}                  # 이미 등록 (chatsio-v1 가정)\nSUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}  # 이미 등록\nN8N_WEBHOOK_AUTH_TOKEN: \"...\"                  # 이미 등록 (Vercel N8N_WEBHOOK_SECRET와 동일 값)\n\n# 새로 추가 필요 (3개)\nGOOGLE_API_KEY: \"AIzaSy...\"                    # Vercel GOOGLE_PAGESPEED_API_KEY\nFINDABLY_CALLBACK_URL: \"https://findably.kr/api/crawl/complete\"\nFINDABLY_HEALTH_URL: \"https://findably.kr/api/health\"\n```\n\n### 🚨 CRITICAL: $env 작동 조건 (이거 안 하면 v3.2 전체 작동 불가)\n\nn8n 2.0+에서 `$env.VARIABLE` 표현식은 **기본적으로 차단**됨.\n공식 GitHub 소스 확정 (2026-04-07 외부 검증):\n`packages/workflow/src/workflow-data-proxy-env-provider.ts`\n```\nisEnvAccessBlocked = process.env.N8N_BLOCK_ENV_ACCESS_IN_NODE !== 'false'\n```\n→ 미설정/true=차단 / **false=허용**\n\n**Elest.io 적용 (필수)**:\n1. Elest.io 대시보드 → n8n 인스턴스 → Environment Variables\n2. 추가: `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`\n3. n8n 재시작\n4. 검증: n8n GUI에서 새 Code 노드 만들고\n   `return [{ json: { test: $env.PATH } }]` 실행 → PATH 값 표시되면 OK\n\n**🔴 이거 안 하면 v3.2의 모든 $env가 빈 문자열 → API 인증 전체 실패**\n\n### v3 → v3.1 → v3.2 통합 변경 이력:\n\n**v3.1 변경 (5가지)**:\n1. Callback Next.js: fullResponse:true 추가\n2. Normalize: crawlStatus 결정 로직\n3. Quality Gate: crawlStatus 기반 분기\n4. Save to crawl_executions 노드 신규 (PRD F6)\n5. Fail Callback Next.js 신규\n\n**v3.2 변경 (7가지)** — 본 파일\n6. A1, A2 Firecrawl: httpHeaderAuth 사용\n7. B1, B2 PageSpeed: $env 사용\n8. Save: $env 사용\n9. Callback, Fail Callback: $env 사용\n10. B4 Observatory: POST 메서드 추가\n11. respondToWebhook: typeVersion 1.5\n12. 모든 sticky note에 v3.2 변경 이력\n\n### 백엔드 요구사항 (Phase 1):\n- /api/crawl/complete schema에 새 필드 받기:\n  requestId, status, durationSec, successSources, failedSources, errorDetails\n- status='quality_rejected' 처리 → diagnoses.status='failed' + 사용자 안내\n\n### 인시던트 학습 반영 (총 14건):\n1-12. v3.1 학습 사례 (생략)\n13. 🆕 #32 외부 서비스 변경 검증 — n8n typeVersion + $credentials syntax 외부 검증\n14. 🆕 n8n 2.0+ 환경변수 접근 옵션 (N8N_BLOCK_ENV_ACCESS_IN_NODE)",
         "height": 900,
         "width": 480
       },
