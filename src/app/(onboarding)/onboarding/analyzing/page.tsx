@@ -27,9 +27,10 @@ export const metadata: Metadata = {
 export default async function OnboardingAnalyzingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ id?: string }>
+  searchParams: Promise<{ id?: string; wwwFallback?: string }>
 }): Promise<React.JSX.Element> {
-  const { id } = await searchParams
+  const { id, wwwFallback } = await searchParams
+  const usedWwwFallback = wwwFallback === '1'
 
   const supabase = await createClient()
   const {
@@ -95,5 +96,26 @@ export default async function OnboardingAnalyzingPage({
     )
   }
 
-  return <AnalyzingScreen diagnosisId={diagnosis.id} url={diagnosis.url} />
+  return (
+    <div className="space-y-4">
+      {usedWwwFallback && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800"
+        >
+          <p className="font-medium">
+            입력하신 도메인 대신 <span className="font-mono">www</span> 버전으로
+            분석 중입니다
+          </p>
+          <p className="mt-1 text-xs text-primary-700/80">
+            <span className="break-all font-mono">{diagnosis.url}</span>으로
+            자동 연결했어요. 원본 도메인에 DNS 레코드가 없어 이 버전을
+            사용합니다.
+          </p>
+        </div>
+      )}
+      <AnalyzingScreen diagnosisId={diagnosis.id} url={diagnosis.url} />
+    </div>
+  )
 }

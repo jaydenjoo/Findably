@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { triggerCrawl } from '@/lib/adapters/crawler'
 import { urlSchema } from '../schemas'
 import type { OnboardingActionState } from '../types'
+import { resolveWithWwwFallback } from '../utils/dns-resolve'
 
 const CRAWL_EXECUTE_SECRET = process.env.CRAWL_EXECUTE_SECRET
 
@@ -40,11 +41,24 @@ export async function submitUrlAction(
     return { error: '로그인이 필요합니다. 다시 로그인해주세요.' }
   }
 
+  // DNS 해석 + www 폴백 (apex 도메인에 A 레코드 없는 케이스 대응)
+  // 예: monthlycheck.kr → A 레코드 없음, www.monthlycheck.kr만 존재
+  const dnsResult = await resolveWithWwwFallback(validated.data.url)
+  if (!dnsResult) {
+    return {
+      error:
+        '도메인을 찾을 수 없습니다. URL을 다시 확인해주세요. (DNS 해석 실패)',
+    }
+  }
+
+  const finalUrl = dnsResult.url
+  const usedWwwFallback = dnsResult.fallback === 'www'
+
   const { data, error: insertError } = await supabase
     .from('diagnoses')
     .insert({
       user_id: user.id,
-      url: validated.data.url,
+      url: finalUrl,
       status: 'pending',
       tier: 'free',
     })
@@ -62,7 +76,7 @@ export async function submitUrlAction(
   try {
     const triggerResult = await triggerCrawl({
       diagnosisId: data.id,
-      url: validated.data.url,
+      url: finalUrl,
       userId: user.id,
     })
 
@@ -89,7 +103,7 @@ export async function submitUrlAction(
           },
           body: JSON.stringify({
             diagnosisId: data.id,
-            url: validated.data.url,
+            url: finalUrl,
           }),
         })
       } else {
@@ -102,5 +116,9 @@ export async function submitUrlAction(
     console.error('[submitUrlAction] 크롤링 트리거 실패:', triggerError)
   }
 
-  redirect(`/onboarding/analyzing?id=${data.id}`)
+  const redirectParams = new URLSearchParams({ id: data.id })
+  if (usedWwwFallback) {
+    redirectParams.set('wwwFallback', '1')
+  }
+  redirect(`/onboarding/analyzing?${redirectParams.toString()}`)
 }
