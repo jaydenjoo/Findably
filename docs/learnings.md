@@ -327,3 +327,27 @@
   WHERE id = '<user_id>';
   ```
 - **규칙**: **Supabase `auth.users`에 SQL로 직접 INSERT할 때는 위 8개 토큰 필드를 반드시 `''` (빈 문자열)로 설정**하거나 INSERT 이후 UPDATE로 보정. Supabase Dashboard 또는 Supabase Admin SDK의 `auth.admin.createUser()`는 이 필드를 자동으로 빈 문자열로 설정하므로 문제 없음. 직접 SQL INSERT 하는 경우만 해당. 디버깅 단서: auth 로그에서 `Scan error on column index N, name "xxx_token": converting NULL to string` 패턴이 보이면 이 문제
+
+### 2026-04-09 n8n 2.16.0 Code 노드 task-runner sandbox에 `URL` global 없음 — v3.6→3.7→3.8 삽질
+
+- **증상**: v3.6 Observatory JSON Body invalid 에러 해결하려고 v3.7에서 Validate & Set Variables 노드(Code v2)에 `const host = new URL(url).hostname` 추가. 프로덕션 테스트 시 Validate 노드에서 실패 → 모든 후속 노드 skip → `findably_crawl_executions` 저장 0건, `diagnoses.status='crawling'` 영구 고착
+- **원인**: n8n 2.16.0 Self Hosted는 Code 노드를 외부 **task-runner** 프로세스(`/opt/runners/task-runner-javascript`)에서 `node:vm.runInContext`로 실행. 이 sandbox context에는 **`URL` global이 주입되지 않음** → `new URL(url)` 호출 시 `TypeError: URL is not a constructor`. 내 try/catch가 이걸 잡아서 `Invalid URL hostname: https://findably.kr/` 재발화. 결정적 단서: stack trace에 `at Script.runInContext (node:vm:149:12)` + `at /opt/runners/task-runner-javascript/dist/js-task-runner/js-task-runner.js:216:61`
+- **해결**: `new URL()` 제거하고 **순수 string 조작**으로 host 추출 (v3.8):
+  ```js
+  const host = url
+    .replace(/^https?:\/\//, '') // 프로토콜 제거
+    .split('/')[0] // path 제거
+    .split(':')[0] // port 제거
+  ```
+  역증: 같은 workflow의 SSL Labs 노드(line 132)가 이미 이 패턴으로 우회 중이었음. 이전 담당자가 같은 sandbox 문제를 경험하고 이 패턴을 남긴 것으로 추정
+- **규칙**: **n8n 2.16.0 Self Hosted의 Code 노드(jsCode)에서는 `URL`, `fetch`, `crypto.subtle` 같은 Web/Node 일부 global을 사용 금지**. task-runner sandbox가 기본 Node.js globals 중 일부만 주입하므로, 표준 Node 스크립트가 로컬에서 작동하더라도 n8n에서 실패할 수 있음. 안전 패턴: (1) URL 파싱 → `.replace/.split` string 조작 (2) HTTP 호출 → HTTP Request 노드로 분리 (3) crypto → Node built-in `crypto.createHash` 정도만 사용. 디버깅 단서: stack trace에 `js-task-runner.js` + `runInContext` 보이면 sandbox 문제. 회피 방법: **다른 노드가 같은 기능을 어떻게 구현했는지 workflow 내에서 grep 먼저**
+
+### 2026-04-09 외부 도구 sandbox 이슈는 "내 수정안이 로컬에서 작동한다"로 검증 불가 (메타 교훈)
+
+- **상황**: v3.6 Observatory 버그를 고치기 위해 v3.7을 작성. 계획 단계에서 "n8n Code 노드는 정식 JS 런타임이므로 `new URL()` 정상 작동"이라고 `jsCode` 주석에 명시까지 했으나 이게 **잘못된 가정**이었음. 결과: v3.7 배포 후 프로덕션 테스트에서 즉시 실패, `4fc14d42` 진단이 crawling 고착, 사용자 경험 저하. 그 다음 v3.8 추가 수정 필요
+- **AI가 한 것**: (1) "Code 노드는 정식 JS 런타임"이라는 가정을 **검증 없이 주석에 박제** (2) 같은 workflow 내 SSL Labs 노드가 이미 string 조작으로 우회 중이었다는 **사실을 발견하고도 "왜 이 노드만 다른 패턴일까" 질문 안 함** (3) v3.7 Fix 계획 제시 시 "구조적으로 해결"이라고 자신감 표현 — Jayden이 계획을 믿고 승인했는데 한 번 더 삽질
+- **올바른 방향**: 외부 도구(n8n/Zapier/Cloudflare Workers/Deno Deploy 등) 내부 실행 환경에 새 코드를 넣을 때 **반드시 3가지 확인**:
+  1. **같은 workflow/프로젝트의 다른 노드가 비슷한 기능을 어떻게 구현했는지 먼저 grep** → 특이한 패턴이 있으면 "왜 저렇게 했을까"를 먼저 질문
+  2. **"정식 JS/Node 런타임이다"라는 가정 금지** — sandbox/vm/isolate는 기본 global의 일부를 제거하거나 대체하는 경우가 많음
+  3. **가장 작은 변경으로 먼저 테스트** — v3.7에서 Validate 노드에 `host` 필드 추가 + B4 Observatory만 수정한 건 맞지만, `new URL()` 사용 자체가 새 리스크였는데 "JS 런타임이니 당연히 작동"으로 검증 단계 skip
+- **프롬프트 교훈**: "구조적 해결" "sandbox 회피" 같은 자신감 있는 표현을 쓰기 전에 **"같은 파일에 이미 동작 중인 패턴이 있는가?"를 먼저 확인**. v3.6의 SSL Labs 노드가 이미 `.replace/.split`를 쓰고 있었다는 사실은 중요한 단서였는데, 당시엔 "SSL Labs도 같이 바꿀까?" 질문으로 넘기고 본질("왜 이 workflow는 URL 파싱에 string 조작을 쓰는가?")을 파고들지 않았음. **특이한 기존 패턴을 발견하면 그것을 새 코드의 기준으로 삼을 것**. 자신감 있는 계획일수록 "반증 가능성"을 명시적으로 검토
