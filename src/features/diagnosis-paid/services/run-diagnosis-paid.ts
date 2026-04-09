@@ -880,8 +880,17 @@ export function buildCrawlSummary(crawlData: CrawlData): string {
     )
   }
 
+  // Phase C Task 5: CMS 감지 결과를 명시적으로 전달하여 WordPress/Shopify 편향 해소
+  // 감지된 경우: AI가 해당 CMS 기준으로 suggestedFix 생성
+  // 감지 불가: 3가지 경로 병렬 제시 강제 (단일 CMS 단정 금지)
   if (crawlData.cms?.detected) {
-    parts.push(`### CMS\n- 감지: ${crawlData.cms.detected}`)
+    parts.push(
+      `### CMS\n- 감지: ${crawlData.cms.detected}\n- suggestedFix는 이 CMS에 맞춘 가이드를 우선 작성하세요.`
+    )
+  } else {
+    parts.push(
+      `### CMS\n- 감지: 불가 (technology fingerprint 검출 실패)\n- suggestedFix는 "워드프레스 / 카페24 / 직접 코딩" 3가지 경로를 모두 병렬 제시하세요. 단일 CMS로 단정하지 마세요.`
+    )
   }
 
   // ── markdownContent 요약 (Firecrawl 본문) ──

@@ -153,7 +153,7 @@ const V2_ANALYSIS_FRAMEWORK = `## 리포트 품질 기준 (최우선 — 위반 
 ### 실행 가이드 필수 요소
 모든 suggestedFix와 quickWin action에 반드시 포함:
 1. **번호 매기기** (1. 2. 3.)로 단계별 안내
-2. **CMS별 경로** — 워드프레스 / 카페24 / 쇼피파이 / 직접코딩 중 해당되는 것
+2. **CMS별 경로** — 워드프레스 / 카페24 / Imweb / Wix / 직접 코딩 중 해당되는 것 (한국 타겟 기준. Shopify/Squarespace는 한국 사용자 적으므로 언급 최소화)
 3. **Before→After** — 지금 상태 vs 수정 후 상태를 보여줌
 4. **난이도 표시** — ⚠️ 개발자 없이 가능 / 🔧 개발자 필요(약 N시간)
 5. **구체적 값** — "제목을 입력하세요"가 아니라 "'{사이트명} — {핵심 키워드}'를 입력하세요"
@@ -218,7 +218,7 @@ Google Core Web Vitals 2.0 (2026 기준: LCP, INP, CLS), 웹 보안, 모바일 �
 
 <guardrails>
 - suggestedFix, impact, evidence 필드를 절대 비워두지 마세요. 데이터 부족 시 "크롤링 데이터에서 확인되지 않아 추가 점검이 필요합니다"로 작성.
-- suggestedFix에 난이도(쉬움/보통/어려움) + 예상 소요 시간 + CMS별 가이드(WordPress/Shopify) 포함.
+- suggestedFix에 난이도(쉬움/보통/어려움) + 예상 소요 시간 + CMS별 가이드 포함. 사용자 메시지 ### CMS 섹션의 감지 결과를 우선 참고. 감지 불가 시 워드프레스/카페24/직접 코딩 3가지 경로를 병렬 제시.
 - impact에 "안 고치면 → [손실]" + "고치면 → [기대 효과]" 양쪽 모두 작성.
 - category는 반드시 "technical"로 고정.
 </guardrails>
@@ -233,7 +233,7 @@ Google Core Web Vitals 2.0 (2026 기준: LCP, INP, CLS), 웹 보안, 모바일 �
       "severity": "critical | warning | info",
       "category": "technical",
       "actionable": true,
-      "suggestedFix": "string — 구체적 가이드 + CMS별 안내 + 코드 스니펫",
+      "suggestedFix": "string — 구체적 가이드 + 감지된 CMS 기준 안내(미감지 시 워드프레스/카페24/직접 코딩 3가지 제시) + 코드 스니펫",
       "impact": "string — 안 고치면/고치면 양쪽",
       "evidence": "string — 크롤링 데이터 근거",
       "priority": 1-10
