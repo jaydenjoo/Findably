@@ -8,7 +8,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { INDUSTRY_OPTIONS, type SmeIndustryId } from '@/config/revenue'
+import {
+  INDUSTRY_LABELS,
+  INDUSTRY_OPTIONS,
+  isSmeIndustryId,
+  type SmeIndustryId,
+} from '@/config/revenue'
 
 /**
  * 업종 선택 컴포넌트 (Phase D)
@@ -55,7 +60,12 @@ export function IndustrySelect({
           aria-describedby={describedBy}
           className="w-full"
         >
-          <SelectValue placeholder="업종을 선택해주세요 (선택 사항)" />
+          <SelectValue placeholder="업종을 선택해주세요 (선택 사항)">
+            {(selected: unknown) => {
+              if (isSmeIndustryId(selected)) return INDUSTRY_LABELS[selected]
+              return '업종을 선택해주세요 (선택 사항)'
+            }}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {INDUSTRY_OPTIONS.map((opt) => (

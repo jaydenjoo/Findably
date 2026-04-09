@@ -28,7 +28,7 @@ export default async function ReportDetailPage({
 
   const { data: diagnosis, error } = await supabase
     .from('diagnoses')
-    .select('id, url, status, tier, analysis_data, created_at')
+    .select('id, url, status, tier, analysis_data, created_at, industry')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()

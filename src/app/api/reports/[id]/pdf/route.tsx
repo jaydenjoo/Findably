@@ -24,7 +24,9 @@ export async function GET(
   // 2. diagnosis 조회 (RLS가 user_id 자동 필터)
   const { data: diagnosis, error } = await supabase
     .from('diagnoses')
-    .select('id, url, tier, analysis_data, total_score, grade, created_at')
+    .select(
+      'id, url, tier, analysis_data, total_score, grade, created_at, industry'
+    )
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
