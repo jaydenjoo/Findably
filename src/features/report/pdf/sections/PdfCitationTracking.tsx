@@ -1,5 +1,6 @@
 import { Text, View } from '@react-pdf/renderer'
 
+import { CITATION_EMPTY_INFO } from '@/config/report'
 import type {
   AICitationTrackingResult,
   CitationStatus,
@@ -34,6 +35,13 @@ export function PdfCitationTracking({
 
   const mentionRate = Math.round(tracking.overallMentionRate * 100)
 
+  // Task 4-2: keywords/platforms가 0개이거나 인용률 0%면 "왜 0인지 + 개선 방법" 설명으로 대체
+  // (docs/paid-report-audit-v1.md — 빈 테이블 대신 진단 + 액션 연결)
+  const isEmpty =
+    tracking.keywords.length === 0 ||
+    platforms.length === 0 ||
+    mentionRate === 0
+
   return (
     <View style={styles.section}>
       <Text style={styles.h2}>AI 인용 추적</Text>
@@ -60,110 +68,160 @@ export function PdfCitationTracking({
         </Text>
       </View>
 
-      {/* 플랫폼별 요약 */}
-      <View
-        style={[styles.row, { gap: 8, marginBottom: 12, flexWrap: 'wrap' }]}
-      >
-        {platforms.map((p) => (
-          <View
-            key={p.platform}
+      {/* 0% 상태: 원인 + 개선 방향 안내 (빈 테이블 대체) */}
+      {isEmpty && (
+        <View
+          style={{
+            backgroundColor: colors.warning50,
+            borderRadius: 8,
+            padding: 12,
+            borderLeftWidth: 3,
+            borderLeftColor: colors.warning500,
+          }}
+        >
+          <Text
             style={{
-              backgroundColor: colors.white,
-              borderRadius: 6,
-              border: `1px solid ${colors.slate200}`,
-              padding: 8,
-              minWidth: 100,
+              fontSize: 10,
+              fontWeight: 700,
+              color: colors.warning700,
+              marginBottom: 4,
             }}
           >
-            <Text
-              style={{ fontSize: 9, fontWeight: 600, color: colors.slate900 }}
-            >
-              {p.platformLabel}
-            </Text>
-            <Text style={{ fontSize: 8, color: colors.slate500, marginTop: 2 }}>
-              {p.mentionedCount}/{p.totalKeywords} 키워드 인용
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {/* 키워드 × 플랫폼 매트릭스 테이블 */}
-      <View
-        style={{
-          borderRadius: 6,
-          border: `1px solid ${colors.slate200}`,
-          overflow: 'hidden',
-        }}
-      >
-        {/* 헤더 */}
-        <View style={styles.tableHeader}>
-          <Text
-            style={[
-              styles.tableCell,
-              { flex: 2, fontWeight: 600, color: colors.slate900 },
-            ]}
-          >
-            키워드
+            {CITATION_EMPTY_INFO.title}
           </Text>
+          <Text
+            style={{
+              fontSize: 9,
+              color: colors.slate700,
+              marginBottom: 4,
+              lineHeight: 1.5,
+            }}
+          >
+            {CITATION_EMPTY_INFO.body}
+          </Text>
+          <Text
+            style={{
+              fontSize: 9,
+              color: colors.primary500,
+              fontWeight: 600,
+              lineHeight: 1.5,
+            }}
+          >
+            {CITATION_EMPTY_INFO.cta}
+          </Text>
+        </View>
+      )}
+
+      {/* 플랫폼별 요약 (0% 상태에서는 hide) */}
+      {!isEmpty && (
+        <View
+          style={[styles.row, { gap: 8, marginBottom: 12, flexWrap: 'wrap' }]}
+        >
           {platforms.map((p) => (
-            <Text
+            <View
               key={p.platform}
-              style={[
-                styles.tableCell,
-                {
-                  flex: 1,
-                  fontWeight: 600,
-                  color: colors.slate900,
-                  textAlign: 'center',
-                },
-              ]}
+              style={{
+                backgroundColor: colors.white,
+                borderRadius: 6,
+                border: `1px solid ${colors.slate200}`,
+                padding: 8,
+                minWidth: 100,
+              }}
             >
-              {p.platformLabel}
-            </Text>
+              <Text
+                style={{ fontSize: 9, fontWeight: 600, color: colors.slate900 }}
+              >
+                {p.platformLabel}
+              </Text>
+              <Text
+                style={{ fontSize: 8, color: colors.slate500, marginTop: 2 }}
+              >
+                {p.mentionedCount}/{p.totalKeywords} 키워드 인용
+              </Text>
+            </View>
           ))}
         </View>
+      )}
 
-        {/* 행 */}
-        {tracking.keywords.map((keyword) => (
-          <View key={keyword} style={styles.tableRow}>
-            <Text style={[styles.tableCell, { flex: 2 }]}>{keyword}</Text>
-            {platforms.map((p) => {
-              const status =
-                resultMap.get(`${keyword}:${p.platform}`) ?? 'not_mentioned'
-              const config = STATUS_CONFIG[status]
-              return (
-                <View
-                  key={p.platform}
-                  style={{
+      {/* 키워드 × 플랫폼 매트릭스 테이블 (0% 상태에서는 hide) */}
+      {!isEmpty && (
+        <View
+          style={{
+            borderRadius: 6,
+            border: `1px solid ${colors.slate200}`,
+            overflow: 'hidden',
+          }}
+        >
+          {/* 헤더 */}
+          <View style={styles.tableHeader}>
+            <Text
+              style={[
+                styles.tableCell,
+                { flex: 2, fontWeight: 600, color: colors.slate900 },
+              ]}
+            >
+              키워드
+            </Text>
+            {platforms.map((p) => (
+              <Text
+                key={p.platform}
+                style={[
+                  styles.tableCell,
+                  {
                     flex: 1,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
+                    fontWeight: 600,
+                    color: colors.slate900,
+                    textAlign: 'center',
+                  },
+                ]}
+              >
+                {p.platformLabel}
+              </Text>
+            ))}
+          </View>
+
+          {/* 행 */}
+          {tracking.keywords.map((keyword) => (
+            <View key={keyword} style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>{keyword}</Text>
+              {platforms.map((p) => {
+                const status =
+                  resultMap.get(`${keyword}:${p.platform}`) ?? 'not_mentioned'
+                const config = STATUS_CONFIG[status]
+                return (
                   <View
+                    key={p.platform}
                     style={{
-                      backgroundColor: config.bg,
-                      borderRadius: 3,
-                      paddingHorizontal: 5,
-                      paddingVertical: 1,
+                      flex: 1,
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
-                    <Text
+                    <View
                       style={{
-                        fontSize: 8,
-                        fontWeight: 600,
-                        color: config.text,
+                        backgroundColor: config.bg,
+                        borderRadius: 3,
+                        paddingHorizontal: 5,
+                        paddingVertical: 1,
                       }}
                     >
-                      {config.label}
-                    </Text>
+                      <Text
+                        style={{
+                          fontSize: 8,
+                          fontWeight: 600,
+                          color: config.text,
+                        }}
+                      >
+                        {config.label}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              )
-            })}
-          </View>
-        ))}
-      </View>
+                )
+              })}
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   )
 }

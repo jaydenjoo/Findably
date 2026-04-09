@@ -1,5 +1,5 @@
 import { BlurOverlay } from '@/components/shared/BlurOverlay'
-import { BLUR_OVERLAY_CTA } from '@/config/report'
+import { BLUR_OVERLAY_CTA, CITATION_EMPTY_INFO } from '@/config/report'
 import type {
   AICitationTrackingResult,
   CitationStatus,
@@ -43,6 +43,10 @@ export function CitationTrackingSection({
   const platformSummary = tracking.platformSummary ?? []
   const keywords = tracking.keywords ?? []
 
+  // Task 4-2: keywords/platforms가 0개이거나 인용률 0%면 원인 + 개선 안내로 대체
+  const isEmpty =
+    keywords.length === 0 || platformSummary.length === 0 || mentionRate === 0
+
   // O(1) 룩업 맵: "keyword::platform" → CitationStatus
   const resultMap = new Map<string, CitationStatus>()
   for (const r of results) {
@@ -64,75 +68,97 @@ export function CitationTrackingSection({
         수 있습니다.
       </p>
 
-      {/* 플랫폼별 요약 카드 */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {platformSummary.map((platform) => (
-          <div
-            key={platform.platform}
-            className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-          >
-            <span className="text-xs font-medium text-slate-500">
-              {platform.platformLabel}
-            </span>
-            <span className="font-display text-xl font-bold text-slate-900">
-              {platform.mentionedCount}
-              <span className="text-sm font-normal text-slate-400">
-                /{platform.totalKeywords}
-              </span>
-            </span>
-          </div>
-        ))}
-      </div>
+      {/* 0% 상태: 원인 + 개선 방향 안내 (빈 테이블 대체) */}
+      {isEmpty && (
+        <div
+          className="flex flex-col gap-1 rounded-xl border-l-4 border-warning-500 bg-warning-50 px-4 py-3"
+          role="status"
+        >
+          <p className="text-sm font-semibold text-warning-700">
+            {CITATION_EMPTY_INFO.title}
+          </p>
+          <p className="text-sm leading-relaxed text-slate-700">
+            {CITATION_EMPTY_INFO.body}
+          </p>
+          <p className="text-sm font-semibold leading-relaxed text-primary-600">
+            {CITATION_EMPTY_INFO.cta}
+          </p>
+        </div>
+      )}
 
-      {/* 키워드 × 플랫폼 매트릭스 */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-sm" aria-label="키워드별 AI 인용 현황">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50">
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">
-                키워드
-              </th>
-              {platformSummary.map((p) => (
-                <th
-                  key={p.platform}
-                  className="px-4 py-3 text-center text-xs font-semibold text-slate-600"
-                >
-                  {p.platformLabel}
+      {/* 플랫폼별 요약 카드 (0% 상태에서는 hide) */}
+      {!isEmpty && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {platformSummary.map((platform) => (
+            <div
+              key={platform.platform}
+              className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <span className="text-xs font-medium text-slate-500">
+                {platform.platformLabel}
+              </span>
+              <span className="font-display text-xl font-bold text-slate-900">
+                {platform.mentionedCount}
+                <span className="text-sm font-normal text-slate-400">
+                  /{platform.totalKeywords}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 키워드 × 플랫폼 매트릭스 (0% 상태에서는 hide) */}
+      {!isEmpty && (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full text-sm" aria-label="키워드별 AI 인용 현황">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">
+                  키워드
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {keywords.map((keyword) => (
-              <tr
-                key={keyword}
-                className="border-b border-slate-50 last:border-b-0 hover:bg-slate-50"
-              >
-                <td className="px-4 py-3 font-medium text-slate-700">
-                  {keyword}
-                </td>
-                {platformSummary.map((p) => {
-                  const status =
-                    resultMap.get(`${keyword}::${p.platform}`) ??
-                    'not_mentioned'
-                  const config = STATUS_CONFIG[status]
-                  return (
-                    <td key={p.platform} className="px-4 py-3 text-center">
-                      <span
-                        className={`inline-flex size-7 items-center justify-center rounded-full text-xs font-bold ${config.bg} ${config.text}`}
-                        title={`${keyword} — ${p.platformLabel}: ${config.label}`}
-                        aria-label={`${keyword} — ${p.platformLabel}: ${config.label}`}
-                      >
-                        {config.symbol}
-                      </span>
-                    </td>
-                  )
-                })}
+                {platformSummary.map((p) => (
+                  <th
+                    key={p.platform}
+                    className="px-4 py-3 text-center text-xs font-semibold text-slate-600"
+                  >
+                    {p.platformLabel}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {keywords.map((keyword) => (
+                <tr
+                  key={keyword}
+                  className="border-b border-slate-50 last:border-b-0 hover:bg-slate-50"
+                >
+                  <td className="px-4 py-3 font-medium text-slate-700">
+                    {keyword}
+                  </td>
+                  {platformSummary.map((p) => {
+                    const status =
+                      resultMap.get(`${keyword}::${p.platform}`) ??
+                      'not_mentioned'
+                    const config = STATUS_CONFIG[status]
+                    return (
+                      <td key={p.platform} className="px-4 py-3 text-center">
+                        <span
+                          className={`inline-flex size-7 items-center justify-center rounded-full text-xs font-bold ${config.bg} ${config.text}`}
+                          title={`${keyword} — ${p.platformLabel}: ${config.label}`}
+                          aria-label={`${keyword} — ${p.platformLabel}: ${config.label}`}
+                        >
+                          {config.symbol}
+                        </span>
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   )
 

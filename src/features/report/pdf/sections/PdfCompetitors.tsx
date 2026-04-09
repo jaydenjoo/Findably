@@ -16,7 +16,11 @@ function getScoreColor(score: number): string {
 
 export function PdfCompetitors({
   competitors,
-}: PdfCompetitorsProps): React.JSX.Element {
+}: PdfCompetitorsProps): React.JSX.Element | null {
+  // Task 4-1: 경쟁사 데이터가 없으면 섹션 자체를 렌더링하지 않음
+  // (docs/paid-report-audit-v1.md — "빈 섹션이 있으면 안 됨")
+  if (competitors.length === 0) return null
+
   return (
     <View style={styles.section}>
       <Text style={styles.h2}>경쟁사 비교 분석</Text>
