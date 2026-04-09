@@ -1639,3 +1639,104 @@ admin 계정만 무제한 재사용 가능하도록 우회 추가.
 - **배포 대기**: 3개 커밋 Vercel 자동 배포 확인 필요
 - **테스트 계정**: `findably-qa@test.local` / `FindablyQA-Test2026!`
 - **상태**: 🟢 완료 — Playwright 인프라 확립 + 핫픽스 검증 + Phase A 전체 통과
+
+---
+
+## 📍 Session 13차 (2026-04-09 낮 ~ 오후) — learnings 정리 + n8n v3.6→v3.8 삽질 + Phase B/C 완료
+
+### 현재 위치
+
+- **Epic**: 유료 리포트 검수 (Phase A+B+C 모두 완료)
+- **Task**: Phase C Task 5 — WordPress 편향 해소 + CMS 감지 결과 활용
+- **상태**: 🟢 **완료** — 7건 커밋 push + PDF 실증 검증 + learnings 교훈 3건 추가
+
+### 이번 세션 완료 내역
+
+#### 1. learnings.md 용량 정리 (`ea95858`)
+
+- **결과**: 574줄 → 329줄 (-43%, -21KB)
+- 2026-03-13~23 초기 테스트 인프라/삽질 교훈 13개 → `docs/learnings-archive-2026-Q1.md` 분리
+- "디버깅 체크포인트 A~G" 섹션 제거 (각 교훈 "규칙" 필드와 중복)
+- 최근 37개 교훈(2026-03-24 이후)만 현재 learnings.md에 유지
+
+#### 2. n8n v3.6 → v3.7 → v3.8 Observatory sandbox hotfix (3단계 삽질)
+
+- **증상**: 모든 크롤링이 `data_completeness=89%`에 고착 + `observatory: "The value in the 'JSON Body' field is not valid JSON"` 에러 반복
+- **v3.6 (기존)**: Observatory 노드 expression 안에 `new URL(...).hostname` → sandbox 제약으로 실패
+- **v3.7 (`23a099d`)**: Validate & Set Variables Code 노드에서 `new URL(url).hostname` 호출 → **더 큰 실패**. Code 노드도 `node:vm.runInContext` task-runner sandbox이며 URL global이 주입되지 않음. diagnoses `4fc14d42`가 crawling에 영구 고착
+- **v3.8 (`a485f92`)**: 순수 string 조작 `url.replace(/^https?:\/\//, '').split('/')[0].split(':')[0]`으로 host 추출. 같은 workflow의 SSL Labs 노드(line 132)가 이미 이 패턴 사용 중이었음 = 역증
+- **결과**: `8f4c39f6` execution에서 `data_completeness=100`, `error_count=0`, end-to-end 87.8초 완료
+- **Supabase 정리**: `4fc14d42` 고착 진단 → `status='failed'` UPDATE
+
+#### 3. learnings 교훈 3건 추가 (`5b5e110`)
+
+- **기술**: n8n Code 노드 task-runner sandbox에 `URL` global 없음 → string 조작 패턴 강제
+- **메타 1**: 외부 도구 sandbox는 "정식 런타임" 가정 금지 + 기존 workflow 특이 패턴 발견 시 "왜 저렇게?" 먼저 질문
+- **메타 2**: 단일 fix 검증 후 추가 fix 결정 패턴 — root cause 분리 측정의 가치
+
+#### 4. P1-1 DNS www 폴백 프로덕션 검증 (Playwright 실측)
+
+- `monthlycheck.kr` (apex, A 레코드 없음) 입력 → `/onboarding/analyzing?id=9fe518ca&wwwFallback=1` redirect
+- Info 배너 완벽 표시: "입력하신 도메인 대신 www 버전으로 분석 중입니다 / https://www.monthlycheck.kr/으로 자동 연결했어요..."
+- 실제 분석 타겟 URL도 `www.monthlycheck.kr`로 전환 ✅
+- 진단 진행률 7% → 정상 크롤링 시작 (n8n v3.8 수신)
+- 스크린샷: `.playwright-mcp/dns-www-fallback-verify-2026-04-09.png`
+
+#### 5. Phase B Task 4 — 유료 리포트 빈 섹션 처리 (`b2c5301`)
+
+- **Task 4-1 (경쟁사 비교)**: `PdfCompetitors`에 `if (competitors.length === 0) return null` 가드 추가 → 섹션 자체 제거. 웹 `CompetitorSection`은 이미 hide 중이라 변경 불필요
+- **Task 4-2 (AI 인용 0%)**:
+  - `config/report.ts`에 `CITATION_EMPTY_INFO` 상수 신규 추가 (웹/PDF 공통)
+  - `isEmpty = keywords.length===0 || platforms.length===0 || mentionRate===0` 조건에 info block 렌더링
+  - 원인: "현재 Schema Markup과 구조화된 콘텐츠가 부족해..."
+  - CTA: "→ 아래 GEO 개선 항목을 적용하면 인용률이 올라갑니다"
+  - 빈 플랫폼 요약 + 빈 테이블도 hide
+  - 웹 `CitationTrackingSection.tsx` + PDF `PdfCitationTracking.tsx` 동일 로직
+- **검증**: Jayden이 admin 계정으로 `352b86f9` 리포트 PDF 다운로드 → 8페이지 읽음
+  - Page 7: "AI 인용 추적" h2 + "전체 AI 인용률 0%" + **노란색 info 박스 완벽 렌더링** ✅
+  - Page 7: 경쟁사 비교 섹션 **사라짐** ✅
+  - Page 7: 빈 테이블 **사라짐** ✅ (info 박스만 표시)
+  - Pages 1~6: Phase A 수정사항(매출 누수 캡, 가중 분배, KCD 출처, 점수 73점 통일) 그대로 유지
+
+#### 6. Phase C Task 5 — WordPress 편향 해소 + CMS 감지 결과 활용 (`8b1513f`)
+
+- **문제 확정**: `technical guardrails` line 221에 `(WordPress/Shopify)` 편향 + `run-diagnosis-paid.ts:883`이 CMS 감지 성공 시에만 프롬프트에 전달 → 감지 실패 시 AI가 default로 WordPress 선택
+- **수정 1 `config/diagnosis-paid.ts` (3곳)**:
+  - V2_ANALYSIS_FRAMEWORK CMS 목록: "쇼피파이" → "Imweb/Wix" 교체 (한국 타겟 현실 반영)
+  - technical guardrails: `(WordPress/Shopify) 포함` → "사용자 메시지 ### CMS 섹션 참고. 감지 불가 시 워드프레스/카페24/직접 코딩 3가지 경로 병렬 제시"
+  - technical schema 주석: 감지된 CMS 기준 안내 명시
+- **수정 2 `run-diagnosis-paid.ts` (1곳)**:
+  - CMS 감지 실패 케이스 `else` 분기 추가 → AI에 "3가지 경로 병렬 제시" 강제
+  - "단일 CMS 단정 금지" 명시
+- **검증**: tsc + build 통과. 실제 AI 출력 변화는 Jayden이 다음 paid 진단 생성 시 수동 확인
+
+### 이번 세션 커밋 (7건)
+
+1. `ea95858` chore(docs): learnings.md 용량 정리 — 2026 Q1 초기 교훈 아카이브 분리
+2. `23a099d` feat(n8n): crawl v3.7 — Observatory sandbox fix
+3. `5b5e110` docs(learnings): n8n Code 노드 sandbox URL global 없음 + 메타 교훈 2건 추가
+4. `a485f92` feat(n8n): crawl v3.8 — sandbox-safe host parsing (v3.7 hotfix)
+5. `b2c5301` feat(report): phase b task 4 — 유료 리포트 빈 섹션 처리
+6. `8b1513f` feat(diagnosis-paid): phase c task 5 — wordpress 편향 해소 + cms 감지 결과 활용
+
+### 다음 세션 할 일 (우선순위)
+
+| 우선순위 | 작업                                      | 비고                                                                                                                                           |
+| -------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P0**   | Phase C Task 5 실제 AI 출력 검증          | 새 paid 진단 1건 생성 → PDF에서 "suggestedFix" 블록 Shopify 사라짐 + 미감지 시 3가지 경로 제시 확인                                            |
+| **P1**   | Phase D — 온보딩에 업종/규모 선택 UI 추가 | `IndustrySelect.tsx` 신규 + `diagnoses` 테이블 마이그레이션 (`industry`, `company_size` 컬럼) + `baseMonthlyRevenue` 동적 설정. 예상 1.5~2시간 |
+| **P2**   | 기존 31 vitest 실패 정리                  | observatory v1→v2, ssl-labs, save-crawl-result, CMO fallback 등 pre-existing 실패. Phase A~C와 무관                                            |
+| **P3**   | 토스 실 연동 (Phase 2)                    | 현재 gift code로 우회 중. 실제 결제 플로우 연결                                                                                                |
+
+### 차단 요소
+
+**없음** — 7건 커밋 모두 push 완료, Vercel 자동 배포 확인 가능
+
+### 마지막 업데이트 (13차)
+
+- **날짜**: 2026-04-09 14:00 KST (세션 종료)
+- **세션 시간**: ~5시간 (learnings 정리 + n8n 삽질 3회 + Playwright 검증 + Phase B 구현 + PDF 검증 + Phase C 구현)
+- **최종 커밋**: `8b1513f` feat(diagnosis-paid): phase c task 5 — wordpress 편향 해소
+- **배포 상태**: Vercel 자동 배포 경로 준비 (Jayden 수동 확인 필요)
+- **테스트 계정**: `findably-qa@test.local` / `FindablyQA-Test2026!`
+- **상태**: 🟢 **완료** — Phase A+B+C 3단계 모두 완료, 유료 리포트 검수 v1 지시문 (Task 1~5) 100% 반영
