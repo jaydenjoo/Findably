@@ -391,3 +391,43 @@
 - **상황**: Phase D 계획 시 업종별 월매출 데이터 수집을 위해 general-purpose 서브에이전트 2개(A, B)를 병렬 실행. Agent B가 "KCD(한국신용데이터) 2025 Q4 보고서: 소상공인 월 매출 4,916만원 — 현재 하드코딩 1,640만원과 **3배 차이**, 기존 값이 심각하게 낮음"이라고 보고. Jayden이 "그럼 1,640만원을 4,916만원으로 올려야 하나?"라고 혼란
 - **해결 경로**: Agent A가 KOSIS 소상공인실태조사 2023을 별도 수집 → "전산업 평균 연매출 197백만원 ÷ 12 = 월 1,658만원, 현재 1,640만원과 일치"라고 보고. 두 보고서를 대조한 결과 **Agent B가 KCD의 "분기 합계"를 "월 평균"으로 오독**했음을 발견. 4,916만원 ÷ 3 = 1,639만원 ≈ 1,640만원 — 결국 기존 하드코딩이 정확했음. 만약 Agent B만 돌렸으면 **잘못된 근거로 기존 상수를 3배 부풀려 수정**하고 리포트 전체 금액이 과장될 뻔함
 - **규칙**: **외부 데이터(통계/가격/API 스펙)를 리서치할 때는 서브에이전트 1개에만 의존 금지**. 최소 2개를 **독립 실행**(서로 결과 공유 없이)하고 **출처·단위·기준시점을 교차 검증**. 불일치가 발견되면 "둘 다 맞을 수 없음" → 원본 문서를 직접 확인. 특히 한국 통계는 "월/분기/연" + "매출/부가가치/순이익" + "평균/중앙값/가중평균" 조합이 많아 **단위 혼동이 구조적으로 발생**. 에이전트 프롬프트에 "**단위를 반드시 원문 그대로 인용할 것, 환산은 별도 표기**" 명시. 교차 검증은 10분 추가 비용이지만, 잘못된 값으로 Phase 전체가 뒤집어지는 비용보다 훨씬 저렴
+
+### 2026-04-09 Next.js 16 `revalidateTag` 시그니처 변경 — 두 번째 인자 `profile` 필수
+
+- **증상**: Admin 점검 공지 Server Action에 `revalidateTag(MAINTENANCE_NOTICE_TAG)` 작성 → `tsc`에서 `TS2554: Expected 2 arguments, but got 1`. Next.js 15 시절 문서/코드 샘플을 그대로 썼는데 안 됨
+- **원인**: Next.js 16에서 `revalidateTag(tag: string)` 단일 인자 API가 deprecated 되고 `revalidateTag(tag: string, profile: string | CacheLifeConfig)` 2-인자 필수로 변경. `profile`은 `cacheLife` 프로파일 이름 (`'default'`, `'max'`, `'minutes'` 등)
+- **해결**: Context7 MCP로 `/vercel/next.js` 공식 문서 확인 → `revalidateTag(tag, 'max')`로 수정. `'max'`는 stale-while-revalidate 권장 프로파일(즉시 무효화 + 다음 요청에서 백그라운드 재생성). `{ expire: 0 }` 객체 형태도 지원 (즉시 만료)
+- **규칙**: **Next.js 16 프로젝트에서 `revalidateTag`를 새로 작성할 때는 반드시 두 번째 인자 명시**. 권장 프로파일:
+  (1) **`'max'`**: 일반 CMS/공지/프로필 등 "최신성 필요하지만 잠깐 stale 허용" (기본 권장)
+  (2) **`{ expire: 0 }`**: 결제/재고처럼 "1초도 stale 허용 안 됨"
+  (3) **`'default'`**: Next.js 기본 cacheLife 프로파일 사용
+  디버깅 단서: `TS2554: Expected 2 arguments, but got 1` + Next 16 + `next/cache` → revalidateTag 호환성 의심. 관련: `revalidatePath`는 여전히 단일 인자 허용
+
+### 2026-04-09 Next.js Async Server Component + `unstable_cache`만으로는 static prerender 우회 불가 — admin CMS 즉시 반영 실패
+
+- **증상**: Admin에서 점검 공지 UPDATE → 랜딩 페이지에 반영 안 됨. `unstable_cache`에 `revalidate: 300` + `tags`를 설정하고 Server Action에서 `revalidateTag` + `revalidatePath('/')`를 호출했는데도 stale 유지. 빌드 출력 확인 시 `○ / 5m 1y` — 랜딩 페이지가 **static prerender**되어 HTML이 빌드 시점에 박제됨
+- **원인**: `async` Server Component가 내부에서 `unstable_cache`로 감싼 함수만 호출하면 Next.js가 "cacheable이므로 static으로 prerender 가능"으로 판단. 이 경우:
+  - 페이지 HTML = 빌드 시점 스냅샷
+  - `unstable_cache`의 revalidate/tags는 **함수 호출 결과 캐시**만 담당 (페이지 전체 재생성과는 별개)
+  - `revalidatePath('/')`는 static 페이지 무효화는 하지만, stale-while-revalidate 구조라 다음 요청에서야 재생성되고 서버 메모리의 `unstable_cache`도 여전히 이전 값을 유지할 수 있음
+  - 결과: admin 저장 → DB OK → 랜딩은 빌드 시점 HTML 그대로
+- **해결**: 랜딩 페이지에 `export const revalidate = 0` 추가 → 매 요청 dynamic render 강제. DB 조회 부담은 `unstable_cache`(5분 TTL)가 여전히 차단하므로 성능 영향 미미. `revalidateTag('max')`는 admin 저장 시 즉시 무효화 역할 유지
+- **규칙**: **Admin CMS처럼 "즉시 반영 필요 + 운영 중 수정 빈도는 낮음"인 페이지는 static prerender로 빌드되지 않도록 강제**해야 함. 판단 기준:
+  (1) **즉시 반영 필요한가?**: YES → `export const revalidate = 0` (또는 `dynamic = 'force-dynamic'`)
+  (2) **DB 부담 걱정?**: `unstable_cache`가 여전히 TTL + tag 기반 캐시 제공 → 대부분 요청은 메모리 hit
+  (3) **빌드 출력 확인**: `○ / 5m 1y` 표시는 static. `ƒ /`는 dynamic. 기대와 다르면 `revalidate` 또는 `dynamic` 명시
+  Next.js의 "auto static optimization" 편의성은 CMS류 페이지에는 **오히려 해가 될 수 있음**. "async 함수 + unstable_cache만 있으면 revalidateTag로 충분히 관리 가능하다"는 가정은 static prerender 상황에서는 작동하지 않는다. 디버깅 단서: DB UPDATE 후 랜딩 stale이면 `pnpm build`의 `/` 라우트 심볼 확인이 첫 액션
+
+### 2026-04-09 `src/types/database.ts`가 수동 관리되어 stale 누적 — 새 테이블 추가 시 부분 업데이트 전략 채택
+
+- **증상**: 신규 `findably_maintenance_notices` 테이블을 Server Action에서 조회 시 `TS2339: Property 'is_active' does not exist on type 'SelectQueryError<...>'` 에러. Supabase 쿼리 빌더의 타입 추론이 테이블 존재 자체를 모르는 상태
+- **원인**: `src/types/database.ts`가 자동생성이 아닌 **수동 관리 파일**로 운영되고 있었음. 기존 내용에 `findably_crawl_executions`, `findably_alerts`, `findably_pipeline_health`, `findably_maintenance_notices` 등 여러 테이블이 누락. `supabase gen types` 재생성 결과와 비교해보면 상당 분량 stale
+- **해결**: 두 가지 옵션 검토:
+  (1) **전체 교체** (재생성 결과로 덮어쓰기) — 가장 정확하지만 stale 타입에 의존하던 기존 코드에서 타입 에러 연쇄 발생 위험
+  (2) **신규 테이블만 추가** (Edit로 최소 변경) — 범위 축소, 기존 코드 영향 없음
+  Session 15차 범위가 "점검 공지 관리 기능"으로 한정되어 있어서 **옵션 2 선택**. `findably_maintenance_notices` Row/Insert/Update/Relationships만 추가하고 나머지 stale 항목은 다음 Task로 분리
+- **규칙**: **`database.ts` 같은 자동생성 성격의 파일이 수동 관리 상태로 stale 누적되면, 현재 Task 범위에 필요한 최소 추가만 먼저 반영하고 전체 재생성은 별도 Task로 분리**. 전체 재생성은:
+  (1) 기존 코드의 타입 가정을 깨뜨릴 수 있음 (`SelectQueryError` 연쇄)
+  (2) 현재 Task의 PR scope를 넘어서는 변경이 됨 (리뷰/롤백 난이도 증가)
+  (3) 별도 PR로 분리하면 영향 범위가 명확해져 안전
+  대안: 프로젝트 셋업 단계에서 `pnpm gen:types` 스크립트 + CI 체크 + pre-commit hook으로 자동 동기화 강제하면 이 교훈 자체가 불필요해짐. 향후 DB 스키마 변경이 잦아지면 인프라 Task로 도입 검토

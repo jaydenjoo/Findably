@@ -1867,3 +1867,138 @@ Jayden이 "업종별 매출 데이터는 고객사가 꺼려할 수도" 지적 �
 - **테스트 계정**: `findably-qa@test.local` / `FindablyQA-Test2026!`
 - **검증 진단**: `9212e4a6-b464-42e5-9842-81bc985d3d67` (monthlycheck.kr, paid, industry=accommodation_food)
 - **상태**: 🟢 **완료** — Phase A+B+C+D 모두 완료. 유료 리포트 검수 v1 지시문 완결.
+
+---
+
+## 📍 Session 15차 (2026-04-09 저녁) — Admin 점검 공지 관리 기능 구축
+
+### 현재 위치
+
+- **Epic**: Admin 운영 도구 (신규)
+- **Task**: 점검 공지 CMS (ON/OFF + 제목/본문/ETA/이메일 관리)
+- **상태**: 🟢 **완료** — DB 마이그레이션 적용 + Admin UI + 랜딩 연동 + 프로덕션 E2E 검증 통과
+
+### 배경
+
+이전까지 랜딩 페이지의 "서비스 점검 중" 모달 문구가 `maintenance-notice.tsx`에 **완전 하드코딩**되어 있어서 수정하려면 코드 배포가 필요했다. Jayden 요청: "Admin 관리자에서 수정 관리할 수 있게 개발 진행해줘".
+
+### 이번 세션 완료 내역
+
+#### 1. 설계 결정 (Q1~Q5)
+
+| Q            | 결정                                                         |
+| ------------ | ------------------------------------------------------------ |
+| Q1 범위      | B — ON/OFF + 제목 + 본문 + ETA + 이메일                      |
+| Q2 저장소    | A — DB 단일 row 테이블 (`findably_maintenance_notices` id=1) |
+| Q3 표시 범위 | A — 랜딩 페이지만 (현재 동작 유지)                           |
+| Q4 캐시      | B — `unstable_cache` + `revalidateTag('max')`                |
+| Q5 버전      | A — 단일 row (upsert, 히스토리 없음)                         |
+
+#### 2. DB 마이그레이션 (Supabase MCP로 실 적용)
+
+- `supabase/migrations/013_findably_maintenance_notices.sql` 신규
+- `apply_migration`으로 프로덕션 DB (souqwsdwabhqbbvpwfpe)에 직접 적용
+- 스키마: `id int CHECK(id=1)`, `is_active bool`, `title`, `body`, `contact_email`, `eta_text`, `updated_at`, `updated_by`
+- RLS: select public (비로그인 포함 누구나 읽기, 랜딩 노출용)
+- 트리거: `updated_at` 자동 갱신
+- 기본 row 1건 삽입 (is_active=false 초기)
+
+#### 3. Feature 모듈 신규 (`src/features/admin/maintenance/`)
+
+- `types.ts` — Zod 스키마 (`maintenanceNoticeSchema`) + `DEFAULT_MAINTENANCE_NOTICE` fallback
+- `queries/get-maintenance-notice.ts` — `unstable_cache`로 감싼 조회 함수 + `MAINTENANCE_NOTICE_TAG` export
+
+#### 4. Admin UI (Server Action + Client Form)
+
+- `_actions/update-maintenance-notice.ts` — Server Action
+  - admin 인증 (`ACCESS.ADMIN_EMAILS` allowlist)
+  - Zod 검증
+  - `service_role`로 UPDATE (id=1)
+  - `revalidateTag(MAINTENANCE_NOTICE_TAG, 'max')` + `revalidatePath('/')` + `revalidatePath('/admin')`
+- `_components/AdminMaintenanceForm.tsx` — Client Form
+  - ON/OFF 체크박스 + 제목/본문/ETA/이메일 필드
+  - `useActionState`로 성공/에러 메시지 표시
+  - 현재 상태 뱃지 ("노출 중" / "비활성")
+- `page.tsx` 수정 — "점검 공지 관리" 섹션을 선물 코드 관리 위에 추가
+
+#### 5. 랜딩 페이지 리팩토링
+
+- `components/landing/maintenance-notice.tsx` — **완전 재설계**
+  - Props: `notice: MaintenanceNoticeData`
+  - `notice.isActive === false`면 `return null`
+  - 하드코딩 문구 → props 값 사용
+  - `body.split('\n')`로 줄바꿈 `<p>` 단락 분리
+  - ETA가 있으면 Clock 아이콘 강조 박스 렌더
+  - 이메일이 있으면 mailto 링크 렌더
+- `app/(marketing)/page.tsx` — `async` + `getMaintenanceNotice()` 호출 후 props 전달
+
+#### 6. Next.js 16 호환 수정 (삽질 1회)
+
+- **첫 검증 실패**: `revalidateTag(tag)` 단일 인자 → Next.js 16에서 TS2554 에러
+- Context7 MCP로 공식 문서 확인 → `revalidateTag(tag, 'max')` 2-인자 필수로 변경됨을 확인
+- `'max'`는 stale-while-revalidate 권장 프로파일 (즉시 무효화 + 다음 요청 시 재생성)
+
+#### 7. 랜딩 Static Prerender 이슈 해결 (설계 보완)
+
+- **발견**: 프로덕션 배포 후 DB UPDATE 했는데도 랜딩 모달 반영 안 됨
+- **원인**: 빌드 출력에 `○ / 5m 1y` — 랜딩이 **static prerender**되어 HTML로 박제됨. `unstable_cache` + `revalidateTag`를 우회하고 페이지 자체가 cached
+- **해결**: `src/app/(marketing)/page.tsx`에 `export const revalidate = 0` 추가 → 매 요청 dynamic render (DB 부담은 unstable_cache가 여전히 차단)
+- **배포 후 재검증 즉시 성공**
+
+#### 8. database.ts 타입 파일 업데이트
+
+- 기존 `src/types/database.ts`가 상당히 stale 상태 발견 (findably_crawl_executions, findably_alerts, findably_pipeline_health 등 누락)
+- 이번 작업에서는 **신규 테이블만 추가**하는 최소 변경으로 진행 (기존 stale 타입은 다음 Task로)
+
+#### 9. 프로덕션 E2E 검증 (Claude Playwright + Jayden 수동)
+
+**Part 1 — Claude 자동**: DB 직접 UPDATE → 랜딩 재방문 → 모달 렌더 확인
+
+- 테스트 값: title=`[E2E 테스트] 점검 공지 표시 확인`, body 2단락, eta=`2026-04-09 23:59 복구 예정 (테스트)`, email=`qa-test@findably.kr`
+- 결과: 5개 필드 모두 정상 렌더링 + body 줄바꿈 `<p>` 2단락 분리 + 스크린샷 확인
+
+**Part 2 — Jayden 수동**: Admin UI 로그인 → "점검 공지 관리" 섹션 → 저장 → 랜딩 즉시 반영 확인
+
+- Jayden 보고: "테스트완료 정상" ✅
+
+### 이번 세션 커밋 (2건)
+
+1. `4b19bef` feat(admin): 점검 공지 관리 기능 추가 (9 files, +524/-27)
+2. `6fa3e4a` fix(landing): 점검 공지 즉시 반영을 위해 랜딩 페이지 dynamic rendering (1 file, +4)
+
+### 이번 세션에서 변경된 파일 (9개)
+
+| #   | 파일                                                               | 작업                        |
+| --- | ------------------------------------------------------------------ | --------------------------- |
+| 1   | `supabase/migrations/013_findably_maintenance_notices.sql`         | 신규 + DB 실 적용           |
+| 2   | `src/features/admin/maintenance/types.ts`                          | 신규 (Zod)                  |
+| 3   | `src/features/admin/maintenance/queries/get-maintenance-notice.ts` | 신규 (unstable_cache)       |
+| 4   | `src/components/landing/maintenance-notice.tsx`                    | 리팩토링 (props화)          |
+| 5   | `src/app/(marketing)/page.tsx`                                     | 수정 (async + revalidate=0) |
+| 6   | `src/app/(admin)/admin/_actions/update-maintenance-notice.ts`      | 신규 (Server Action)        |
+| 7   | `src/app/(admin)/admin/_components/AdminMaintenanceForm.tsx`       | 신규 (Form UI)              |
+| 8   | `src/app/(admin)/admin/page.tsx`                                   | 수정 (섹션 추가)            |
+| 9   | `src/types/database.ts`                                            | 수정 (신규 테이블 타입)     |
+
+### 다음 세션 할 일 (우선순위)
+
+| 우선순위 | 작업                      | 비고                                                                                                        |
+| -------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **P1**   | `database.ts` 전체 재생성 | findably_crawl_executions, findably_alerts, findably_pipeline_health 등 누락. `supabase gen types`로 재생성 |
+| **P1**   | 기존 31 vitest 실패 정리  | Phase A~D + Session 15차와 무관, pre-existing                                                               |
+| **P1**   | Phase E 후보 탐색         | 회사 규모 / 업종별 AI 프롬프트 차별화 / GSC 연동                                                            |
+| **P2**   | 토스 실 연동 (Phase 2)    | 현재 gift code로 우회 중                                                                                    |
+| **P2**   | 1449 lint errors 정리     | 누적 기술부채                                                                                               |
+
+### 차단 요소
+
+**없음** — 기능 완료, 프로덕션 반영 완료, E2E 검증 통과 (Part 1 + Part 2).
+
+### 마지막 업데이트 (15차)
+
+- **날짜**: 2026-04-09 21:00 KST (세션 종료)
+- **세션 시간**: ~2시간 (계획 + 구현 + 프로덕션 배포 + E2E 검증 + 한 번의 설계 보완)
+- **최종 커밋**: `6fa3e4a` fix(landing): 랜딩 dynamic rendering
+- **배포 상태**: Vercel 프로덕션 배포 완료 (`enzdqjqai`)
+- **DB 상태**: `findably_maintenance_notices` id=1, is_active=false (운영 기본값 원복)
+- **상태**: 🟢 **완료** — Admin 점검 공지 관리 기능 Task 1개 종결
