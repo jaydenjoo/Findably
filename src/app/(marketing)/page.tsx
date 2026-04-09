@@ -30,6 +30,10 @@ const FaqSection = dynamic(() => import('@/components/landing/faq-section'))
 const BottomCTA = dynamic(() => import('@/components/landing/cta-section'))
 const Footer = dynamic(() => import('@/components/landing/footer'))
 
+// 점검 공지(admin에서 수정)가 즉시 반영되도록 dynamic rendering.
+// DB 조회 자체는 unstable_cache + revalidateTag('max')로 부담 최소화.
+export const revalidate = 0
+
 export const metadata: Metadata = {
   title: '마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably',
   description:
