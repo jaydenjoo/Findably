@@ -120,5 +120,8 @@ export async function submitUrlAction(
   if (usedWwwFallback) {
     redirectParams.set('wwwFallback', '1')
   }
-  redirect(`/onboarding/analyzing?${redirectParams.toString()}`)
+  // Phase D (2026-04-09): /info로 리다이렉트 (업종 선택 + 선택 정보 입력).
+  // 크롤링은 위에서 이미 백그라운드 트리거됨. /info에서 사용자가 업종 선택 후
+  // "분석 시작"을 누르면 /analyzing으로 이동. "건너뛰기"도 동일하게 /analyzing.
+  redirect(`/onboarding/info?${redirectParams.toString()}`)
 }
