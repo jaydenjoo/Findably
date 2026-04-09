@@ -2,154 +2,10 @@
 
 > 같은 실수를 반복하지 않기 위한 교훈 기록
 > **형식**: 증상 → 원인 → 해결 → **규칙** (규칙이 핵심!)
+>
+> 🗄️ **아카이브**: 2026-03-23 이전 초기 교훈(테스트 인프라 셋업 등)은 [learnings-archive-2026-Q1.md](./learnings-archive-2026-Q1.md) 참조
 
 ---
-
-<!-- 예시 (실제 기록 시 이 예시는 삭제) -->
-
-### 2026-03-10 [예시] Tailwind v4 그라데이션 클래스 변경
-
-- **증상**: `bg-gradient-to-r` 클래스가 작동하지 않음
-- **원인**: Tailwind v4에서 `bg-gradient-to-*` → `bg-linear-to-*`로 변경됨
-- **해결**: 모든 그라데이션 클래스를 `bg-linear-to-*`로 교체
-- **규칙**: Tailwind v4에서는 항상 `bg-linear-to-*` 사용. `npx @tailwindcss/upgrade` 실행으로 자동 변환 가능
-
----
-
-<!-- 여기부터 실제 기록 -->
-
-### 2026-03-13 Vitest fake timers + waitFor 교착 현상
-
-- **증상**: `vi.useFakeTimers()` 사용 중 `waitFor()` 호출 → 무한 대기 → 테스트 타임아웃
-- **원인**: `waitFor()`는 내부적으로 `setTimeout`으로 폴링하는데, fake timers가 이를 멈추므로 결코 완료되지 않음
-- **해결**: `waitFor()` 대신 `await act(async () => { await vi.advanceTimersByTimeAsync(ms) })` 사용
-- **규칙**: fake timers 사용 시 `waitFor()` 금지. 타이머 기반 상태 변화는 `vi.advanceTimersByTimeAsync()`로 직접 제어
-
-### 2026-03-13 unstable useRouter mock → useEffect 무한 재실행
-
-- **증상**: SessionExpiryWarning 테스트에서 타이머가 cleanup되어 경고 배너 안 나타남
-- **원인**: `vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))` — 매 render마다 새 객체 반환 → `useCallback` deps 변경 → `useEffect` cleanup+재실행 → 타이머 초기화
-- **해결**: mock 외부에 `const mockRouter = { push: mockPush }` 선언 → `useRouter: () => mockRouter`로 안정 참조 반환
-- **규칙**: hook이 반환하는 mock 객체는 반드시 모듈 스코프에 안정 참조로 선언. 매번 새 객체 반환하면 deps가 변해 side effect가 재실행됨
-
-### 2026-03-13 base-ui(shadcn/ui) jsdom 호환 문제
-
-- **증상**: shadcn/ui 컴포넌트(Button, Input, Label) 사용 시 jsdom에서 렌더링 실패
-- **원인**: `@base-ui/react` 기반 shadcn/ui가 내부적으로 브라우저 전용 API 사용
-- **해결**: `vi.mock('@/components/ui/button', () => ({ Button: ({ children, onClick, ...props }) => <button ...> }))` 식으로 단순 HTML 대체 mock 사용
-- **규칙**: jsdom 환경 컴포넌트 테스트에서 shadcn/ui 컴포넌트는 반드시 단순 HTML 엘리먼트로 mock. mock 선언은 import 전에 위치
-
-### 2026-03-16 Tailwind v4 `@theme inline` — hsl() 색상이 빈 문자열로 렌더링
-
-- **증상**: `bg-findably-dark`, `text-findably-cyan` 등 커스텀 색상 유틸리티가 투명(transparent)으로 렌더링됨. 히어로 배경이 다크 네이비 대신 빈 배경으로 표시
-- **원인**: Tailwind v4의 `@theme inline` 블록에서 `hsl(222 47% 5%)` (CSS Color Level 4 공백 구분 문법) 사용 시 변수값이 빈 문자열(`""`)로 resolve됨. `getComputedStyle`로 확인하면 `--color-findably-dark: ""`
-- **해결**: 모든 `hsl()` 값을 hex로 변환 (`hsl(222 47% 5%)` → `#070a13`)
-- **규칙**: `@theme inline` 블록에서는 반드시 hex 색상만 사용. `hsl()`, `rgb()`, `oklch()` 등 함수형 색상은 빈 문자열로 resolve될 수 있음. 단, `:root` 블록의 CSS 변수에서는 `oklch()` 정상 작동 (shadcn/ui가 이 방식 사용)
-
-### 2026-03-16 shadcn/ui CardTitle는 `<div>` — Playwright heading 셀렉터 실패
-
-- **증상**: `getByRole('heading', { name: '회원가입' })` → 요소 찾지 못함
-- **원인**: shadcn/ui `CardTitle`이 `<div>`로 렌더링됨 (`card.tsx:36`: `React.ComponentProps<"div">`). `<h*>` 아님
-- **해결**: `getByText('회원가입')` 또는 실제 `<h1>`/`<h2>` 요소를 직접 대상으로 변경
-- **규칙**: Playwright E2E에서 shadcn/ui 카드 제목은 `getByRole('heading')` 대신 `getByText()` 사용. 실제 시맨틱 heading인지 먼저 DevTools로 확인
-
-### 2026-03-16 Playwright strict mode — 다중 매칭 시 `.first()` 필수
-
-- **증상**: `getByText(/그린테크/)` 등 locator가 strict mode 에러로 실패
-- **원인**: Playwright는 기본적으로 strict mode — locator가 2개+ 요소에 매칭되면 에러 발생
-- **해결**: 다중 매칭 가능한 locator에 `.first()` 추가
-- **규칙**: 범용 텍스트 매칭(`getByText`, `getByRole`)은 항상 다중 매칭 가능성 고려. 확실하지 않으면 `.first()` 붙이거나, `locator('section').getByRole(...)` 등 scope를 좁혀서 사용
-
-### 2026-03-16 Playwright 스크롤 검증 — 고정 좌표 대신 `querySelectorAll`로 실제 위치 조회
-
-- **증상**: `window.scrollTo(0, 4200)` 실행 후 Pricing 섹션을 기대했으나 ScorePreview가 보임
-- **원인**: 섹션 높이가 뷰포트/콘텐츠에 따라 다르므로 하드코딩 좌표는 부정확. framer-motion `whileInView` 애니메이션이 적용된 섹션은 스크롤 전까지 렌더링되지 않아 높이가 변동됨
-- **해결**: `page.evaluate(() => [...document.querySelectorAll('main > section, main > div')].map(el => ({ tag: el.tagName, offsetTop: el.offsetTop, height: el.offsetHeight })))` 로 실제 위치를 조회 후 정확한 좌표로 스크롤
-- **규칙**: Playwright에서 긴 페이지 섹션 검증 시 스크롤 좌표를 하드코딩하지 말 것. 반드시 `page.evaluate`로 DOM에서 실제 `offsetTop`을 조회하고, 해당 좌표로 스크롤. 특히 framer-motion 등 뷰포트 진입 시 렌더링되는 애니메이션이 있으면 섹션 높이가 동적으로 변함
-
-### 2026-03-16 다크 네비게이션 바에서 텍스트 색상 — `text-slate-900` 안 보임
-
-- **증상**: Navbar의 "로그인" 링크가 어두운 배경(`bg-findably-dark`) 위에서 거의 보이지 않음
-- **원인**: `text-slate-900` (#0f172a)는 `findably-dark` (#070a13)과 명도 차이가 거의 없어 대비비 1.2:1 이하
-- **해결**: `text-slate-300` (#cbd5e1)으로 변경 → 어두운 배경 위에서 충분한 대비 확보
-- **규칙**: 어두운 배경(gray-800+, findably-dark 등) 위 텍스트는 반드시 `text-slate-300` 이상 밝은 색 사용. WCAG AA 기준 4.5:1 대비비 충족 확인. 네비게이션처럼 배경이 투명↔어두운 색으로 전환되는 컴포넌트는 모든 상태에서 텍스트 가독성 확인
-
-### 2026-03-16 framer-motion `whileInView` 섹션 — Playwright 스크린샷 타이밍
-
-- **증상**: Playwright로 특정 섹션 스크린샷 캡처 시 요소가 `opacity: 0` 상태로 찍힘 (빈 카드)
-- **원인**: framer-motion의 `whileInView` + `initial={{ opacity: 0, y: 30 }}` 조합은 뷰포트에 진입해야 애니메이션 시작. 스크롤 직후 즉시 캡처하면 아직 `opacity: 0`
-- **해결**: 스크롤 후 `waitForTimeout(1000)` 또는 `waitForSelector('[style*="opacity: 1"]')` 등으로 애니메이션 완료 대기 후 캡처
-- **규칙**: framer-motion `whileInView` 사용 섹션을 Playwright로 검증할 때는 스크롤 후 최소 700ms~1s 대기 필요 (transition duration 0.7s 기준). `viewport={{ once: true }}` 설정이면 한 번만 대기하면 됨
-
-### 2026-03-19 Vercel 서버리스에서 fire-and-forget 패턴 실패
-
-- **증상**: `submit-url.ts`에서 `void triggerCrawl(...)` 후 `redirect()` 호출 → n8n 웹훅이 아예 전송되지 않음. 프로덕션에서 URL 제출 후 분석이 시작되지 않고 "작업중"에서 멈춤
-- **원인**: Vercel 서버리스(Lambda)는 `redirect()`로 응답을 보낸 직후 Lambda를 freeze/종료함. `void promise`는 await되지 않으므로 응답 후 실행이 보장되지 않음. 로컬에서는 Node.js 프로세스가 계속 살아있어 정상 동작하지만, Vercel에서는 실패
-- **해결**: (1) Server Action: `void` → `await` 패턴으로 변경 (redirect 전에 완료) (2) API Route: `fetch().catch()` → `after()` API (Next.js 15+)로 변경 (Vercel `waitUntil`로 Lambda 수명 연장)
-- **규칙**: Vercel 서버리스에서 `void promise`, `promise.then().catch()`, `setTimeout` 등 fire-and-forget 패턴은 절대 사용 금지. 반드시 `await`하거나, 응답 후 실행이 필요하면 `after()` API 사용. `after()`는 `next/server`에서 import하며 Vercel에서 자동으로 `waitUntil`로 변환됨
-
-### 2026-03-19 Next.js trailing slash 308 리다이렉트 → POST→GET 변환으로 405
-
-- **증상**: n8n이 `/api/crawl/complete`로 POST 콜백 → 405 "Method Not Allowed". n8n 노드를 GET→POST로 바꿔도 동일
-- **원인**: n8n 콜백 URL이 `/api/crawl/complete/` (trailing slash). Next.js는 trailing slash URL에 308 Permanent Redirect 반환. n8n의 axios는 리다이렉트를 따라가면서 **POST→GET으로 메서드를 변환** (HTTP 스펙: 308은 메서드 유지해야 하지만 많은 클라이언트가 GET으로 변환). route.ts에 `GET` 핸들러가 없으므로 405
-- **해결**: `handleCallback()` 공통 함수로 추출 후 `export const POST = handleCallback` + `export const GET = handleCallback` 두 메서드 모두 export
-- **규칙**: 외부 서비스(n8n, Stripe 웹훅 등)가 콜백하는 API Route는 반드시 POST + GET 모두 export. URL에 trailing slash가 붙을 수 있고, 리다이렉트 시 메서드가 바뀔 수 있음. 또는 `next.config.ts`에 `trailingSlash: true`를 설정해도 되지만, 이는 모든 라우트에 영향을 미치므로 개별 라우트에서 GET 추가가 더 안전
-
-### 2026-03-20 n8n workflow JSON에 API 키 하드코딩 → Git 커밋으로 시크릿 노출
-
-- **증상**: `n8n/workflows/findably-crawl-v2-production.json`에 Firecrawl API 키(`fc-...`)와 콜백 Bearer 토큰이 하드코딩되어 Git에 커밋됨
-- **원인**: n8n에서 workflow를 JSON으로 export하면 credential 참조가 아닌 실제 값이 포함됨. 이를 그대로 레포에 커밋
-- **해결**: (1) JSON 내 시크릿을 `{{FIRECRAWL_API_KEY}}`, `{{N8N_CALLBACK_SECRET}}` 플레이스홀더로 교체 (2) `n8n/` 디렉토리를 `.gitignore`에 추가
-- **규칙**: n8n workflow JSON을 Git에 저장할 때는 반드시 시크릿을 플레이스홀더로 교체하거나, n8n의 credential reference 방식 사용. 또는 workflow 파일 자체를 `.gitignore`에 추가하고 별도 시크릿 관리. export한 JSON은 커밋 전 `grep -i "bearer\|api_key\|secret\|password"` 로 점검
-
-### 2026-03-20 디버그 전용 API 엔드포인트에 프로덕션 가드 누락 → 환경변수 메타데이터 노출
-
-- **증상**: `/api/dev/env-check`가 프로덕션에서도 접근 가능. 환경변수 존재 여부, 길이, 앞 30자를 JSON으로 반환
-- **원인**: 디버깅용 임시 엔드포인트에 `if (process.env.NODE_ENV === 'production') return 404` 가드를 넣지 않음. 같은 디렉토리의 `trigger-paid`는 가드가 있었으나 `env-check`에는 없음
-- **해결**: `/api/dev/` 디렉토리 전체 삭제. 디버깅 완료 후 임시 엔드포인트는 즉시 제거
-- **규칙**: 디버그/임시 API 엔드포인트는 (1) 반드시 `NODE_ENV === 'production'` 가드 추가 (2) 코드에 `// TODO: 디버깅 후 삭제` 주석 + PR 체크리스트에 삭제 확인 항목 추가 (3) 환경변수 값(길이, prefix 포함)을 응답에 포함하지 않기. 가장 안전한 방법: 디버깅 완료 즉시 삭제
-
-### 2026-03-20 Playwright `force: true` 클릭은 Server Action `<form>` 제출을 트리거하지 않음
-
-- **증상**: 로그아웃 버튼(`<button type="submit">` inside `<form action={logoutAction}>`)을 `{ force: true }`로 클릭해도 Server Action이 실행되지 않음. `waitForURL` 타임아웃
-- **원인**: Playwright의 `force: true`는 actionability check(가시성, 활성화 등)만 우회할 뿐, DOM 이벤트 전파 방식이 달라 Server Action의 form submission을 정상 트리거하지 못함. Next.js dev overlay(`<nextjs-portal>`)가 pointer-events를 가로채는 것도 복합 원인
-- **해결**: `page.evaluate(() => { const btn = document.querySelector('button[aria-label="로그아웃"]'); const form = btn?.closest('form'); if (form) form.requestSubmit() })`로 직접 폼 제출
-- **규칙**: Playwright E2E에서 Server Action `<form>`의 submit 버튼 클릭이 안 되면 `page.evaluate(() => form.requestSubmit())`로 직접 제출. 특히 Next.js dev mode에서는 overlay가 클릭을 가로챌 수 있으므로 `requestSubmit()`이 가장 확실한 방법
-
-### 2026-03-20 Playwright `toHaveURL` 정규식은 전체 URL에 매칭 (pathname 아님)
-
-- **증상**: `await expect(page).toHaveURL(/^\/(login.*)?$/)` → `http://localhost:3600/login?redirectTo=...`에서 실패
-- **원인**: `toHaveURL`의 정규식은 `pathname`이 아닌 **전체 URL 문자열** (`http://localhost:3600/...`)에 매칭. `^\/`는 `http://`로 시작하는 전체 URL과 매칭 불가
-- **해결**: `^` 앵커 제거 → `/\/(login.*)?$/`
-- **규칙**: Playwright `toHaveURL` 정규식 작성 시 `^` 앵커를 사용하면 전체 URL(`http://host/path`)의 시작과 매칭되므로 pathname만 검증할 때는 `^` 없이 작성. 또는 `page.url()`로 URL을 추출해서 `new URL(url).pathname`으로 비교
-
-### 2026-03-20 E2E에서 in-memory rate limit 테스트 — 동일 유저 테스트 간 quota 공유
-
-- **증상**: 결제 API E2E 테스트가 개별 `test()` 함수로 분리되었을 때, 2~3번째 테스트부터 429 응답. 기대 상태코드(400, 200)와 불일치
-- **원인**: in-memory rate limit(`payment:${user.id}` 키, 3회/60초)은 서버 프로세스 단위. 동일 테스트 계정으로 로그인하는 모든 Playwright 테스트가 동일 quota를 공유. 테스트마다 새 로그인 세션이어도 서버 측 user.id는 동일
-- **해결**: 모든 checkout API 호출(검증 실패 2건 + 성공 1건 + rate limit 초과 1건)을 단일 `test()` 안의 단일 로그인 세션에서 순차 실행. 총 4회 호출이 의도적으로 quota(3회)를 정확히 소진 후 429 검증
-- **규칙**: in-memory rate limit이 있는 API의 E2E 테스트는 rate limit window(60초) 안에 모든 호출을 하나의 test 함수로 통합. 호출 순서를 의도적으로 설계하여 quota 소진까지 포함 검증. 별도 test 함수로 분리하면 실행 순서에 따라 간섭 발생
-
-### 2026-03-21 Zod `z.string().uuid()` — RFC 4122 variant bits 엄격 검증으로 테스트용 fake UUID 거부
-
-- **증상**: n8n 파이프라인 E2E 테스트에서 유효한 Bearer 토큰 + 올바른 페이로드 구조인데도 400 응답. Zod 검증 단계에서 차단됨
-- **원인**: `FAKE_DIAGNOSIS_ID = '11111111-1111-1111-1111-111111111111'`의 4번째 그룹 `1111`이 RFC 4122 variant bits 규격 위반. Zod의 UUID 정규식은 4번째 그룹 첫 문자가 `[89abAB]`여야 유효한 UUID로 인정. `1`은 범위 밖이므로 `diagnosisId must be a valid UUID` 에러로 400 반환
-- **해결**: `'11111111-1111-1111-a111-111111111111'`로 변경 (variant `a`는 유효)
-- **규칙**: 테스트용 fake UUID 생성 시 4번째 그룹 첫 문자를 반드시 `[89abAB]` 중 하나로 설정. `'00000000-0000-0000-0000-000000000000'`(nil UUID)은 Zod가 특별 허용하지만, 그 외 패턴은 variant bits 검증을 통과해야 함. 안전한 패턴: `xxxxxxxx-xxxx-4xxx-axxx-xxxxxxxxxxxx`
-
-### 2026-03-23 Claude API 모델 ID 네이밍 — 버전 번호에 점(.) 포함 금지
-
-- **증상**: 유료 분석 5개 에이전트 모두 404 에러 반환 → 10건 전부 빈 리포트 생성
-- **원인**: 모델 ID를 `claude-sonnet-4-6-20250514`로 설정 (4.6을 4-6으로 변환). 실제 Claude API 모델 ID는 `claude-sonnet-4-20250514` (마이너 버전 없이 메이저만 사용). 마케팅 이름(Sonnet 4.6)과 API 모델 ID가 다름
-- **해결**: 3곳의 모델 ID를 `claude-sonnet-4-20250514`, `claude-opus-4-20250514`로 수정
-- **규칙**: Claude API 모델 ID는 마케팅 이름과 다르다. `claude-{model}-{major_version}-{date}` 형식. 마이너 버전(4.6의 .6)은 API ID에 포함되지 않음. 새 모델 사용 시 반드시 Anthropic API 문서에서 정확한 모델 ID 확인. 예: Sonnet 4.6 → `claude-sonnet-4-20250514`, Opus 4.6 → `claude-opus-4-20250514`
-
-### 2026-03-23 로컬 커밋만으로 프로덕션 수정 완료 선언 — push 누락
-
-- **증상**: 코드 수정 + `git commit` 완료 후 "수정 완료" 보고했으나 프로덕션은 여전히 이전 코드 실행
-- **원인**: `git commit`만 하고 `git push origin main`을 하지 않음. `git status -sb`로 확인하면 `[ahead 1]` 표시 (로컬이 리모트보다 1커밋 앞서 있음). Vercel은 리모트 변경 시에만 자동 배포
-- **해결**: `git push origin main` 실행 → Vercel 자동 배포 트리거
-- **규칙**: 프로덕션 수정 완료 보고 전 반드시 3단계 확인: (1) `git status -sb`에서 `[ahead N]`이 없는지 확인 (있으면 push 안 된 것) (2) `git push origin main` 실행 (3) Vercel 대시보드 또는 `vercel --prod` 로 배포 완료 확인. "커밋했습니다" ≠ "배포되었습니다"
 
 ### 2026-03-24 Claude API maxTokens 부족 → JSON 응답 절삭 → 빈 리포트 (2회 재발)
 
@@ -242,120 +98,19 @@
 ### 2026-04-06 n8n 콜백 URL이 커스텀 도메인 전환 후 stale → 크롤링 파이프라인 전면 중단
 
 - **증상**: URL 제출 후 `status='crawling'`에 영구 고착. Supabase `crawl_data=NULL`, Vercel Function Logs에 `/api/crawl/complete` 요청 **0건**. 2026-04-05 커스텀 도메인 추가 이후 모든 무료 진단 실패
-- **원인**: 2026-04-05 커스텀 도메인 `findably.kr` 추가 + Vercel "Redirect to Primary Domain" 자동 활성화 후, n8n workflow "Callback Next.js" 노드가 여전히 `https://findably.vercel.app/api/crawl/complete` 를 참조. Vercel이 `findably.vercel.app` → `findably.kr`로 307 리다이렉트를 반환하는데, n8n의 axios는 리다이렉트 추적 시 POST→GET 변환 + body 손실 (learnings 2026-03-19와 동일 패턴). 결과: 콜백 시도 자체가 조용히 실패하고 Vercel 로그에 아예 기록 안 됨 (axios가 307을 에러로 처리하거나 body 없는 GET이 Zod 파싱 전에 조기 종료)
+- **원인**: 2026-04-05 커스텀 도메인 `findably.kr` 추가 + Vercel "Redirect to Primary Domain" 자동 활성화 후, n8n workflow "Callback Next.js" 노드가 여전히 `https://findably.vercel.app/api/crawl/complete` 를 참조. Vercel이 `findably.vercel.app` → `findably.kr`로 307 리다이렉트를 반환하는데, n8n의 axios는 리다이렉트 추적 시 POST→GET 변환 + body 손실 (아카이브 2026-03-19와 동일 패턴). 결과: 콜백 시도 자체가 조용히 실패하고 Vercel 로그에 아예 기록 안 됨 (axios가 307을 에러로 처리하거나 body 없는 GET이 Zod 파싱 전에 조기 종료)
 - **해결**: Elest.io n8n workflow "Callback Next.js" 노드 URL을 `https://findably.kr/api/crawl/complete`로 교체. Save 직후에는 반영 안 되고 **재활성화 사이클(Deactivate → Activate) 또는 재저장 후 반영** (9분 후 테스트 실패, 30분 후 테스트는 17초 end-to-end 성공). 로컬 n8n JSON 3개(`findably-crawl-v2-production-fixed.json`, `workflows/findably-crawl-v2-production.json`, `workflows/findably-crawl-v2-hardcoded.json`)도 동기화
 - **규칙**: **커스텀 도메인 전환 시 외부 서비스가 참조하는 모든 콜백 URL을 전수 점검**. 검색 대상: `vercel.app`, 이전 도메인, 스테이징 도메인, localhost. 외부 서비스 범위: n8n workflow, Stripe/Toss 웹훅, GitHub Actions 시크릿, 외부 크론, 모니터링 핑, OAuth 리디렉트 URL. n8n workflow 변경 후 반드시 **Deactivate → Activate 재사이클**로 반영 확인. 검증 단서: Vercel Function Logs에서 해당 엔드포인트 요청 카운트가 의도대로 발생하는지. 0건이면 외부 서비스가 아예 호출 안 하는 것 → 콜백 노드 이전 문제 의심
 
 ### 2026-04-06 값 변경 시 전체 참조처 스캔 → 제시 → 승인 → 일괄 변경 (AI 이탈 교훈)
 
 - **상황**: n8n 콜백 URL `findably.vercel.app` → `findably.kr` 변경 작업. Claude가 "Elest.io workflow + 로컬 JSON 3개"만 대상으로 판단하고 진행
-- **AI가 한 것**: Fix 1 (Elest.io URL 수정, Jayden 영역) + Fix 2 (로컬 n8n JSON 동기화)만 제시. `findably.vercel.app` 문자열이 다른 곳(src/config, src/lib/adapters, .env.example, README, docs, CLAUDE.md, 주석, 테스트 픽스처, 다른 n8n 워크플로우 버전, Vercel 환경변수)에 남아 있을 수 있는지 **사전 스캔 안 함**. 일부만 수정하는 패턴은 learnings.md G항목("부분 수정 후 재발 방지")의 반복
+- **AI가 한 것**: Fix 1 (Elest.io URL 수정, Jayden 영역) + Fix 2 (로컬 n8n JSON 동기화)만 제시. `findably.vercel.app` 문자열이 다른 곳(src/config, src/lib/adapters, .env.example, README, docs, CLAUDE.md, 주석, 테스트 픽스처, 다른 n8n 워크플로우 버전, Vercel 환경변수)에 남아 있을 수 있는지 **사전 스캔 안 함**. 일부만 수정하는 패턴은 "부분 수정 후 재발 방지" 원칙의 반복
 - **올바른 방향**: 값 변경 요청(URL/환경변수 이름/API 키/enum 리터럴/도메인/포트/스키마 필드명/모델 ID 등) 시 **반드시 3단계**:
   1. **Scan**: Grep/Glob으로 해당 값 + 그 값이 의존하는 이름이 참조된 모든 위치를 나열 (코드, 테스트, 설정, 문서, 주석, env 예시, CI, 외부 workflow)
   2. **Report**: "N군데 참조: [파일:라인 리스트]" + 각 위치를 같이 변경할지 여부 권고 (같이 / 남기기 / 별도 Task)
   3. **Approve → Change**: Jayden 승인 후에만 일괄 변경. 승인 전 어느 한 곳도 수정 금지
 - **프롬프트 교훈**: Jayden이 "X를 Y로 바꿔줘", "이 값 교체", "URL/env/키 변경" 계열 요청을 하면 **첫 액션은 항상 `Grep "X"`**. 변경 대상이 1곳뿐이어도 "스캔 결과: 1곳만 참조됨, 바로 수정해도 될까요?"로 명시 보고. 이 규칙은 feedback memory `feedback_value-change-scan`으로도 저장되어 다음 세션에서 자동 적용
-
----
-
-## 🔍 에러 발생 시 디버깅 체크포인트
-
-> learnings 전체에서 추출한 패턴별 체크리스트. 에러 발생 시 해당 카테고리부터 확인.
-
-### A. 유료 분석이 멈춤 (analyzing 영구 고착)
-
-```
-□ 1. Anthropic 콘솔 로그 확인 — code 499 "client disconnected"인가?
-     → Yes: Vercel Lambda 타임아웃. maxDuration = 60 설정 확인
-□ 2. Anthropic 로그에서 output_tokens == maxTokens인가?
-     → Yes: JSON 절삭. maxTokens 4096 이상으로 증가
-□ 3. Anthropic 로그에 400/404 에러인가?
-     → 400: API 크레딧 소진 → 충전 필요
-     → 404: 모델 ID 오류 → claude-sonnet-4-20250514 형식 확인
-□ 4. admin에서 AI 에이전트 ✓인데 CMO만 ✗인가?
-     → CMO Opus 타임아웃(30초) 초과. 로그에서 latency 확인
-□ 5. 크롤링 ✗ + 무료분석 ✗인가?
-     → n8n 콜백 실패. SITE_URL이 localhost가 아닌지 확인
-     → crawl/complete 라우트에 maxDuration 설정 확인
-```
-
-### B. 배포 후 프로덕션 에러
-
-```
-□ 1. git status -sb에서 [ahead N] 없는지 확인
-     → 있으면 push 안 된 것. git push origin main 실행
-□ 2. git diff --stat HEAD로 미커밋 파일 확인
-     → types.ts, config 파일이 미커밋이면 Vercel 빌드 실패
-     → 검증법: git stash && npx next build (Git 코드만으로 빌드)
-□ 3. Vercel 대시보드에서 빌드 상태 확인
-     → 빌드 실패: 에러 로그 확인 (타입 에러가 대부분)
-     → 빌드 성공인데 동작 안 됨: 환경변수 누락 확인
-□ 4. 환경변수 확인 (admin 페이지 또는 Vercel 대시보드)
-     → ANTHROPIC_API_KEY, CRAWL_EXECUTE_SECRET, SITE_URL 등
-```
-
-### C. 외부 API 실패
-
-```
-□ 1. 특정 도메인만 실패? vs 모든 도메인 실패?
-     → 모든 도메인: API 서비스 종료/마이그레이션 의심 (Observatory v1→v2 사례)
-     → 특정 도메인: robots.txt 차단 또는 사이트 문제
-□ 2. Google API "API key not valid" 400?
-     → API 활성화와 키 권한은 별개. Cloud Console에서 키 제한 확인
-     → 설정 반영 최대 5분 소요
-□ 3. n8n 콜백 405 "Method Not Allowed"?
-     → trailing slash → 308 → POST→GET 변환. GET 핸들러도 export
-□ 4. Claude API 404?
-     → 모델 ID 확인. 마케팅명(4.6) ≠ API ID(4). claude-sonnet-4-20250514
-□ 5. Claude API 499 "client disconnected"?
-     → 서버 측 타임아웃. maxDuration 설정 + Vercel 플랜 한도 확인
-```
-
-### D. 대시보드/UI 이상
-
-```
-□ 1. 데이터가 있는데 안 보임?
-     → diagnosis-parser.ts의 정규화 로직 확인 (필드명 차이: passedRules vs passedCount)
-     → DB 컬럼 조회에 필요한 필드 빠졌는지 select() 확인
-□ 2. 이전 정상 결과가 안 보이고 에러만 표시?
-     → 대시보드 쿼리 우선순위: 진행중 > 완료 > 실패 순인지 확인
-     → 단순 최신순(LIMIT 1)이면 failed가 completed를 가림
-□ 3. BlurOverlay/유료 기능이 Free에서 보임?
-     → tier 확인 로직. DB에 tier='paid'로 저장되었는지 확인
-□ 4. 점수 색상이 안 맞음?
-     → config/scoring.ts의 getScoreColor() 사용하는지 확인. 직접 색상 판단 금지
-```
-
-### E. Vercel 서버리스 특수 규칙
-
-```
-□ 1. after()가 있는 라우트 → maxDuration = 60 필수
-□ 2. void promise / fire-and-forget → 절대 사용 금지. await 또는 after()
-□ 3. Hobby 최대 60초 / Pro 최대 300초
-□ 4. Lambda 죽으면 catch 블록도 안 실행됨 → status 영구 고착 위험
-□ 5. 로컬 정상 + 프로덕션 실패 → Lambda 수명 차이가 원인일 가능성 높음
-```
-
-### F. 보안 체크 (커밋 전)
-
-```
-□ 1. n8n workflow JSON에 시크릿 하드코딩 없는지 grep 확인
-□ 2. /api/dev/ 디버그 엔드포인트 삭제했는지 확인
-□ 3. 환경변수 값(길이, prefix)을 응답에 포함하지 않는지 확인
-□ 4. NEXT_PUBLIC_ 접두사가 붙은 변수에 시크릿 없는지 확인
-```
-
-### G. 부분 수정 후 재발 방지
-
-```
-□ 1. maxTokens 변경 → 5개 에이전트 모두 동일 기준 적용했는지 확인
-□ 2. 타입 추가 → 해당 타입 사용하는 모든 파일 커밋했는지 확인
-□ 3. API Route 추가 → maxDuration + POST/GET 모두 export 확인
-□ 4. 환경변수 추가 → Vercel 대시보드에도 추가했는지 확인
-□ 5. 설정 변경 → "일부만 수정"하지 말고 전체 일관성 확인
-```
-
----
 
 ### 2026-04-06 중요 표시값의 Single Source of Truth 부재 → 리포트 내 점수 불일치
 
@@ -443,6 +198,12 @@
 - **방법**: MCP execute_sql로 같은 진단 ID를 SELECT만 하면서 시간 차이 비교. SQL 한 줄에 EXTRACT(EPOCH FROM (NOW() - updated_at)) AS seconds_since_last_update, EXTRACT(EPOCH FROM (updated_at - created_at)) AS process_seconds 같은 metric을 함께 출력하면 변화 패턴이 한눈에 보임
 - **규칙**: 프로덕션 이슈 추적 시 **DB의 변화 패턴 자체가 결정적 단서**가 될 수 있다. 단일 시점 SELECT보다 (1) 같은 row를 1~5분 간격으로 여러 번 쿼리 (2) 매번 NOW() 기반 metric을 함께 출력 (3) updated_at, score, status 등의 변화를 표로 비교. 변화 패턴이 일정 주기(예: 33초)면 cron 의심, 불규칙이면 외부 콜백 retry 의심. 이 패턴은 코드 read만으로는 절대 발견 불가하고, 실시간 DB 관찰이 필수
 
+### 2026-04-06 stuck 화면 디버깅 — 백엔드 → 프론트엔드 격리 진단 (방법론)
+
+- **상황**: Jayden이 onboarding/url 화면에서 "분석 시작" 후 작업중 표시 stuck. n8n에서는 작업 완료. Supabase 확인 → 638f2f45 진단이 25초만에 completed로 정상 종료. 즉 백엔드는 완벽하게 작동했지만 화면이 안 갱신됨
+- **해석**: 백엔드 로그/DB가 정상이면 **문제는 프론트엔드**이다. 가능한 원인은 (1) Server Action 응답 못 받음 (2) redirect 작동 안 함 (3) Server Component cache stale (4) JS 에러로 form submit 자체가 안 일어남 (5) 다른 진단 ID polling 중
+- **규칙**: stuck 화면 디버깅 시 **반드시 백엔드 상태(DB, 로그)를 먼저 확인**. 백엔드가 정상이면 코드 read 대상은 (1) Server Action 코드 (2) Form 컴포넌트 (3) router.refresh() 또는 redirect 호출 (4) Server Component cache 무효화. 백엔드 비정상이면 외부 API/n8n/auth 등을 의심. 두 영역을 동시에 의심하면 시간 낭비 — **백엔드 → 프론트엔드 순서 격리**가 가장 빠르다
+
 ### 2026-04-08 n8n v2.16.0 webhook typeVersion 2 — responseMode='responseNode' + fan-out Respond 조합 reject
 
 - **증상**: n8n 2.16.0에 v3.2 워크플로우 import 후 활성화 시도 → "Unused Respond to Webhook node found in the workflow" 에러로 차단. 워크플로우의 Validate & Set Variables 노드 fan-out 첫 분기에 "Respond 202 Accepted" 노드가 있고, 같은 fan-out에 Firecrawl 처리 분기들이 병렬로 존재
@@ -455,7 +216,7 @@
 - **상황**: n8n 2.16.0(2026-04-07 stable)을 사용 중인 Jayden에게 v1.x 시절 UI 기준으로 가이드 제공. "Active/Inactive" 토글로 안내했으나 실제 화면에는 "Published/Draft" 모델이 보임. Jayden이 "네가 학습한 n8n 버전 알려줘"로 직접 지적
 - **AI가 한 것**: (1) 학습 cutoff 이후 변경된 외부 도구 UI/기능을 확인 없이 가이드 (2) 첫 에러("Unused Respond to Webhook")를 가설 트리만 돌려서 해결 시도, GitHub source 확인이 늦음 (3) Jayden이 명시적으로 "최신 버전 학습해" 요청한 후에야 정확한 정보 수집
 - **올바른 방향**: 외부 SaaS/도구(n8n, Vercel, Supabase, Firecrawl 등) 가이드 작성 시 **첫 액션은 사용자 환경 버전 확인**. 명확하지 않으면 "현재 X 버전이 뭐예요?" 한 줄 질문. 학습 데이터의 UI 스크린샷이나 옵션 명칭은 해당 시점의 정보일 뿐, 6개월~1년만 지나도 크게 달라질 수 있음 (n8n은 typeVersion 단위로 검증 규칙이 변경됨)
-- **규칙**: 외부 SaaS 도구 가이드 시 (1) 첫 액션 = 사용자 환경 버전 확인 (2) 학습 cutoff 이후 가능성 항상 의심 (3) 가이드 전 공식 changelog/release notes WebFetch로 검증 (4) GitHub source가 있는 OSS 도구는 typeVersion/displayOptions 같은 검증 규칙을 직접 read (5) "내가 학습한 버전과 사용자 버전이 다를 수 있다"는 사실을 가이드 시작 시 명시. learnings 2026-04-06 (외부 서비스 가격/제한 변경 검증)과 같은 패턴 — 모든 외부 도구는 시간에 따라 변하므로 "내가 안다"는 가정 자체를 의심
+- **규칙**: 외부 SaaS 도구 가이드 시 (1) 첫 액션 = 사용자 환경 버전 확인 (2) 학습 cutoff 이후 가능성 항상 의심 (3) 가이드 전 공식 changelog/release notes WebFetch로 검증 (4) GitHub source가 있는 OSS 도구는 typeVersion/displayOptions 같은 검증 규칙을 직접 read (5) "내가 학습한 버전과 사용자 버전이 다를 수 있다"는 사실을 가이드 시작 시 명시. 2026-04-06 (외부 서비스 가격/제한 변경 검증)과 같은 패턴 — 모든 외부 도구는 시간에 따라 변하므로 "내가 안다"는 가정 자체를 의심
 
 ### 2026-04-08 crawl_data의 blocked_reason 텍스트로 코드 흐름 정확히 추적 (디버깅 패턴)
 
@@ -463,12 +224,6 @@
 - **디버깅**: Supabase MCP로 진단 row 조회 → `crawl_data` JSON 안의 `blocked_reason: "크롤링 품질 미달 (completeness 11%)"` 발견. 이 텍스트를 grep하여 `route.ts:181`의 `payload.reason ?? 크롤링 품질 미달 (completeness ${payload.dataCompleteness}%)` 정확한 생성 코드 위치 확정. 즉 quality_rejected 분기 → markDiagnosisFailed 호출 → status=failed가 정확한 흐름임을 5분 내에 확정
 - **결론**: 이건 버그가 아니라 정상 동작이었고, findably.kr 사이트 자체가 dataCompleteness 11%로 Quality Gate(30% 미만)에 걸린 것
 - **규칙**: 디버깅 시 **DB에 저장된 텍스트 메시지(reason, error_message, blocked_reason 등)를 코드에서 grep**하면 해당 메시지를 생성하는 정확한 위치를 5분 안에 찾을 수 있다. 이 패턴은 (1) "이게 어디서 실패했지?" 질문에 가설 5개 세우는 것보다 빠름 (2) 동적 보간 (`${var}`) 부분은 grep 어려우므로 고정 텍스트 prefix/suffix만 검색 (3) 메시지가 여러 곳에서 동일하게 생성되면 호출 스택을 좁히는 추가 단서(파라미터 값, 시간대) 활용. 이 패턴은 fake/real 진단 디버깅 모두에 응용 가능. 디자인 함의: **에러 메시지를 충분히 unique하게 작성**하면 향후 디버깅 비용이 크게 줄어든다 (예: "잘못된 요청"보다 "페이로드 schema 검증 실패: dataCompleteness")
-
-### 2026-04-06 stuck 화면 디버깅 — 백엔드 → 프론트엔드 격리 진단 (방법론)
-
-- **상황**: Jayden이 onboarding/url 화면에서 "분석 시작" 후 작업중 표시 stuck. n8n에서는 작업 완료. Supabase 확인 → 638f2f45 진단이 25초만에 completed로 정상 종료. 즉 백엔드는 완벽하게 작동했지만 화면이 안 갱신됨
-- **해석**: 백엔드 로그/DB가 정상이면 **문제는 프론트엔드**이다. 가능한 원인은 (1) Server Action 응답 못 받음 (2) redirect 작동 안 함 (3) Server Component cache stale (4) JS 에러로 form submit 자체가 안 일어남 (5) 다른 진단 ID polling 중
-- **규칙**: stuck 화면 디버깅 시 **반드시 백엔드 상태(DB, 로그)를 먼저 확인**. 백엔드가 정상이면 코드 read 대상은 (1) Server Action 코드 (2) Form 컴포넌트 (3) router.refresh() 또는 redirect 호출 (4) Server Component cache 무효화. 백엔드 비정상이면 외부 API/n8n/auth 등을 의심. 두 영역을 동시에 의심하면 시간 낭비 — **백엔드 → 프론트엔드 순서 격리**가 가장 빠르다
 
 ### 2026-04-08 n8n fan-in은 반드시 Merge 노드 필수 — "hasn't been executed" 패턴 (CRITICAL)
 
@@ -514,7 +269,7 @@
 
 ### 2026-04-08 이전 잘못된 진단 정정 — v3.3 Respond 노드 제거는 표면적 해결이었음 (메타 교훈)
 
-- **상황**: learnings.md 2026-04-08 "n8n v2.16.0 webhook typeVersion 2 — responseMode='responseNode' + fan-out Respond 조합 reject" 항목은 "Respond 202 노드를 제거하고 `responseMode: onReceived + customCode: 202`로 변경"을 해결책으로 기록했음. 하지만 실제로 그 변경으로 활성화 에러는 사라졌지만 **프로덕션 크롤링이 fan-in 버그로 완전히 작동 불능** 상태였고, 이번 세션에서 진짜 원인(Merge 노드 누락)을 발견함
+- **상황**: 2026-04-08 "n8n v2.16.0 webhook typeVersion 2 — responseMode='responseNode' + fan-out Respond 조합 reject" 항목은 "Respond 202 노드를 제거하고 `responseMode: onReceived + customCode: 202`로 변경"을 해결책으로 기록했음. 하지만 실제로 그 변경으로 활성화 에러는 사라졌지만 **프로덕션 크롤링이 fan-in 버그로 완전히 작동 불능** 상태였고, 이번 세션에서 진짜 원인(Merge 노드 누락)을 발견함
 - **AI가 한 것**: v3.2 → v3.3 마이그레이션 시 "활성화 에러 해결"에만 집중하고 **실제 프로덕션 테스트로 end-to-end 검증을 하지 않음**. Respond 노드 제거 + onReceived 변경은 **활성화 검증만 통과**시켰고 fan-in 실행 흐름에는 영향 없음. fan-in은 v3.2부터 Merge 노드가 빠져 있었지만, v3.2의 responseNode + Respond 조합에서는 Respond 노드가 Normalize Results 이전에 실행 종료를 유도했을 가능성이 있어 증상이 달랐을 수도 있음 (또는 그 당시에는 한 번도 성공한 적이 없었을 수도 있음 — 검증 부족)
 - **올바른 방향**: **workflow 활성화 성공 ≠ 파이프라인 작동**. 두 가지는 별개. (1) 활성화는 "n8n validator가 허용하는 구조인가"만 검사 (2) 실제 작동은 "각 노드 간 데이터 흐름 + fan-in/out + 타이밍 동기화"에 달려 있음. 전자를 통과해도 후자에서 실패할 수 있음. 워크플로우 변경 후에는 **반드시 프로덕션 또는 스테이징에서 end-to-end 테스트** + DB 결과 확인까지 마쳐야 "완료" 선언 가능
 - **프롬프트 교훈**: n8n workflow 같은 외부 시스템 변경 시 "활성화 성공 = 작동"으로 축약 금지. 검증 체크리스트: (1) workflow 활성화 성공 (2) 테스트 실행 → execution 탭 "Succeeded" 확인 (3) 각 노드 output이 기대한 데이터인지 확인 (4) 후속 시스템(DB, API)의 저장/호출 결과 확인 (5) end-to-end 상태 전이 확인 (status: pending → crawling → completed). 이 중 하나라도 건너뛰면 learnings.md에 잘못된 교훈을 쓰게 되고, 다음 세션에서 같은 실수 반복. 이번 세션의 v3.3 → v3.4 → v3.5 3단계 수정 루프는 이 검증 부족의 직접적 결과였음
