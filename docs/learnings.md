@@ -351,3 +351,43 @@
   2. **"정식 JS/Node 런타임이다"라는 가정 금지** — sandbox/vm/isolate는 기본 global의 일부를 제거하거나 대체하는 경우가 많음
   3. **가장 작은 변경으로 먼저 테스트** — v3.7에서 Validate 노드에 `host` 필드 추가 + B4 Observatory만 수정한 건 맞지만, `new URL()` 사용 자체가 새 리스크였는데 "JS 런타임이니 당연히 작동"으로 검증 단계 skip
 - **프롬프트 교훈**: "구조적 해결" "sandbox 회피" 같은 자신감 있는 표현을 쓰기 전에 **"같은 파일에 이미 동작 중인 패턴이 있는가?"를 먼저 확인**. v3.6의 SSL Labs 노드가 이미 `.replace/.split`를 쓰고 있었다는 사실은 중요한 단서였는데, 당시엔 "SSL Labs도 같이 바꿀까?" 질문으로 넘기고 본질("왜 이 workflow는 URL 파싱에 string 조작을 쓰는가?")을 파고들지 않았음. **특이한 기존 패턴을 발견하면 그것을 새 코드의 기준으로 삼을 것**. 자신감 있는 계획일수록 "반증 가능성"을 명시적으로 검토
+
+### 2026-04-09 Supabase `.select()` 컬럼 누락 — 새 DB 컬럼을 추가해도 기존 쿼리에 자동 포함되지 않음 (silent failure)
+
+- **증상**: Phase D에서 `diagnoses.industry` 컬럼 기반 업종별 매출 계산을 구현. 온보딩 `/info` 페이지에서 "숙박·음식점·카페" 선택 → DB `industry='accommodation_food'` 저장 확인. 그런데 상세 리포트 렌더링 시 여전히 "월매출 1,640만원 기준"(fallback 값) 표시. PDF도 동일. TypeScript 에러 없음, 런타임 에러 없음
+- **원인**: `src/app/(dashboard)/reports/my/[id]/page.tsx:31`과 `src/app/api/reports/[id]/pdf/route.tsx:27`의 `.select('id, url, status, tier, analysis_data, created_at')` — 둘 다 `industry`를 포함하지 않음. Supabase는 명시되지 않은 컬럼을 조용히 제외하고 `undefined`로 반환. `diagnosis.industry`가 `undefined`이면 `getBaseMonthlyRevenueForIndustry(undefined)` → `isSmeIndustryId(undefined)` false → `BASE_MONTHLY_REVENUE`(1,640만원) fallback. **타입 체크도 통과** (`industry?: string | null`이 옵셔널이므로)
+- **해결**: 두 파일 모두 `.select('...')` 문자열에 `, industry` 추가. 커밋 `99ff2fd` 배포 후 실제 화면에서 "월매출 1,260만원 기준" + "업종: 숙박·음식점·카페" 배지 정상 표시 확인
+- **규칙**: **Supabase `.select()` 컬럼 누락은 TypeScript + Zod + ESLint 어떤 레이어로도 잡히지 않는 silent failure**. 새 DB 컬럼을 코드에서 사용하려면 **모든 관련 쿼리의 `.select()` 문자열을 grep으로 찾아 업데이트**. 체크리스트: (1) 마이그레이션으로 컬럼 추가 (2) 타입 재생성 (`supabase gen types`) (3) **새 컬럼 이름을 grep하여 모든 `.select()` 위치 확인** (4) 화면/API에서 실제 값이 반영되는지 검증. 2026-04-06 "값 변경 시 전체 참조처 스캔" 규칙과 동일 패턴 — Grep 먼저. 디버깅 단서: "DB에는 값이 있는데 화면에는 안 보인다" + fallback 값 표시되면 `.select()` 누락 1순위 의심
+
+### 2026-04-09 shadcn @base-ui Select — `SelectValue` 자식 없으면 raw value(ID) 렌더, label 표시하려면 render prop 필수
+
+- **증상**: Phase D `IndustrySelect` 구현 시 `<SelectValue placeholder="업종을 선택해주세요" />`만 작성. 선택 시 화면에 "accommodation_food" 같은 **raw ID가 그대로 표시**됨. 한글 라벨(`숙박·음식점·카페`)이 아님
+- **원인**: shadcn/ui의 Select 컴포넌트가 `@base-ui/react` 기반인데, `SelectValue`는 자식이 없으면 **현재 선택된 `value`를 그대로 렌더**. `SelectItem`의 시각적 자식(`<SelectItem value="accommodation_food">숙박·음식점·카페</SelectItem>`)은 **드롭다운 열린 상태에서만** 보이고, 닫힌 상태의 트리거에는 반영되지 않음. Radix UI의 Select와 다른 동작 — Radix는 마지막 선택된 `SelectItem`의 children을 자동 복사하지만 @base-ui는 그렇지 않음
+- **해결**: `SelectValue`에 render prop 자식 전달:
+  ```tsx
+  <SelectValue placeholder="업종을 선택해주세요 (선택 사항)">
+    {(selected: unknown) => {
+      if (isSmeIndustryId(selected)) return INDUSTRY_LABELS[selected]
+      return '업종을 선택해주세요 (선택 사항)'
+    }}
+  </SelectValue>
+  ```
+  `selected`는 현재 선택된 value(string|undefined). 타입 가드로 안전하게 label lookup
+- **규칙**: **shadcn/ui Select가 `@base-ui/react` 기반일 때는 `SelectValue`에 render prop 필수** (label 표시 원하는 경우). Radix 기반 Select 문서/예제를 그대로 복사하면 이 함정에 빠짐. 판별 방법: `src/components/ui/select.tsx`를 열어 `import { Select as SelectPrimitive } from '@base-ui/react/select'`면 base-ui, `import * as SelectPrimitive from '@radix-ui/react-select'`면 Radix. base-ui 버전은 **반드시 render prop 사용 + `isXxxId` 타입 가드 + label 매핑 객체** 3종 세트로 구현
+
+### 2026-04-09 주석에 기재된 라우팅 ≠ 실제 라우팅 — IndustrySelect가 dead route에 놓인 사례 (AI 이탈 교훈)
+
+- **상황**: Phase D에서 `/onboarding/info` 페이지에 `IndustrySelect`를 추가. `InfoForm.tsx` 편집까지 완료하고 E2E 테스트 실행 → `/info` 페이지가 **아예 표시되지 않음**. URL 제출 후 바로 `/onboarding/analyzing`으로 이동 → Phase D 전체가 **unreachable**. 모든 신규 진단이 `industry=null`로 저장됨
+- **AI가 한 것**: `submit-url.ts:123` 주석에는 `// Phase D (2026-04-09): /info로 리다이렉트 (업종 선택 + 선택 정보 입력)`이라고 **명시되어 있었음**. 하지만 실제 코드는 `redirect('/onboarding/analyzing?...')` — 주석과 코드가 불일치. Phase D 계획 시 "onboarding/info 페이지가 이미 존재하고 크롤링 후 거치는 단계"라고 **가정**하고 `InfoForm.tsx`만 확인. 실제 플로우(submit-url → 어디로?)를 trace하지 않음
+- **올바른 방향**: UI/페이지 수정 작업 시 **반드시 "이 화면에 어떻게 도달하는가?"를 먼저 grep으로 trace**. 구체적 순서:
+  1. 편집 대상 페이지 경로 → `Grep "/onboarding/info"` (코드+redirect+Link 전체)
+  2. 발견된 참조처가 실제로 그 경로로 이동하는지 확인 (주석이 아닌 실행 코드)
+  3. 참조 0건이면 dead route → 플로우 복구가 먼저, UI 작업 보류
+  4. 참조가 있어도 조건부(if) 경로면 모든 분기 확인
+- **프롬프트 교훈**: **"파일이 존재한다 = 접근 가능하다" 가정 금지**. Next.js App Router는 파일 시스템 기반이라 `page.tsx`가 있으면 URL은 존재하지만, **실제 사용자가 그 URL에 도달하는 플로우가 없으면 dead route**. 주석("/info로 이동")과 코드(`redirect('/analyzing')`)가 다르면 **코드가 진실**. Phase 계획 단계에서 "이 플로우가 이미 연결되어 있다"고 가정하지 말고, **출발점 → 목적지 전체 경로를 trace**. 관련 규칙: 2026-04-06 "값 변경 시 전체 참조처 스캔"의 UI 버전 — **페이지 수정 시 진입 경로 스캔**
+
+### 2026-04-09 병렬 서브에이전트 교차 검증의 가치 — Agent B의 단위 혼동을 Agent A가 정정
+
+- **상황**: Phase D 계획 시 업종별 월매출 데이터 수집을 위해 general-purpose 서브에이전트 2개(A, B)를 병렬 실행. Agent B가 "KCD(한국신용데이터) 2025 Q4 보고서: 소상공인 월 매출 4,916만원 — 현재 하드코딩 1,640만원과 **3배 차이**, 기존 값이 심각하게 낮음"이라고 보고. Jayden이 "그럼 1,640만원을 4,916만원으로 올려야 하나?"라고 혼란
+- **해결 경로**: Agent A가 KOSIS 소상공인실태조사 2023을 별도 수집 → "전산업 평균 연매출 197백만원 ÷ 12 = 월 1,658만원, 현재 1,640만원과 일치"라고 보고. 두 보고서를 대조한 결과 **Agent B가 KCD의 "분기 합계"를 "월 평균"으로 오독**했음을 발견. 4,916만원 ÷ 3 = 1,639만원 ≈ 1,640만원 — 결국 기존 하드코딩이 정확했음. 만약 Agent B만 돌렸으면 **잘못된 근거로 기존 상수를 3배 부풀려 수정**하고 리포트 전체 금액이 과장될 뻔함
+- **규칙**: **외부 데이터(통계/가격/API 스펙)를 리서치할 때는 서브에이전트 1개에만 의존 금지**. 최소 2개를 **독립 실행**(서로 결과 공유 없이)하고 **출처·단위·기준시점을 교차 검증**. 불일치가 발견되면 "둘 다 맞을 수 없음" → 원본 문서를 직접 확인. 특히 한국 통계는 "월/분기/연" + "매출/부가가치/순이익" + "평균/중앙값/가중평균" 조합이 많아 **단위 혼동이 구조적으로 발생**. 에이전트 프롬프트에 "**단위를 반드시 원문 그대로 인용할 것, 환산은 별도 표기**" 명시. 교차 검증은 10분 추가 비용이지만, 잘못된 값으로 Phase 전체가 뒤집어지는 비용보다 훨씬 저렴

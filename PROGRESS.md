@@ -1740,3 +1740,130 @@ admin 계정만 무제한 재사용 가능하도록 우회 추가.
 - **배포 상태**: Vercel 자동 배포 경로 준비 (Jayden 수동 확인 필요)
 - **테스트 계정**: `findably-qa@test.local` / `FindablyQA-Test2026!`
 - **상태**: 🟢 **완료** — Phase A+B+C 3단계 모두 완료, 유료 리포트 검수 v1 지시문 (Task 1~5) 100% 반영
+
+---
+
+## 📍 Session 14차 (2026-04-09 오후 ~ 저녁) — Phase C Task 5 실증 검증 + Phase D 업종별 동적화 완결
+
+### 현재 위치
+
+- **Epic**: 유료 리포트 검수 (Phase A+B+C+D **모두 완료**)
+- **Task**: Phase D — 업종별 월매출 동적화 + 언어 톤다운 + 퍼센트 병행
+- **상태**: 🟢 **완료** — 4 커밋 push + 프로덕션 E2E 검증 통과 + 3건 learnings 후보
+
+### 이번 세션 완료 내역
+
+#### 1. Phase C Task 5 실증 검증 (옵션 A, ~30분)
+
+- Playwright로 `findably-qa@test.local` 로그인 → `monthlycheck.kr` 기존 무료 진단(9fe518ca)에서 gift code `ADMIN-0709` 적용
+- 새 paid 진단 `968477cb-ab9f-497a-846c-6b54c62458ce` 생성 → process 195초 완료
+- **DB 검증**: `analysis_data.agentResults[0].insights` 8개 technical insight의 `suggestedFix` 전체 스캔
+  - Shopify **0/8** ✅ (WordPress 편향 완전 제거)
+  - 워드프레스/카페24/직접코딩 **8/8** 모두 등장 ✅
+  - CMS 미감지 케이스(`cms=null`)에서 3가지 경로 병렬 제시 규칙 완벽 작동
+- **PDF 검증**: 232KB, 전체 스캔 Shopify 0건, 워드프레스 25건, 카페24 25건, 직접코딩 11건
+- **Phase A/B 회귀 체크**: 커버 62점 통일, 매출 누수 캡 328만원, #technical 태그 배분, KCD 출처, 경쟁사 빈 섹션 제거, AI 인용 0% info block 모두 유지 ✅
+
+#### 2. Phase D 리서치 (서브에이전트 병렬 2개)
+
+Jayden이 "업종별 매출 데이터는 고객사가 꺼려할 수도" 지적 → UX 민감도 + 공개 데이터 2축 리서치
+
+**Agent A (UX 민감도)** 결과:
+
+- 민감 필드 추가 시 전환율 5~7%/필드 하락 (HubSpot)
+- 한국 SaaS 표준: 매출 직접 입력 없음 (Cafe24/스마트스토어/토스비즈니스/가비아 전수 검증)
+- Ahrefs/Semrush는 매출 대신 Traffic Value (키워드 × CPC 환산)
+- 현재 1,640만원 기본값은 통계적으로 유효 (KCD 2025 Q4 분기 4,916 ÷ 3 = 월 1,639)
+
+**Agent B (KOSIS 데이터)** 결과:
+
+- KOSIS `DT_3ME0100` 시도/산업중분류별 주요지표에 11개 대분류 매출 존재
+- Agent B가 KCD 수치 단위 혼동으로 "불일치" 오진 → Agent A가 교정
+- 공공누리 적용, 상업 이용 가능
+
+**Jayden 결정**: Q-D6 옵션 3 (언어 톤다운 + Phase A 자산 보존) + 데이터 Option C (퍼센트 병행)
+
+#### 3. KOSIS 11개 대분류 매출 데이터 수집 (Playwright)
+
+- Playwright로 KOSIS 사이트 접속 → 중첩 iframe 재귀 탐색 → 686 rows 테이블에서 "전국 + 산업별(2)=소계" 필터
+- 12개 산업 대분류 추출 (전산업 + 11개):
+  - 전산업 **199백만원/년** = 월 1,658 (현재 기본값 1,640과 일치)
+  - 숙박·음식점업 151 → **월 1,260**
+  - 제조업 407 → **월 3,390**
+  - 부동산업 51 → **월 425**
+  - 도소매 260, 건설 296, IT 115, 전문서비스 148, 교육 75, 사업시설 125, 예술 92, 개인서비스 67
+
+#### 4. Phase D 1차 구현 (커밋 `1f218f0`, 12 파일 변경)
+
+- **`src/config/revenue.ts` 리팩토링**:
+  - **삭제**: System 1 dead code (`IndustryId saas/ecommerce/...`, `INDUSTRY_BENCHMARKS`, `calculateRevenueImpact`, `getBenchmark`, `REVENUE` 객체) — 외부 호출 0건 확인
+  - **신규**: `SmeIndustryId` 타입 (KOSIS 11개), `INDUSTRY_MONTHLY_REVENUE` 맵, `INDUSTRY_LABELS`, `INDUSTRY_OPTIONS`, `getBaseMonthlyRevenueForIndustry()`, `getIndustryLabel()`, `isSmeIndustryId()`
+- **`src/components/ui/select.tsx`** 신규 (shadcn add select, @base-ui/react 기반)
+- **`src/features/onboarding/components/IndustrySelect.tsx`** 신규 (shadcn Select + hidden input 패턴)
+- **온보딩 통합**: `/info` 페이지의 자유 텍스트 input을 IndustrySelect로 교체
+- **렌더 prop chain 전파** (웹 + PDF 양쪽):
+  - `page.tsx` → `DetailedReportContent` → `BridgeSection` → `TotalLeakageCard`
+  - `/api/reports/[id]/pdf/route.tsx` → `ReportDocument` → `PdfBridgeSection`
+  - `distributeRevenueLeakage(insights, { baseMonthlyRevenue })` 동적 전달
+- **언어 톤다운**:
+  - "매출 비용이 새는 곳" → "마케팅에서 개선 여지가 있는 영역"
+  - "현재 매월 새고 있는 마케팅 비용" → "현재 추정되는 월 마케팅 기회비용"
+  - "매출의 20% 수준" → "매출 대비 20% 규모"
+  - "영향" → "규모"
+- **퍼센트 병행**: 카테고리 카드마다 "(매출 대비 X.X%)" 1줄 추가
+- **출처 업데이트**: KCD 2025 Q4 → 중기부·통계청 소상공인실태조사 2023
+- **테스트 +16 신규** (revenue 27 + insight-aggregation 33 = 60 통과)
+
+#### 5. Phase D Hotfix 2차/3차 (커밋 `bc0c900`, `99ff2fd`)
+
+**1차 hotfix (bc0c900)**: E2E 테스트 시작 시 `/onboarding/url` submit 후 `/info`를 건너뛰고 바로 `/analyzing`으로 가던 버그 발견. `submit-url.ts:123`을 `/info?id=...`로 복구 (주석이 원래 `/info`라고 명시했지만 구현이 일치 안 함).
+
+**2차 hotfix (99ff2fd)**: 1차 배포 후 PDF가 여전히 월매출 1,640만원으로 표시 → 원인: `route.tsx`/`page.tsx`의 `.select()`에 `industry` 컬럼 누락. 두 파일에 추가. 동시에 shadcn `@base-ui` `SelectValue`가 raw ID ("accommodation_food") 표시하는 문제를 render prop 패턴으로 해결 (`INDUSTRY_LABELS` 매핑).
+
+**Vercel 배포 지연 hotfix (1f88f2b)**: push 후 5분+ 대기해도 Vercel auto-deploy가 트리거 안 됨. 빈 커밋으로 webhook 재트리거 → 34초 후 정상 배포.
+
+#### 6. 프로덕션 E2E 검증 (진단 9212e4a6-...)
+
+- `monthlycheck.kr` 새 진단 + IndustrySelect에서 "숙박·음식점·카페" 선택 → DB industry=`accommodation_food` 저장 확인
+- Gift code 유료 전환 (이전 테스트 레코드 삭제 후) → 새 paid 진단 생성 industry 보존 확인
+- 유료 분석 완료 (process 175초) → PDF 다운로드 227KB
+- **15개 체크리스트 100% 통과**:
+  - 헤더 "업종: 숙박·음식점·카페" 노출 ✅
+  - 월매출 **1,260만원** (기본 1,640 대비 23% 감소) ✅
+  - 누수 캡 **251만원** (기본 328 대비 비례 축소) ✅
+  - 연간 **3,012만원** ✅
+  - 카테고리별 동일 비율 축소: 79→60, 66→50, 49→38, 39→30 ✅
+  - 퍼센트 병행 "매출 대비 4.8%, 4.0%, 3.0%, 2.4%" ✅
+  - 언어 톤다운: "새고 있" **0건**, "기회비용" 1건 ✅
+  - 신 출처 "소상공인실태조사 2023" 1건, 구 출처 "KCD 2025" **0건** ✅
+
+### 이번 세션 커밋 (5건)
+
+1. `1f218f0` feat(report): phase d — 업종별 월매출 동적화 + 언어 톤다운 + 퍼센트 병행
+2. `bc0c900` fix(onboarding): phase d — /url → /info 리다이렉트 복구
+3. `99ff2fd` fix(report): phase d — industry 컬럼 누락 select + IndustrySelect 라벨 표시
+4. `1f88f2b` chore: trigger vercel redeploy (webhook 지연 강제)
+5. (save commit 예정)
+
+### 다음 세션 할 일 (우선순위)
+
+| 우선순위 | 작업                               | 비고                                                                                                |
+| -------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **P1**   | 기존 31 vitest 실패 정리           | observatory v1→v2, ssl-labs, save-crawl-result, CMO fallback 등 pre-existing 실패. Phase A~D와 무관 |
+| **P1**   | Phase E 후보 탐색                  | 회사 규모 추가 선택 / 업종별 AI 프롬프트 차별화 / GSC 연동 등 Jayden 결정 대기                      |
+| **P2**   | 토스 실 연동 (Phase 2)             | 현재 gift code로 우회 중. 실제 결제 플로우 연결                                                     |
+| **P2**   | 1449 lint errors pre-existing 정리 | Phase D 영향 아님, 기존 누적                                                                        |
+
+### 차단 요소
+
+**없음** — Phase D 완료, 프로덕션 반영 완료, E2E 검증 통과
+
+### 마지막 업데이트 (14차)
+
+- **날짜**: 2026-04-09 18:30 KST (세션 종료)
+- **세션 시간**: ~4.5시간 (Phase C 검증 + 리서치 + KOSIS 수집 + Phase D 구현 + hotfix 2회 + E2E 검증)
+- **최종 커밋**: `1f88f2b` chore: trigger vercel redeploy (webhook 지연 강제)
+- **배포 상태**: Vercel 프로덕션 배포 완료 (l5o3viak3)
+- **테스트 계정**: `findably-qa@test.local` / `FindablyQA-Test2026!`
+- **검증 진단**: `9212e4a6-b464-42e5-9842-81bc985d3d67` (monthlycheck.kr, paid, industry=accommodation_food)
+- **상태**: 🟢 **완료** — Phase A+B+C+D 모두 완료. 유료 리포트 검수 v1 지시문 완결.
