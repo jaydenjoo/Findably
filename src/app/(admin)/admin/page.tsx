@@ -2,9 +2,11 @@ import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { ACCESS } from '@/config/access-control'
+import { getMaintenanceNotice } from '@/features/admin/maintenance/queries/get-maintenance-notice'
 import { AdminActions } from './_components/AdminActions'
 import { AdminGiftCodeForm } from './_components/AdminGiftCodeForm'
 import { AdminLoginForm } from './_components/AdminLoginForm'
+import { AdminMaintenanceForm } from './_components/AdminMaintenanceForm'
 
 export const metadata: Metadata = {
   title: '관리자',
@@ -52,6 +54,9 @@ export default async function AdminPage(): Promise<React.JSX.Element> {
     adminUser && ACCESS.ADMIN_EMAILS.includes(adminUser.email ?? '')
 
   const supabase = createAdminClient()
+
+  // 점검 공지 (캐시됨)
+  const maintenanceNotice = await getMaintenanceNotice()
 
   // 선물 코드 목록
   const { data: giftCodes } = await supabase
@@ -290,6 +295,12 @@ export default async function AdminPage(): Promise<React.JSX.Element> {
             </div>
           )
         })}
+      </section>
+
+      {/* ─── 점검 공지 관리 ─── */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold text-slate-900">점검 공지 관리</h2>
+        <AdminMaintenanceForm initialData={maintenanceNotice} />
       </section>
 
       {/* ─── 선물 코드 관리 ─── */}

@@ -3,6 +3,7 @@ import dynamic from 'next/dynamic'
 import { JsonLd } from '@/components/shared/JsonLd'
 import { LANDING } from '@/config/landing'
 import { SEO } from '@/config/seo'
+import { getMaintenanceNotice } from '@/features/admin/maintenance/queries/get-maintenance-notice'
 
 // 첫 화면 (즉시 로드)
 import Navbar from '@/components/landing/navbar'
@@ -91,11 +92,13 @@ const landingJsonLd = {
   ],
 }
 
-export default function MarketingPage() {
+export default async function MarketingPage() {
+  const maintenanceNotice = await getMaintenanceNotice()
+
   return (
     <div className="min-h-screen bg-background font-satoshi selection:bg-findably-cyan/30">
       <JsonLd data={landingJsonLd} />
-      <MaintenanceNotice />
+      <MaintenanceNotice notice={maintenanceNotice} />
       <header>
         <Navbar />
       </header>

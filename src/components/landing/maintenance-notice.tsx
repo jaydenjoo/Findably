@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useSyncExternalStore } from 'react'
-import { Wrench, X } from 'lucide-react'
+import { Wrench, X, Clock } from 'lucide-react'
+import type { MaintenanceNotice as MaintenanceNoticeData } from '@/features/admin/maintenance/types'
 
 const STORAGE_KEY = 'findably.maintenance-dismissed'
 
@@ -26,22 +27,30 @@ function getServerSnapshot(): boolean {
   return true
 }
 
+interface MaintenanceNoticeProps {
+  notice: MaintenanceNoticeData
+}
+
 /**
- * 개발 중 공지 모달
+ * 서비스 점검 공지 모달
  *
  * 랜딩 페이지 첫 진입 시 1회 표시. 세션 내에서는 "알겠습니다" 후 재표시 안 됨.
- * 크롤링 파이프라인 점검 중 — 사용자가 진단을 시도하면 실패하므로
- * 사전에 안내하는 목적.
+ * 내용은 Admin UI(/admin)에서 수정 가능. notice 데이터는 서버에서 전달받음.
  *
  * React 19 `useSyncExternalStore`로 SSR 안전하게 sessionStorage 동기화.
  */
-export default function MaintenanceNotice(): React.JSX.Element | null {
+export default function MaintenanceNotice({
+  notice,
+}: MaintenanceNoticeProps): React.JSX.Element | null {
   const storageDismissed = useSyncExternalStore(
     subscribeStorage,
     getClientSnapshot,
     getServerSnapshot
   )
   const [locallyDismissed, setLocallyDismissed] = useState(false)
+
+  // Admin에서 공지 비활성화한 경우 아예 렌더하지 않음
+  if (!notice.isActive) return null
 
   const isDismissed = storageDismissed || locallyDismissed
 
@@ -53,6 +62,12 @@ export default function MaintenanceNotice(): React.JSX.Element | null {
   }
 
   if (isDismissed) return null
+
+  // 본문 줄바꿈 분리 — 빈 줄은 건너뜀
+  const bodyParagraphs = notice.body
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
 
   return (
     <div
@@ -97,7 +112,7 @@ export default function MaintenanceNotice(): React.JSX.Element | null {
             id="maintenance-title"
             className="mb-3 text-center text-xl font-bold tracking-tight text-slate-900"
           >
-            서비스 점검 중입니다
+            {notice.title}
           </h2>
 
           {/* 본문 */}
@@ -105,25 +120,30 @@ export default function MaintenanceNotice(): React.JSX.Element | null {
             id="maintenance-description"
             className="space-y-3 text-center text-sm leading-relaxed text-slate-600"
           >
-            <p>
-              <strong className="font-semibold text-slate-800">
-                Findably는 현재 개발 및 점검 중
-              </strong>
-              이라 진단 서비스를 이용하실 수 없습니다.
-            </p>
-            <p>
-              더 안정적이고 정확한 진단을 제공해드리기 위해 작업 중이니 조금만
-              기다려 주세요. 서비스가 정상화되면 공지해드릴게요.
-            </p>
-            <p className="pt-2 text-xs text-slate-500">
-              문의:{' '}
-              <a
-                href="mailto:support@findably.kr"
-                className="font-medium text-primary-600 underline-offset-2 hover:underline"
-              >
-                support@findably.kr
-              </a>
-            </p>
+            {bodyParagraphs.map((line, idx) => (
+              <p key={idx}>{line}</p>
+            ))}
+
+            {/* 예상 복구 시간 */}
+            {notice.etaText && (
+              <div className="mx-auto mt-4 inline-flex items-center gap-2 rounded-lg bg-warning-50 px-3 py-2 text-xs font-medium text-warning-700 ring-1 ring-warning-100">
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{notice.etaText}</span>
+              </div>
+            )}
+
+            {/* 문의 이메일 */}
+            {notice.contactEmail && (
+              <p className="pt-2 text-xs text-slate-500">
+                문의:{' '}
+                <a
+                  href={`mailto:${notice.contactEmail}`}
+                  className="font-medium text-primary-600 underline-offset-2 hover:underline"
+                >
+                  {notice.contactEmail}
+                </a>
+              </p>
+            )}
           </div>
 
           {/* CTA */}

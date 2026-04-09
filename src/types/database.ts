@@ -361,6 +361,39 @@ export type Database = {
           },
         ]
       }
+      findably_maintenance_notices: {
+        Row: {
+          id: number
+          is_active: boolean
+          title: string
+          body: string
+          contact_email: string | null
+          eta_text: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: number
+          is_active?: boolean
+          title?: string
+          body?: string
+          contact_email?: string | null
+          eta_text?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: number
+          is_active?: boolean
+          title?: string
+          body?: string
+          contact_email?: string | null
+          eta_text?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
