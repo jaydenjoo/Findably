@@ -1,142 +1,143 @@
-/** 업종별 벤치마크 — 매출 영향 환산에 사용 */
+/** 업종별 매출 벤치마크 + Phase A 누수 상수
+ *
+ * Phase D (2026-04-09) 리팩토링:
+ * - 기존 IndustryId(saas/ecommerce/...) + INDUSTRY_BENCHMARKS +
+ *   calculateRevenueImpact + getBenchmark 는 외부 호출 0건(dead code)으로 삭제.
+ * - KOSIS 소상공인실태조사 2023 대분류 11개 기반으로 교체.
+ * - distributeRevenueLeakage()의 options.baseMonthlyRevenue 주입으로 동적화.
+ */
 
-export type IndustryId =
-  | 'saas'
-  | 'ecommerce'
-  | 'education'
-  | 'healthcare'
-  | 'consulting'
-  | 'default'
-
-interface IndustryBenchmark {
-  label: string
-  /** 전환율 (0.032 = 3.2%) */
-  conversionRate: number
-  /** 평균 객단가 (원) */
-  averageOrderValue: number
-  /** 기본 월 추정 트래픽 */
-  defaultMonthlyTraffic: number
-}
-
-const INDUSTRY_BENCHMARKS: Record<IndustryId, IndustryBenchmark> = {
-  saas: {
-    label: 'SaaS',
-    conversionRate: 0.032,
-    averageOrderValue: 500_000,
-    defaultMonthlyTraffic: 5_000,
-  },
-  ecommerce: {
-    label: '이커머스',
-    conversionRate: 0.025,
-    averageOrderValue: 80_000,
-    defaultMonthlyTraffic: 15_000,
-  },
-  education: {
-    label: '교육',
-    conversionRate: 0.04,
-    averageOrderValue: 300_000,
-    defaultMonthlyTraffic: 8_000,
-  },
-  healthcare: {
-    label: '의료/건강',
-    conversionRate: 0.05,
-    averageOrderValue: 200_000,
-    defaultMonthlyTraffic: 3_000,
-  },
-  consulting: {
-    label: '컨설팅/전문서비스',
-    conversionRate: 0.02,
-    averageOrderValue: 1_000_000,
-    defaultMonthlyTraffic: 2_000,
-  },
-  default: {
-    label: '전체 업종 평균',
-    conversionRate: 0.03,
-    averageOrderValue: 150_000,
-    defaultMonthlyTraffic: 5_000,
-  },
-} as const
-
-/** severity별 트래픽 영향 비율 */
-const SEVERITY_IMPACT_RATE: Record<string, number> = {
-  critical: 0.15,
-  warning: 0.05,
-} as const
-
-/** 원화 환산 결과 */
-export interface RevenueImpact {
-  /** 월 손실 추정 (만원) */
-  monthlyLoss: number
-  /** 연간 손실 추정 (만원) */
-  annualLoss: number
-  /** 개선 시 월 추가 유입 (만원) */
-  monthlyGain: number
-}
+// ─── 소상공인 업종 대분류 (KOSIS 2023) ────────────────────────────────
 
 /**
- * 진단 항목의 매출 영향을 원화로 환산
- * @returns severity가 info이면 null (영향도 낮음)
+ * 한국 소상공인 업종 대분류 ID
+ * 출처: KOSIS DT_3ME0100 시도/산업중분류별 주요지표, 산업별(1) 대분류 11종
+ * 소상공인실태조사 2023 잠정, 중소벤처기업부·통계청
  */
-export function calculateRevenueImpact(params: {
-  severity: 'critical' | 'warning' | 'info'
-  industry?: IndustryId
-  monthlyTraffic?: number
-}): RevenueImpact | null {
-  const { severity, industry = 'default', monthlyTraffic } = params
+export type SmeIndustryId =
+  | 'manufacturing' // 제조업
+  | 'construction' // 건설업
+  | 'wholesale_retail' // 도매 및 소매업
+  | 'accommodation_food' // 숙박 및 음식점업
+  | 'info_comm' // 정보통신업
+  | 'real_estate' // 부동산업
+  | 'professional' // 전문과학기술서비스업
+  | 'facility_mgmt' // 사업시설관리, 사업지원 및 임대 서비스업
+  | 'education' // 교육 서비스업
+  | 'arts_sports' // 예술, 스포츠 및 여가관련 서비스업
+  | 'personal_service' // 협회 및 단체, 수리 및 기타 개인서비스업
 
-  const impactRate = SEVERITY_IMPACT_RATE[severity]
-  if (impactRate === undefined) return null
-
-  const benchmark = INDUSTRY_BENCHMARKS[industry] ?? INDUSTRY_BENCHMARKS.default
-  const traffic = monthlyTraffic ?? benchmark.defaultMonthlyTraffic
-
-  const rawMonthly =
-    traffic *
-    impactRate *
-    benchmark.conversionRate *
-    benchmark.averageOrderValue
-
-  // 만원 단위, 1만원~1,000만원 클램핑
-  const monthlyLoss = Math.max(
-    1,
-    Math.min(1000, Math.round(rawMonthly / 10_000))
-  )
-  const annualLoss = monthlyLoss * 12
-  // 개선 시 회복은 손실의 70% 추정 (100% 회복은 비현실적)
-  const monthlyGain = Math.round(monthlyLoss * 0.7)
-
-  return { monthlyLoss, annualLoss, monthlyGain }
-}
-
-export function getBenchmark(industry?: IndustryId): IndustryBenchmark {
-  return (
-    INDUSTRY_BENCHMARKS[industry ?? 'default'] ?? INDUSTRY_BENCHMARKS.default
-  )
-}
-
-export const REVENUE = {
-  INDUSTRY_BENCHMARKS,
-  calculateRevenueImpact,
-  getBenchmark,
+/** 사용자 친화 한글 라벨 — 드롭다운 UI 표시용 */
+export const INDUSTRY_LABELS: Record<SmeIndustryId, string> = {
+  manufacturing: '제조업',
+  construction: '건설·인테리어',
+  wholesale_retail: '도매·소매 (온라인 쇼핑몰 포함)',
+  accommodation_food: '숙박·음식점·카페',
+  info_comm: 'IT·소프트웨어·콘텐츠',
+  real_estate: '부동산',
+  professional: '전문 서비스 (컨설팅·법무·회계)',
+  facility_mgmt: '사업시설관리·임대',
+  education: '교육·학원',
+  arts_sports: '예술·스포츠·여가',
+  personal_service: '미용·수리·개인서비스',
 } as const
 
-// ─── Phase A: 유료 리포트 매출 누수 재설계 (2026-04-06) ───
-//
-// 기존 calculateRevenueImpact()는 severity만으로 insight당 고정 금액을 반환해
-// 20+ insights 합산 시 5,638만원 같은 월매출 3.4배 과장이 발생. 아래 상수/타입은
-// 총 누수 캡 + 8개 영향 카테고리 가중 분배 방식으로 교체하기 위한 기반.
-// 사용 로직: src/lib/utils/insight-aggregation.ts의 distributeRevenueLeakage()
+/**
+ * 업종별 월 평균 매출 (원)
+ * 계산: KOSIS 기업체당 연매출(백만원) ÷ 12 × 1_000_000 (반올림)
+ * 2023년 잠정 기준. 업데이트 시 KOSIS DT_3ME0100 재확인 필요.
+ */
+export const INDUSTRY_MONTHLY_REVENUE: Record<SmeIndustryId, number> = {
+  manufacturing: 33_900_000, // 연 407백만원
+  construction: 24_700_000, // 연 296
+  wholesale_retail: 21_700_000, // 연 260
+  accommodation_food: 12_600_000, // 연 151
+  info_comm: 9_600_000, // 연 115
+  real_estate: 4_300_000, // 연 51
+  professional: 12_300_000, // 연 148
+  facility_mgmt: 10_400_000, // 연 125
+  education: 6_300_000, // 연 75
+  arts_sports: 7_700_000, // 연 92
+  personal_service: 5_600_000, // 연 67
+} as const
 
-/** 소상공인 월 평균 매출 기본값 (원) — KCD 2025 Q4 통계 */
+/**
+ * 드롭다운용 옵션 배열 (value + label)
+ * UI 순서: 매출이 큰 업종부터 (사용자가 자기 업종 찾기 쉽게 빈도 반영 X, 매출 규모 기반)
+ */
+export const INDUSTRY_OPTIONS: readonly {
+  value: SmeIndustryId
+  label: string
+}[] = [
+  { value: 'wholesale_retail', label: INDUSTRY_LABELS.wholesale_retail },
+  { value: 'accommodation_food', label: INDUSTRY_LABELS.accommodation_food },
+  { value: 'manufacturing', label: INDUSTRY_LABELS.manufacturing },
+  { value: 'construction', label: INDUSTRY_LABELS.construction },
+  { value: 'professional', label: INDUSTRY_LABELS.professional },
+  { value: 'info_comm', label: INDUSTRY_LABELS.info_comm },
+  { value: 'facility_mgmt', label: INDUSTRY_LABELS.facility_mgmt },
+  { value: 'education', label: INDUSTRY_LABELS.education },
+  { value: 'personal_service', label: INDUSTRY_LABELS.personal_service },
+  { value: 'arts_sports', label: INDUSTRY_LABELS.arts_sports },
+  { value: 'real_estate', label: INDUSTRY_LABELS.real_estate },
+] as const
+
+/** SmeIndustryId 타입 가드 — 외부 입력 검증용 */
+export function isSmeIndustryId(value: unknown): value is SmeIndustryId {
+  return (
+    typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(INDUSTRY_MONTHLY_REVENUE, value)
+  )
+}
+
+// ─── Phase A: 유료 리포트 매출 누수 재설계 (2026-04-06) ────────────────
+//
+// distributeRevenueLeakage()는 insights를 8개 영향 카테고리로 분류하고
+// 총 누수 캡(매출의 20%) 내에서 가중 분배한다.
+// Phase D에서 baseMonthlyRevenue가 업종별로 동적화됐다.
+
+/**
+ * 소상공인 월 평균 매출 기본값 (원)
+ * 업종 미선택 시 fallback. KOSIS 2023 전산업 199백만원 ÷ 12 = 약 16.58백만원 (반올림)
+ */
 export const BASE_MONTHLY_REVENUE = 16_400_000
 
 /** 누수 상한 비율 — 매출의 20% */
 export const LEAKAGE_CAP_RATIO = 0.2
 
-/** 월 누수 상한 (원) = BASE_MONTHLY_REVENUE × LEAKAGE_CAP_RATIO = 3,280,000 */
+/** 기본 월 누수 상한 (원) — 업종 선택 시 distributeRevenueLeakage 내부에서 동적 재계산됨 */
 export const LEAKAGE_CAP = Math.round(BASE_MONTHLY_REVENUE * LEAKAGE_CAP_RATIO)
 
-/** 8개 영향 카테고리 ID */
+/**
+ * 업종 ID → 기준 월 매출(원) 조회.
+ * null/undefined/알 수 없는 값 → BASE_MONTHLY_REVENUE fallback.
+ *
+ * Phase D 핵심 함수: distributeRevenueLeakage(insights, { baseMonthlyRevenue })에
+ * 전달할 값을 생성. 기존 자유 텍스트로 저장된 industry 값도 fallback으로 안전 처리.
+ */
+export function getBaseMonthlyRevenueForIndustry(
+  industry: string | null | undefined
+): number {
+  if (isSmeIndustryId(industry)) {
+    return INDUSTRY_MONTHLY_REVENUE[industry]
+  }
+  return BASE_MONTHLY_REVENUE
+}
+
+/**
+ * 업종 ID → 한글 라벨. 알 수 없으면 null.
+ * 리포트 표기 "월매출 X만원 기준 · 업종: Y" 용도.
+ */
+export function getIndustryLabel(
+  industry: string | null | undefined
+): string | null {
+  if (isSmeIndustryId(industry)) {
+    return INDUSTRY_LABELS[industry]
+  }
+  return null
+}
+
+/** 8개 영향 카테고리 ID — distributeRevenueLeakage() 분배 단위 */
 export type ImpactCategoryId =
   | 'ssl'
   | 'lcp'

@@ -10,6 +10,8 @@ interface BridgeSectionProps {
   categoryScores: CategoryScore[]
   aiInsights?: AIInsight[]
   isPaid: boolean
+  /** 업종 ID (diagnoses.industry) — Phase D 동적 baseMonthlyRevenue용 */
+  industry?: string | null
 }
 
 /** 카테고리 ID → 브릿지 테이블에 표시할 4개 영역 매핑 */
@@ -58,6 +60,7 @@ export function BridgeSection({
   categoryScores,
   aiInsights,
   isPaid,
+  industry,
 }: BridgeSectionProps): React.JSX.Element {
   const safeScores = categoryScores ?? []
 
@@ -72,7 +75,7 @@ export function BridgeSection({
       aria-label="마케팅 누수 브릿지"
     >
       <h2 className="mb-4 text-lg font-semibold text-slate-900">
-        🔍 마케팅 비용이 새는 곳을 찾았습니다
+        💡 마케팅에서 개선 여지가 있는 영역
       </h2>
 
       <p className="mb-6 text-sm leading-relaxed text-slate-600">
@@ -86,16 +89,16 @@ export function BridgeSection({
         <strong className="text-slate-800">
           AI에게 물어봤는데 추천받지 못하면
         </strong>
-        , 모든 마케팅 비용이 새고 있는 겁니다.
+        , 마케팅 효과가 제대로 나오지 않습니다.
       </p>
 
       <p className="mb-4 text-sm text-slate-600">
         이 리포트는{' '}
         <strong className="text-slate-800">
-          웹사이트에서 새고 있는 마케팅 비용의 구멍
+          웹사이트에서 개선 여지가 있는 영역
         </strong>
         을 찾아서,{' '}
-        <strong className="text-slate-800">어디를 먼저 막아야 하는지</strong>{' '}
+        <strong className="text-slate-800">어디부터 손대면 좋을지</strong>{' '}
         알려드립니다.
       </p>
 
@@ -152,7 +155,7 @@ export function BridgeSection({
 
       {aiInsights && aiInsights.length > 0 && (
         <div className="mt-4">
-          <TotalLeakageCard insights={aiInsights} />
+          <TotalLeakageCard insights={aiInsights} industry={industry} />
         </div>
       )}
 

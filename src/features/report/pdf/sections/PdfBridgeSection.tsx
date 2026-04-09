@@ -1,5 +1,9 @@
 import { Text, View } from '@react-pdf/renderer'
 
+import {
+  getBaseMonthlyRevenueForIndustry,
+  getIndustryLabel,
+} from '@/config/revenue'
 import type { CategoryScore } from '@/features/diagnosis-free'
 import type { AIInsight } from '@/features/diagnosis-paid'
 import { distributeRevenueLeakage } from '@/lib/utils/insight-aggregation'
@@ -9,6 +13,8 @@ import { colors, styles } from '../styles'
 interface PdfBridgeSectionProps {
   categoryScores: CategoryScore[]
   aiInsights?: AIInsight[]
+  /** 업종 ID (diagnoses.industry) — Phase D 동적 baseMonthlyRevenue용 */
+  industry?: string | null
 }
 
 const BRIDGE_ROWS = [
@@ -56,15 +62,19 @@ function getScoreColor(score: number): string {
 export function PdfBridgeSection({
   categoryScores,
   aiInsights,
+  industry,
 }: PdfBridgeSectionProps): React.JSX.Element {
   const rows = BRIDGE_ROWS.map((row) => ({
     ...row,
     score: calculateGroupScore(categoryScores, row.ids),
   }))
 
+  const baseMonthlyRevenue = getBaseMonthlyRevenueForIndustry(industry)
+  const industryLabel = getIndustryLabel(industry)
+
   return (
     <View style={styles.section}>
-      <Text style={styles.h2}>마케팅 비용이 새는 곳을 찾았습니다</Text>
+      <Text style={styles.h2}>마케팅에서 개선 여지가 있는 영역</Text>
 
       <Text
         style={{
@@ -75,8 +85,8 @@ export function PdfBridgeSection({
         }}
       >
         고객이 당신의 웹사이트를 검색에서 찾을 수 없거나, 찾았는데 느려서
-        떠나거나, AI에게 물어봤는데 추천받지 못하면 — 모든 마케팅 비용이 새고
-        있는 겁니다.
+        떠나거나, AI에게 물어봤는데 추천받지 못하면 — 마케팅 효과가 제대로
+        나오지 않습니다.
       </Text>
 
       {/* 테이블 헤더 */}
@@ -149,11 +159,13 @@ export function PdfBridgeSection({
       ))}
 
       {/*
-        총 누수 요약 카드 — Phase A (2026-04-06) 재설계
-        지시문: 매출 캡(20%) + 가중 분배 + 중복 영향 보정 + "월매출 X만원 기준" 병기
+        기회비용 요약 카드 — Phase A (2026-04-06) + Phase D (2026-04-09)
+        Phase D: 업종별 baseMonthlyRevenue 동적화 + 언어 톤다운 + 퍼센트 병행
       */}
       {(() => {
-        const dist = distributeRevenueLeakage(aiInsights ?? [])
+        const dist = distributeRevenueLeakage(aiInsights ?? [], {
+          baseMonthlyRevenue,
+        })
         if (dist.byCategory.length === 0) return null
 
         const baseManwon = Math.round(dist.baseMonthlyRevenue / 10_000)
@@ -179,10 +191,11 @@ export function PdfBridgeSection({
                 marginBottom: 2,
               }}
             >
-              💧 현재 매월 새고 있는 마케팅 비용 (추정)
+              💡 현재 추정되는 월 마케팅 기회비용
+              {industryLabel ? `  ·  업종: ${industryLabel}` : ''}
             </Text>
 
-            {/* 메인 금액 */}
+            {/* 메인 지표 — 톤다운 */}
             <Text
               style={{
                 fontSize: 11,
@@ -191,7 +204,7 @@ export function PdfBridgeSection({
                 marginBottom: 2,
               }}
             >
-              매출의 약 {leakagePercent}% 수준 · 월 약{' '}
+              매출 대비 약 {leakagePercent}% 규모 · 월 약{' '}
               {dist.totalMonthlyManwon.toLocaleString('ko-KR')}만원
             </Text>
 
@@ -207,38 +220,49 @@ export function PdfBridgeSection({
               약 {dist.totalAnnualManwon.toLocaleString('ko-KR')}만원
             </Text>
 
-            {/* 카테고리별 내역 */}
-            {dist.byCategory.map((cat) => (
-              <View
-                key={cat.categoryId}
-                style={{
-                  flexDirection: 'row',
-                  marginBottom: 3,
-                }}
-              >
-                <Text
+            {/* 카테고리별 내역 + 퍼센트 지표 병행 (Phase D Option C) */}
+            {dist.byCategory.map((cat) => {
+              const categoryRatio =
+                dist.baseMonthlyRevenue > 0
+                  ? (
+                      ((cat.monthlyLossManwon * 10_000) /
+                        dist.baseMonthlyRevenue) *
+                      100
+                    ).toFixed(1)
+                  : '0'
+              return (
+                <View
+                  key={cat.categoryId}
                   style={{
-                    fontSize: 8,
-                    fontWeight: 600,
-                    color: colors.primary500,
-                    width: '32%',
+                    flexDirection: 'row',
+                    marginBottom: 3,
                   }}
                 >
-                  {cat.label}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 8,
-                    color: colors.slate700,
-                    width: '68%',
-                  }}
-                >
-                  월 약 {cat.monthlyLossManwon.toLocaleString('ko-KR')}만원 영향
-                  {cat.affectedCategories.length > 0 &&
-                    `  (${cat.affectedCategories.map((c) => `#${c}`).join(' ')})`}
-                </Text>
-              </View>
-            ))}
+                  <Text
+                    style={{
+                      fontSize: 8,
+                      fontWeight: 600,
+                      color: colors.primary500,
+                      width: '32%',
+                    }}
+                  >
+                    {cat.label}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 8,
+                      color: colors.slate700,
+                      width: '68%',
+                    }}
+                  >
+                    월 약 {cat.monthlyLossManwon.toLocaleString('ko-KR')}만원
+                    규모 · 매출 대비 {categoryRatio}%
+                    {cat.affectedCategories.length > 0 &&
+                      `  (${cat.affectedCategories.map((c) => `#${c}`).join(' ')})`}
+                  </Text>
+                </View>
+              )
+            })}
 
             {/* 중복 영향 보정 안내 (지시문 Task 1-4) */}
             <Text
@@ -257,8 +281,9 @@ export function PdfBridgeSection({
 
       {/* 출처 (검증 체크리스트 7번) */}
       <Text style={{ fontSize: 7, color: colors.slate500, marginTop: 8 }}>
-        * 소상공인 월 평균 매출 벤치마크 출처: KCD 2025 Q4 통계 (직원 10인 이하
-        사업장 기준)
+        {industryLabel
+          ? '* 업종별 평균 매출 벤치마크 출처: 중기부·통계청 소상공인실태조사 2023 잠정결과'
+          : '* 소상공인 월 평균 매출 벤치마크 출처: 중기부·통계청 소상공인실태조사 2023 (전산업 평균)'}
       </Text>
     </View>
   )

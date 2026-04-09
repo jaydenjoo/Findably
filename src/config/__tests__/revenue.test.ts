@@ -1,5 +1,7 @@
 /**
- * Phase A revenue.ts 신규 상수 검증
+ * Phase A + D revenue.ts 검증
+ * Phase A: 누수 캡/가중치 상수 (2026-04-06)
+ * Phase D: 업종별 baseMonthlyRevenue 동적화 (2026-04-09)
  * 지시문: docs/paid-report-audit-v1.md
  */
 
@@ -10,9 +12,16 @@ import {
   IMPACT_CATEGORY_LABELS,
   IMPACT_CATEGORY_PRIORITY,
   IMPACT_CATEGORY_WEIGHTS,
+  INDUSTRY_LABELS,
+  INDUSTRY_MONTHLY_REVENUE,
+  INDUSTRY_OPTIONS,
   LEAKAGE_CAP,
   LEAKAGE_CAP_RATIO,
+  getBaseMonthlyRevenueForIndustry,
+  getIndustryLabel,
+  isSmeIndustryId,
   type ImpactCategoryId,
+  type SmeIndustryId,
 } from '@/config/revenue'
 
 describe('Phase A — revenue.ts 신규 상수', () => {
@@ -101,6 +110,132 @@ describe('Phase A — revenue.ts 신규 상수', () => {
 
     it('ssl이 최우선', () => {
       expect(IMPACT_CATEGORY_PRIORITY[0]).toBe('ssl')
+    })
+  })
+})
+
+describe('Phase D — 업종별 baseMonthlyRevenue', () => {
+  const ALL_INDUSTRY_IDS: SmeIndustryId[] = [
+    'manufacturing',
+    'construction',
+    'wholesale_retail',
+    'accommodation_food',
+    'info_comm',
+    'real_estate',
+    'professional',
+    'facility_mgmt',
+    'education',
+    'arts_sports',
+    'personal_service',
+  ]
+
+  describe('INDUSTRY_MONTHLY_REVENUE', () => {
+    it('KOSIS 11개 대분류 모두 정의', () => {
+      for (const id of ALL_INDUSTRY_IDS) {
+        expect(INDUSTRY_MONTHLY_REVENUE[id]).toBeGreaterThan(0)
+      }
+      expect(Object.keys(INDUSTRY_MONTHLY_REVENUE)).toHaveLength(11)
+    })
+
+    it('숙박·음식점업 월매출 = 12,600,000원 (KOSIS 2023 151백만/년)', () => {
+      expect(INDUSTRY_MONTHLY_REVENUE.accommodation_food).toBe(12_600_000)
+    })
+
+    it('제조업이 전산업 평균보다 높음', () => {
+      expect(INDUSTRY_MONTHLY_REVENUE.manufacturing).toBeGreaterThan(
+        BASE_MONTHLY_REVENUE
+      )
+    })
+
+    it('부동산업이 전산업 평균보다 낮음', () => {
+      expect(INDUSTRY_MONTHLY_REVENUE.real_estate).toBeLessThan(
+        BASE_MONTHLY_REVENUE
+      )
+    })
+  })
+
+  describe('INDUSTRY_LABELS', () => {
+    it('11개 업종 모두 한글 라벨 정의', () => {
+      for (const id of ALL_INDUSTRY_IDS) {
+        expect(INDUSTRY_LABELS[id]).toBeTruthy()
+        expect(typeof INDUSTRY_LABELS[id]).toBe('string')
+      }
+    })
+  })
+
+  describe('INDUSTRY_OPTIONS', () => {
+    it('11개 옵션 모두 value + label 보유', () => {
+      expect(INDUSTRY_OPTIONS).toHaveLength(11)
+      for (const opt of INDUSTRY_OPTIONS) {
+        expect(opt.value).toBeTruthy()
+        expect(opt.label).toBeTruthy()
+        expect(INDUSTRY_LABELS[opt.value]).toBe(opt.label)
+      }
+    })
+
+    it('중복 value 없음', () => {
+      const values = INDUSTRY_OPTIONS.map((o) => o.value)
+      expect(new Set(values).size).toBe(values.length)
+    })
+  })
+
+  describe('isSmeIndustryId', () => {
+    it('유효한 업종 ID는 true', () => {
+      expect(isSmeIndustryId('accommodation_food')).toBe(true)
+      expect(isSmeIndustryId('manufacturing')).toBe(true)
+    })
+
+    it('null/undefined/빈 문자열은 false', () => {
+      expect(isSmeIndustryId(null)).toBe(false)
+      expect(isSmeIndustryId(undefined)).toBe(false)
+      expect(isSmeIndustryId('')).toBe(false)
+    })
+
+    it('알 수 없는 문자열은 false (레거시 자유 텍스트 안전 처리)', () => {
+      expect(isSmeIndustryId('B2B SaaS')).toBe(false)
+      expect(isSmeIndustryId('saas')).toBe(false) // 기존 System 1 이름
+      expect(isSmeIndustryId('random')).toBe(false)
+    })
+
+    it('number/object 등 비문자열은 false', () => {
+      expect(isSmeIndustryId(123)).toBe(false)
+      expect(isSmeIndustryId({})).toBe(false)
+    })
+  })
+
+  describe('getBaseMonthlyRevenueForIndustry', () => {
+    it('유효한 업종 ID → 업종별 월매출', () => {
+      expect(getBaseMonthlyRevenueForIndustry('accommodation_food')).toBe(
+        12_600_000
+      )
+      expect(getBaseMonthlyRevenueForIndustry('manufacturing')).toBe(33_900_000)
+    })
+
+    it('null/undefined → BASE_MONTHLY_REVENUE fallback', () => {
+      expect(getBaseMonthlyRevenueForIndustry(null)).toBe(BASE_MONTHLY_REVENUE)
+      expect(getBaseMonthlyRevenueForIndustry(undefined)).toBe(
+        BASE_MONTHLY_REVENUE
+      )
+    })
+
+    it('알 수 없는 문자열 → fallback (레거시 자유 텍스트 안전)', () => {
+      expect(getBaseMonthlyRevenueForIndustry('B2B SaaS')).toBe(
+        BASE_MONTHLY_REVENUE
+      )
+      expect(getBaseMonthlyRevenueForIndustry('')).toBe(BASE_MONTHLY_REVENUE)
+    })
+  })
+
+  describe('getIndustryLabel', () => {
+    it('유효한 업종 ID → 한글 라벨', () => {
+      expect(getIndustryLabel('accommodation_food')).toBe('숙박·음식점·카페')
+      expect(getIndustryLabel('manufacturing')).toBe('제조업')
+    })
+
+    it('null/undefined/알 수 없는 값 → null', () => {
+      expect(getIndustryLabel(null)).toBeNull()
+      expect(getIndustryLabel(undefined)).toBeNull()
+      expect(getIndustryLabel('B2B SaaS')).toBeNull()
     })
   })
 })

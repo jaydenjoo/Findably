@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useState } from 'react'
 import { submitInfoAction } from '@/features/onboarding/actions/submit-info'
+import { IndustrySelect } from '@/features/onboarding/components/IndustrySelect'
 import type { OnboardingActionState } from '@/features/onboarding/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -116,17 +117,14 @@ export function InfoForm({
 
       <div className="space-y-2">
         <Label htmlFor="industry">업종</Label>
-        <Input
+        <IndustrySelect
           id="industry"
-          name="industry"
-          type="text"
-          placeholder="B2B SaaS, 쇼핑몰, 병원 등"
-          aria-label="업종"
-          aria-describedby="industry-hint"
+          describedBy="industry-hint"
           disabled={isPending}
         />
         <p id="industry-hint" className="text-sm text-slate-500">
-          업종에 맞는 맞춤 진단을 제공합니다.
+          업종에 맞는 월매출 기준으로 기회비용을 추정합니다. 건너뛰면 소상공인
+          평균 매출로 계산됩니다.
         </p>
       </div>
 

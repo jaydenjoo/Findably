@@ -87,6 +87,7 @@ export async function GET(
         createdAt={diagnosis.created_at}
         totalScore={canonicalScore}
         gradeLabel={gradeLabels[canonicalGrade] ?? canonicalGrade ?? '—'}
+        industry={diagnosis.industry}
       />
     )
     const buffer = await generatePdfBuffer(document)

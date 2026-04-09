@@ -82,6 +82,7 @@ export default async function ReportDetailPage({
       createdAt={diagnosis.created_at}
       analysisData={analysisData}
       isPaid={isPaid}
+      industry={diagnosis.industry}
     />
   )
 }

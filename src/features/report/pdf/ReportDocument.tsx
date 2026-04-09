@@ -18,6 +18,8 @@ interface ReportDocumentProps {
   createdAt: string
   totalScore?: number
   gradeLabel?: string
+  /** 업종 ID (diagnoses.industry) — Phase D 동적 baseMonthlyRevenue용 */
+  industry?: string | null
 }
 
 export function ReportDocument({
@@ -26,6 +28,7 @@ export function ReportDocument({
   createdAt,
   totalScore = 0,
   gradeLabel = '—',
+  industry,
 }: ReportDocumentProps): React.JSX.Element {
   return (
     <Document
@@ -50,6 +53,7 @@ export function ReportDocument({
         <PdfBridgeSection
           categoryScores={data.categoryScores ?? []}
           aiInsights={data.aiInsights ?? []}
+          industry={industry}
         />
         <PdfSwot swot={data.swot} />
         <PdfRoadmap roadmap={data.roadmap} />
