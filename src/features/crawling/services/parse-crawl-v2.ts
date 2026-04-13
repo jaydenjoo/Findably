@@ -32,6 +32,109 @@ function toStringOrNull(val: unknown): string | null {
   return typeof val === 'string' && val.length > 0 ? val : null
 }
 
+// ─── HTML 폴백 파서 (Firecrawl metadata 누락 시) ───
+
+/**
+ * raw HTML에서 canonical, JSON-LD, OG tags, 내부 링크를 추출
+ * Firecrawl metadata가 이 항목을 반환하지 않을 때 폴백으로 사용
+ */
+function extractFromHtml(
+  html: string,
+  pageUrl: string
+): {
+  canonical: string | null
+  jsonLd: Record<string, unknown>[]
+  ogTags: Record<string, string>
+  internalLinkCount: number
+  externalLinkCount: number
+} {
+  // canonical: <link rel="canonical" href="...">
+  const canonicalMatch =
+    html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i) ??
+    html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i)
+  const canonical = canonicalMatch?.[1] ?? null
+
+  // JSON-LD: <script type="application/ld+json">...</script>
+  const jsonLd: Record<string, unknown>[] = []
+  const ldRegex =
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  let ldMatch: RegExpExecArray | null
+  while ((ldMatch = ldRegex.exec(html)) !== null) {
+    try {
+      const parsed = JSON.parse(ldMatch[1]!)
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && typeof item === 'object')
+            jsonLd.push(item as Record<string, unknown>)
+        }
+      } else if (parsed && typeof parsed === 'object') {
+        jsonLd.push(parsed as Record<string, unknown>)
+      }
+    } catch {
+      // JSON 파싱 실패 — 무시
+    }
+  }
+
+  // OG tags: <meta property="og:..." content="...">
+  const ogTags: Record<string, string> = {}
+  const ogRegex =
+    /<meta[^>]+property=["']og:([^"']+)["'][^>]+content=["']([^"']*)["']/gi
+  let ogMatch: RegExpExecArray | null
+  while ((ogMatch = ogRegex.exec(html)) !== null) {
+    ogTags[ogMatch[1]!] = ogMatch[2]!
+  }
+  // content가 property 앞에 오는 경우도 처리
+  const ogRegex2 =
+    /<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:([^"']+)["']/gi
+  let ogMatch2: RegExpExecArray | null
+  while ((ogMatch2 = ogRegex2.exec(html)) !== null) {
+    if (!ogTags[ogMatch2[2]!]) ogTags[ogMatch2[2]!] = ogMatch2[1]!
+  }
+
+  // 내부/외부 링크: <a href="...">
+  let internalLinkCount = 0
+  let externalLinkCount = 0
+  let pageHost: string
+  try {
+    pageHost = pageUrl
+      .replace(/^https?:\/\//, '')
+      .split('/')[0]!
+      .split(':')[0]!
+  } catch {
+    pageHost = ''
+  }
+
+  const linkRegex = /<a[^>]+href=["']([^"'#]+)["']/gi
+  let linkMatch: RegExpExecArray | null
+  const seenHrefs = new Set<string>()
+  while ((linkMatch = linkRegex.exec(html)) !== null) {
+    const href = linkMatch[1]!.trim()
+    if (
+      seenHrefs.has(href) ||
+      href.startsWith('javascript:') ||
+      href.startsWith('mailto:')
+    )
+      continue
+    seenHrefs.add(href)
+
+    if (href.startsWith('/') || href.startsWith('#')) {
+      internalLinkCount++
+    } else if (href.startsWith('http')) {
+      const linkHost = href
+        .replace(/^https?:\/\//, '')
+        .split('/')[0]!
+        .split(':')[0]!
+      if (linkHost === pageHost) {
+        internalLinkCount++
+      } else {
+        externalLinkCount++
+      }
+    }
+  }
+
+  return { canonical, jsonLd, ogTags, internalLinkCount, externalLinkCount }
+}
+
 // ─── Firecrawl Scrape → Layer1Data + markdownContent ───
 
 function parseFirecrawlScrape(raw: unknown): {
@@ -46,6 +149,7 @@ function parseFirecrawlScrape(raw: unknown): {
   const metadata = asRecord(data.metadata)
 
   const markdownContent = toStringOrNull(data.markdown)
+  const rawHtml = toStringOrNull(data.html)
 
   if (!metadata) {
     return { layer1: null, markdownContent }
@@ -72,7 +176,49 @@ function parseFirecrawlScrape(raw: unknown): {
   let imageTotal = toNumber(metadata.imageCount, 0)
   let imageNoAlt = toNumber(metadata.imagesWithoutAlt, 0)
 
-  // Firecrawl metadata가 비어있으면 markdown에서 추출 (폴백)
+  // Firecrawl metadata에서 가져온 값
+  let canonical = toStringOrNull(metadata.canonical)
+  let schemaMarkup: Record<string, unknown>[] = Array.isArray(metadata.jsonLd)
+    ? metadata.jsonLd
+    : []
+
+  // HTML 폴백: metadata가 canonical/schema/links를 누락했으면 raw HTML에서 추출
+  const pageUrl =
+    toStringOrNull(metadata.sourceURL) ?? toStringOrNull(metadata.url) ?? ''
+  if (rawHtml) {
+    const htmlExtracted = extractFromHtml(rawHtml, pageUrl)
+
+    // canonical 폴백
+    if (!canonical && htmlExtracted.canonical) {
+      canonical = htmlExtracted.canonical
+    }
+
+    // JSON-LD 폴백
+    if (schemaMarkup.length === 0 && htmlExtracted.jsonLd.length > 0) {
+      schemaMarkup = htmlExtracted.jsonLd
+    }
+
+    // OG 태그 폴백 (metadata에서 못 찾은 것만 보강)
+    if (!og.title && htmlExtracted.ogTags['title']) {
+      og.title = htmlExtracted.ogTags['title']
+    }
+    if (!og.description && htmlExtracted.ogTags['description']) {
+      og.description = htmlExtracted.ogTags['description']
+    }
+    if (!og.image && htmlExtracted.ogTags['image']) {
+      og.image = htmlExtracted.ogTags['image']
+    }
+
+    // 내부 링크 폴백
+    if (internalLinks === 0 && htmlExtracted.internalLinkCount > 0) {
+      internalLinks = htmlExtracted.internalLinkCount
+    }
+    if (externalLinks === 0 && htmlExtracted.externalLinkCount > 0) {
+      externalLinks = htmlExtracted.externalLinkCount
+    }
+  }
+
+  // Firecrawl metadata가 비어있으면 markdown에서 추출 (2차 폴백)
   const metadataEmpty =
     headings.h1.length === 0 &&
     headings.h2.length === 0 &&
@@ -82,8 +228,8 @@ function parseFirecrawlScrape(raw: unknown): {
   if (metadataEmpty && markdownContent) {
     const extracted = extractFromMarkdown(markdownContent)
     headings = extracted.headings
-    internalLinks = extracted.linkCount.internal
-    externalLinks = extracted.linkCount.external
+    if (internalLinks === 0) internalLinks = extracted.linkCount.internal
+    if (externalLinks === 0) externalLinks = extracted.linkCount.external
     imageTotal = extracted.imageCount.total
     imageNoAlt = extracted.imageCount.withoutAlt
   }
@@ -92,14 +238,14 @@ function parseFirecrawlScrape(raw: unknown): {
     meta: {
       title: toStringOrNull(metadata.title),
       description: toStringOrNull(metadata.description),
-      canonical: toStringOrNull(metadata.canonical),
+      canonical,
       charset: toStringOrNull(metadata.charset) ?? 'utf-8',
       viewport: toStringOrNull(metadata.viewport),
       og,
       robots_meta: toStringOrNull(metadata.robots),
     },
     headings,
-    schema_markup: Array.isArray(metadata.jsonLd) ? metadata.jsonLd : [],
+    schema_markup: schemaMarkup,
     links: {
       internal: internalLinks,
       external: externalLinks,

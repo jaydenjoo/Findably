@@ -13,7 +13,8 @@ export const socialAiRules: RuleDefinition[] = [
     difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
-      const ogTitle = data.layer1!.meta.og['og:title']
+      const ogTitle =
+        data.layer1!.meta.og['title'] ?? data.layer1!.meta.og['og:title']
       if (ogTitle) {
         return {
           passed: true,
@@ -38,7 +39,9 @@ export const socialAiRules: RuleDefinition[] = [
     difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
-      const ogDesc = data.layer1!.meta.og['og:description']
+      const ogDesc =
+        data.layer1!.meta.og['description'] ??
+        data.layer1!.meta.og['og:description']
       if (ogDesc) {
         return {
           passed: true,
@@ -63,7 +66,8 @@ export const socialAiRules: RuleDefinition[] = [
     difficulty: 'easy',
     isEvaluable: hasLayer1,
     evaluate: (data) => {
-      const ogImage = data.layer1!.meta.og['og:image']
+      const ogImage =
+        data.layer1!.meta.og['image'] ?? data.layer1!.meta.og['og:image']
       if (ogImage) {
         return {
           passed: true,

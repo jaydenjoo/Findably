@@ -159,10 +159,11 @@ function calculatePlatformScore(
     score = Math.min(score, AI_CITATION_THRESHOLDS.UNSAFE_HARD_CAP)
   }
 
-  // SSL 무효 하드캡
+  // SSL 무효 하드캡 (SSL Labs에서 실제 데이터를 받은 경우만 적용)
   if (
     data.layer3 !== null &&
     data.layer3.ssl !== null &&
+    (data.layer3.ssl.grade !== null || data.layer3.ssl.issuer !== null) &&
     !data.layer3.ssl.valid
   ) {
     score = Math.min(score, AI_CITATION_THRESHOLDS.SSL_INVALID_HARD_CAP)
