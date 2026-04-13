@@ -224,6 +224,16 @@ async function renderDiagnosis(
   const partialInfo = parsePartialInfo(diagnosis.crawl_data)
   const tier: UserTier = isPaid ? 'paid' : 'free'
 
+  // 데이터 수집률 조회
+  const { data: crawlExec } = await supabaseClient
+    .from('findably_crawl_executions')
+    .select('data_completeness')
+    .eq('diagnosis_id', diagnosis.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const dataCompleteness = crawlExec?.data_completeness ?? null
+
   // 이전 진단 점수 조회 (현재 진단보다 이전의 completed 진단)
   let previousScore: number | undefined
   let previousDate: string | undefined
@@ -253,6 +263,7 @@ async function renderDiagnosis(
       tier={tier}
       previousScore={previousScore}
       previousDate={previousDate}
+      dataCompleteness={dataCompleteness}
     />
   )
 }

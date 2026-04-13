@@ -34,6 +34,8 @@ interface DashboardContentProps {
   previousScore?: number
   /** 이전 진단 날짜 */
   previousDate?: string
+  /** 데이터 수집률 (0~100, null이면 미표시) */
+  dataCompleteness?: number | null
 }
 
 const SCORE_MESSAGES: Record<ScoreGrade, string> = {
@@ -82,6 +84,7 @@ export function DashboardContent({
   tier,
   previousScore,
   previousDate,
+  dataCompleteness,
 }: DashboardContentProps): React.JSX.Element {
   const scoreColor = SCORING.getScoreColor(overallScore.score)
   const isFree = tier === 'free'
@@ -202,6 +205,25 @@ export function DashboardContent({
               </strong>
             </span>
           </div>
+          {dataCompleteness !== null && dataCompleteness !== undefined && (
+            <div
+              className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                dataCompleteness >= 80
+                  ? 'bg-success-50 text-success-700'
+                  : dataCompleteness >= 50
+                    ? 'bg-warning-50 text-warning-700'
+                    : 'bg-danger-50 text-danger-700'
+              }`}
+            >
+              <span className="size-1.5 rounded-full bg-current" />
+              데이터 수집률 {dataCompleteness}%
+              {dataCompleteness < 80 && (
+                <span className="font-normal text-slate-500">
+                  — 일부 항목을 확인하지 못했습니다
+                </span>
+              )}
+            </div>
+          )}
         </section>
 
         {/* AI 인용 가능성 카드 */}
