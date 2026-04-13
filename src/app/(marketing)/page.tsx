@@ -46,12 +46,21 @@ export const metadata: Metadata = {
     description:
       '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단.',
     type: 'website',
+    images: [
+      {
+        url: SEO.ogImage,
+        width: SEO.ogImageWidth,
+        height: SEO.ogImageHeight,
+        alt: 'Findably — AI 마케팅 진단',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: '마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably',
     description:
       '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단.',
+    images: [SEO.ogImage],
   },
 }
 
