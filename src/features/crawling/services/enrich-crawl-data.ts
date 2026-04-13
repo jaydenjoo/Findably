@@ -3,8 +3,15 @@ import { fetchPageSpeed } from '../fetchers/pagespeed'
 import { fetchSslLabs } from '../fetchers/ssl-labs'
 import { fetchObservatory } from '../fetchers/observatory'
 import { fetchSafeBrowsing } from '../fetchers/safe-browsing'
+import { fetchHeadMetadata } from '../fetchers/head-metadata'
 import type { Json } from '@/types/database'
-import type { CrawlData, Layer2Data, Layer3Data, MobileData } from '../types'
+import type {
+  CrawlData,
+  Layer1Data,
+  Layer2Data,
+  Layer3Data,
+  MobileData,
+} from '../types'
 
 /**
  * 크롤링 데이터 보강 (Layer 2/3 fallback)
@@ -50,12 +57,23 @@ export async function enrichCrawlData(
 
   const needsMobile = !crawlData.mobile
 
+  // Layer1 메타데이터 누락 여부 (Firecrawl onlyMainContent: true가 <head> 제거)
+  const layer1 = crawlData.layer1
+  const needsHeadMetadata =
+    layer1 !== null &&
+    (!layer1.meta.canonical ||
+      layer1.schema_markup.length === 0 ||
+      !layer1.meta.og['title'] ||
+      (typeof layer1.links.internal === 'number' &&
+        layer1.links.internal === 0))
+
   if (
     !needsPageSpeed &&
     !needsSafeBrowsing &&
     !needsSsl &&
     !needsObservatory &&
-    !needsMobile
+    !needsMobile &&
+    !needsHeadMetadata
   ) {
     console.log('[enrichCrawlData] 모든 데이터 존재, 스킵')
     return
@@ -68,43 +86,56 @@ export async function enrichCrawlData(
     needsSafeBrowsing,
     needsSsl,
     needsObservatory,
+    needsHeadMetadata,
   })
 
   // 3. 누락된 fetcher 병렬 실행
-  const [pagespeedResult, safeBrowsingResult, sslResult, observatoryResult] =
-    await Promise.all([
-      needsPageSpeed
-        ? fetchPageSpeed(url).catch((err: unknown) => {
-            console.error('[enrichCrawlData] PageSpeed 실패:', err)
-            return null
-          })
-        : null,
-      needsSafeBrowsing
-        ? fetchSafeBrowsing(url).catch((err: unknown) => {
-            console.error('[enrichCrawlData] SafeBrowsing 실패:', err)
-            return null
-          })
-        : null,
-      needsSsl
-        ? fetchSslLabs(url).catch((err: unknown) => {
-            console.error('[enrichCrawlData] SSL Labs 실패:', err)
-            return null
-          })
-        : null,
-      needsObservatory
-        ? fetchObservatory(url).catch((err: unknown) => {
-            console.error('[enrichCrawlData] Observatory 실패:', err)
-            return null
-          })
-        : null,
-    ])
+  const [
+    pagespeedResult,
+    safeBrowsingResult,
+    sslResult,
+    observatoryResult,
+    headMetadataResult,
+  ] = await Promise.all([
+    needsPageSpeed
+      ? fetchPageSpeed(url).catch((err: unknown) => {
+          console.error('[enrichCrawlData] PageSpeed 실패:', err)
+          return null
+        })
+      : null,
+    needsSafeBrowsing
+      ? fetchSafeBrowsing(url).catch((err: unknown) => {
+          console.error('[enrichCrawlData] SafeBrowsing 실패:', err)
+          return null
+        })
+      : null,
+    needsSsl
+      ? fetchSslLabs(url).catch((err: unknown) => {
+          console.error('[enrichCrawlData] SSL Labs 실패:', err)
+          return null
+        })
+      : null,
+    needsObservatory
+      ? fetchObservatory(url).catch((err: unknown) => {
+          console.error('[enrichCrawlData] Observatory 실패:', err)
+          return null
+        })
+      : null,
+    needsHeadMetadata
+      ? fetchHeadMetadata(url).catch((err: unknown) => {
+          console.error('[enrichCrawlData] HeadMetadata 실패:', err)
+          return null
+        })
+      : null,
+  ])
 
   // 4. 새 데이터가 하나도 없으면 업데이트 불필요
   if (
     !pagespeedResult &&
     !safeBrowsingResult &&
     !sslResult &&
-    !observatoryResult
+    !observatoryResult &&
+    !headMetadataResult
   ) {
     console.log('[enrichCrawlData] 수집된 데이터 없음, 스킵')
     return
@@ -153,8 +184,69 @@ export async function enrichCrawlData(
     }
   }
 
+  // Layer1 메타데이터 보강 (Firecrawl onlyMainContent: true 보완)
+  let enrichedLayer1: Layer1Data | null = crawlData.layer1
+  if (headMetadataResult && enrichedLayer1) {
+    const meta = { ...enrichedLayer1.meta }
+    const og = { ...meta.og }
+
+    // canonical 폴백
+    if (!meta.canonical && headMetadataResult.canonical) {
+      meta.canonical = headMetadataResult.canonical
+    }
+
+    // OG 태그 폴백
+    if (!og['title'] && headMetadataResult.ogTags['title']) {
+      og['title'] = headMetadataResult.ogTags['title']
+    }
+    if (!og['description'] && headMetadataResult.ogTags['description']) {
+      og['description'] = headMetadataResult.ogTags['description']
+    }
+    if (!og['image'] && headMetadataResult.ogTags['image']) {
+      og['image'] = headMetadataResult.ogTags['image']
+    }
+
+    meta.og = og
+
+    // JSON-LD 폴백
+    const schemaMarkup =
+      enrichedLayer1.schema_markup.length === 0 &&
+      headMetadataResult.jsonLd.length > 0
+        ? headMetadataResult.jsonLd
+        : enrichedLayer1.schema_markup
+
+    // 내부 링크 폴백
+    const links =
+      enrichedLayer1.links.internal === 0 &&
+      headMetadataResult.internalLinkCount > 0
+        ? {
+            ...enrichedLayer1.links,
+            internal: headMetadataResult.internalLinkCount,
+            external:
+              headMetadataResult.externalLinkCount ||
+              enrichedLayer1.links.external,
+          }
+        : enrichedLayer1.links
+
+    enrichedLayer1 = {
+      ...enrichedLayer1,
+      meta,
+      schema_markup: schemaMarkup,
+      links,
+    }
+
+    console.log('[enrichCrawlData] Layer1 보강:', {
+      canonical: meta.canonical,
+      ogTitle: og['title'] ?? null,
+      ogImage: og['image'] ?? null,
+      schemaCount: schemaMarkup.length,
+      internalLinks: links.internal,
+    })
+  }
+
   const enrichedCrawlData: CrawlData = {
     ...crawlData,
+    layer1: enrichedLayer1,
     layer2: newLayer2,
     layer3: newLayer3,
     mobile: mobileData,
@@ -177,5 +269,6 @@ export async function enrichCrawlData(
     safeBrowsing: !!safeBrowsingResult,
     ssl: !!sslResult,
     observatory: !!observatoryResult,
+    headMetadata: !!headMetadataResult,
   })
 }
