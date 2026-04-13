@@ -5,7 +5,13 @@ import Link from 'next/link'
 import type { CategoryScore } from '@/features/diagnosis-free/types'
 import { SCORING } from '@/config/scoring'
 import { getDiagnosisDetailUrl } from '@/lib/utils/category-routing'
-import { ChevronDown, ChevronUp, CheckCircle2, XCircle } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+} from 'lucide-react'
 
 interface CategoryScoreCardProps {
   category: CategoryScore
@@ -25,6 +31,7 @@ export function CategoryScoreCard({
     category.rules?.filter((r) => !r.skipped && r.passed) ?? []
   const failedRules =
     category.rules?.filter((r) => !r.skipped && !r.passed) ?? []
+  const skippedRules = category.rules?.filter((r) => r.skipped) ?? []
 
   return (
     <div className="flex flex-col rounded-lg border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
@@ -76,7 +83,9 @@ export function CategoryScoreCard({
             통과 {category.passedCount}/{category.totalCount}
           </span>
           {category.skippedCount > 0 && (
-            <span>({category.skippedCount}개 스킵)</span>
+            <span className="text-warning-600">
+              ({category.skippedCount}개 확인 불가)
+            </span>
           )}
         </div>
       </button>
@@ -135,18 +144,43 @@ export function CategoryScoreCard({
               )}
             </div>
           )}
+          {skippedRules.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-warning-600">
+                확인 불가 ({skippedRules.length})
+              </p>
+              {skippedRules.slice(0, 3).map((rule) => (
+                <div
+                  key={rule.id}
+                  className="flex items-start gap-2 text-xs text-slate-500"
+                >
+                  <AlertTriangle className="size-3.5 shrink-0 text-warning-400 mt-0.5" />
+                  <span>{rule.name}</span>
+                </div>
+              ))}
+              {skippedRules.length > 3 && (
+                <p className="text-xs text-slate-400">
+                  +{skippedRules.length - 3}건 더
+                </p>
+              )}
+            </div>
+          )}
           {passedRules.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-success-600">
                 통과 항목 ({passedRules.length})
               </p>
               {passedRules.slice(0, 3).map((rule) => (
-                <div
-                  key={rule.id}
-                  className="flex items-start gap-2 text-xs text-slate-500"
-                >
-                  <CheckCircle2 className="size-3.5 shrink-0 text-success-400 mt-0.5" />
-                  <span>{rule.name}</span>
+                <div key={rule.id} className="flex flex-col gap-0.5">
+                  <div className="flex items-start gap-2 text-xs text-slate-500">
+                    <CheckCircle2 className="size-3.5 shrink-0 text-success-400 mt-0.5" />
+                    <span>{rule.name}</span>
+                  </div>
+                  {rule.evidence && (
+                    <p className="ml-5.5 text-[11px] text-slate-400 truncate max-w-[280px]">
+                      발견: {rule.evidence}
+                    </p>
+                  )}
                 </div>
               ))}
               {passedRules.length > 3 && (

@@ -44,6 +44,7 @@ function evaluateRule(rule: RuleDefinition, data: CrawlData): RuleResult {
     skipped: false,
     severity: rule.severity,
     message: evaluation.message,
+    evidence: evaluation.evidence,
     quickWinEligible: rule.quickWinEligible,
     difficulty: rule.difficulty,
   }

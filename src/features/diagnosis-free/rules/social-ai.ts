@@ -20,6 +20,7 @@ export const socialAiRules: RuleDefinition[] = [
           passed: true,
           message:
             '카카오톡·페이스북에 링크를 보낼 때 제목이 정상적으로 표시됩니다.',
+          evidence: ogTitle,
         }
       }
       return {
@@ -47,6 +48,7 @@ export const socialAiRules: RuleDefinition[] = [
           passed: true,
           message:
             '카카오톡·페이스북에 링크를 보낼 때 설명이 정상적으로 표시됩니다.',
+          evidence: ogDesc.length > 80 ? ogDesc.slice(0, 80) + '...' : ogDesc,
         }
       }
       return {

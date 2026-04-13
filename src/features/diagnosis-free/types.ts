@@ -20,6 +20,8 @@ export type RuleSeverity = 'critical' | 'warning' | 'info'
 export interface RuleEvaluation {
   passed: boolean
   message: string
+  /** 진단 근거 — 실제 발견된 값 (예: "https://findably.kr/", "Organization, FAQPage") */
+  evidence?: string
 }
 
 export interface RuleDefinition {
@@ -49,6 +51,8 @@ export interface RuleResult {
   skipped: boolean
   severity: RuleSeverity
   message: string
+  /** 진단 근거 — 실제 발견된 값 */
+  evidence?: string
   quickWinEligible: boolean
   /** 수정 난이도 (quickWinEligible: true일 때 의미 있음) */
   difficulty?: QuickWinDifficulty

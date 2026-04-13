@@ -95,6 +95,7 @@ export const technicalRules: RuleDefinition[] = [
           passed: true,
           message:
             '대표 URL이 설정되어 있어 Google이 어떤 페이지가 원본인지 알 수 있습니다.',
+          evidence: canonical,
         }
       }
       return {

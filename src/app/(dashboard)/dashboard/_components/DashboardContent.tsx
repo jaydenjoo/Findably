@@ -196,7 +196,7 @@ export function DashboardContent({
               </strong>
             </span>
             <span>
-              스킵{' '}
+              확인 불가{' '}
               <strong className="font-semibold text-slate-700">
                 {skippedRules}
               </strong>
