@@ -439,9 +439,24 @@
 - **해결**: 각 검색엔진 verification을 독립적 spread로 분리: `verification: { ...(GOOGLE && { google }), ...(NAVER && { other }) }`
 - **규칙**: **서로 독립적인 기능의 환경변수를 중첩 조건문으로 묶지 말 것**. 각 env는 다른 env 존재 여부와 무관하게 독립 동작해야 한다. 특히 Next.js metadata의 `verification` 같은 객체는 각 검색엔진이 독립 인증이므로 조건도 독립적이어야 함. 디버깅 단서: "env 설정했는데 HTML에 안 나온다" → 해당 env를 참조하는 코드의 **상위 조건문**이 다른 env에 의존하는지 확인
 
-### 2026-04-13 Findably 자체 리포트 검증 → 8개 주요 진단 중 5개 오진 — 크롤러 품질 이슈 발견
+### 2026-04-13 Findably 자체 리포트 검증 → 5개 오진 — 원인 3겹 복합 (크롤러 60% + 엔진 20% + 구현 20%)
 
-- **증상**: findably.kr 유료 리포트에서 "canonical URL 없음", "Schema Markup 0개", "내부 링크 0개", "OG 태그 없음", "SSL 미설치" 5개가 심각/주의로 보고됨. 실제 코드에는 모두 구현되어 있음 (canonical: layout.tsx L62, JSON-LD: 8개 스키마, Link 컴포넌트: navbar/footer/CTA 다수, OG: page.tsx L44-55, SSL: Vercel 자동 제공)
-- **원인**: 아직 미확정. 2개 가설: (1) n8n 크롤러(Playwright/Firecrawl)가 Next.js App Router의 서버 렌더링 HTML을 완전히 수집하지 못함 (JS 하이드레이션 전 HTML만 캡처, `<head>` 메타 누락 등) (2) `engine.ts`의 진단 룰 파서가 크롤링 데이터에서 해당 필드를 올바르게 추출하지 못함 (파싱 로직 vs HTML 구조 불일치)
-- **해결**: 다음 세션 Task A-D로 순차 조사 예정. A(crawl_data raw HTML 검증) → B(파싱 로직 검증) → C(SSL 타임아웃) → D(재진단 검증)
-- **규칙**: **자체 서비스를 자체 진단한 리포트는 출시 전 반드시 수동 검증**해야 한다. 리포트에서 "없다"고 주장하는 항목이 실제 코드에 존재하면 (1) 크롤러 수집 누락 (2) 파서 추출 실패 (3) AI 환각 3가지를 순서대로 의심. 이 문제는 findably.kr만의 이슈가 아니라 **모든 고객 사이트에서 동일 오진 가능성**이 있어 제품 신뢰에 직결된다. 비유: "건강검진 기계가 건강한 사람에게 심장마비 위험을 진단한 것" — 기계 자체를 먼저 교정해야 함
+- **증상**: findably.kr 유료 리포트에서 "canonical URL 없음", "Schema Markup 0개", "내부 링크 0개", "OG 태그 없음", "SSL 미설치" 5개가 심각/주의로 보고됨. 실제 코드에는 모두 구현되어 있음
+- **원인**: 3가지 복합 원인.
+  (1) **크롤러 60%**: Firecrawl `onlyMainContent: true`가 `<head>` 섹션을 통째로 제거 → canonical, JSON-LD, OG 태그가 metadata에서 누락. 데이터 삭제 후 재크롤링해도 동일 증상 (파이프라인 코드 버그이므로)
+  (2) **진단 엔진 20%**: OG 키 불일치(`og['og:title']` vs 실제 `og['title']`), SSL Labs 불완전 데이터(`grade: null, valid: false`)를 "무효"로 단정하는 가드 미흡
+  (3) **실제 구현 누락 20%**: 랜딩 page.tsx의 `openGraph`가 부모 layout의 `og:image`를 덮어씌워서 실제 HTML에 `og:image` 메타 태그가 없었음 (크롤러 탓이 아닌 진짜 빠져있었음)
+- **해결**: 5단계 수정.
+  (1) parse-crawl-v2.ts에 HTML 폴백 파서 추가 (Firecrawl metadata 비어있으면 raw HTML에서 추출)
+  (2) enrichCrawlData에 fetchHeadMetadata 추가 — 사이트 full HTML을 직접 fetch하여 `<head>` 파싱 (n8n 수정 불필요, 코드 레벨 통제)
+  (3) social-ai.ts OG 키 양방향 호환, guards.ts SSL 가드 강화
+  (4) page.tsx에 og:image 명시적 추가
+  (5) 재진단 76점 → 85점 확인
+- **규칙**: **자체 서비스를 자체 진단한 리포트는 출시 전 반드시 수동 검증**. 오진 원인은 단일 레이어가 아닌 **크롤러 + 파서 + 엔진 + 실제 구현** 4개 레이어를 모두 의심해야 함. 외부 크롤링 도구(Firecrawl)의 `onlyMainContent` 같은 옵션이 `<head>` 제거 부작용이 있을 수 있고, 데이터 삭제+재크롤링으로는 해결 안 됨 (파이프라인 코드 자체가 원인). 방어 체계: enrichCrawlData에서 직접 fetch하는 2겹 방어 + 카나리 자가진단 + "확인 불가" UX
+
+### 2026-04-13 Next.js openGraph 상속 함정 — 자식 페이지가 부모 layout og:image를 덮어씌움
+
+- **증상**: layout.tsx에 `openGraph.images`를 설정했는데 랜딩 페이지에서 `og:image` 메타 태그가 렌더되지 않음
+- **원인**: Next.js App Router에서 자식 page.tsx의 `metadata.openGraph`가 부모 layout의 `openGraph`를 **merge가 아닌 replace** 함. 랜딩 page.tsx에 `openGraph: { title, description, type }`만 설정하고 `images`를 빠뜨리면 부모의 images가 사라짐
+- **해결**: 랜딩 page.tsx의 `openGraph`에 `images` 필드를 명시적으로 추가
+- **규칙**: **Next.js에서 자식 페이지에 `openGraph`를 선언하면 부모의 모든 openGraph 필드가 사라진다**. `images`, `type`, `locale` 등 부모에서 설정한 필드를 자식에서도 반드시 재선언해야 함. 디버깅 단서: `og:image`가 특정 페이지에서만 안 나오면 해당 page.tsx의 `metadata.openGraph`가 부모를 덮어쓰는지 확인

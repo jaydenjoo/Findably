@@ -5,8 +5,8 @@
 
 ## 현재 상태
 
-- 현재 Phase: 마케팅 인프라 최적화 (Epic M-1~M-4 완료)
-- 현재 Task: 완료 — 다음 세션에서 Epic M-5(블로그 인프라) 또는 제품 기능 진행
+- 현재 Phase: 리포트 신뢰도 강화 (크롤러 오진 수정 + Task 1~4 완료)
+- 현재 Task: 완료 — 다음 세션에서 성능 최적화(LCP/모바일) 또는 블로그 인프라
 - 빌드 상태: tsc + build 통과 (2026-04-13)
 
 ## Epic 진행 현황
@@ -92,23 +92,56 @@
 - [x] 랜딩 title 브랜드명 중복 수정 (`| Findably | Findably` → `| Findably`)
 - [x] Findably 자체 리포트 검증 → 8개 진단 중 5개 오진 발견 (크롤러 품질 이슈)
 
+## ✅ Session 17차 완료 (2026-04-13) — 크롤러 오진 수정 + 리포트 신뢰도 강화
+
+### 크롤러 오진 수정 (5건 → 0건, 76점 → 85점)
+
+- [x] Task A: crawl_data 검증 — Firecrawl `onlyMainContent: true`가 `<head>` 제거하여 canonical/schema/OG/links 누락 확인
+- [x] Task B: 진단 룰 검증 — OG 키 불일치(`title` vs `og:title`), SSL 가드 미흡 발견
+- [x] Fix 1: social-ai.ts OG 키 양방향 호환 (`og['title'] ?? og['og:title']`)
+- [x] Fix 2: parse-crawl-v2.ts HTML 폴백 파서 추가 (Firecrawl metadata 비어있으면 raw HTML에서 추출)
+- [x] Fix 3: guards.ts SSL 가드 강화 (grade/issuer null이면 평가 skip)
+- [x] Fix 4: enrichCrawlData에 fetchHeadMetadata 추가 — 사이트 full HTML 직접 fetch하여 `<head>` 파싱
+- [x] Fix 5: 랜딩 page.tsx og:image 실제 구현 누락 수정 (Next.js openGraph 상속 문제)
+- [x] 재진단 3회 실행 → 76점 → 84점 → 81점 → **85점** 확인
+
+### 리포트 신뢰도 강화 (Task 1~4 전체 완료)
+
+- [x] Task 1: "스킵" → "확인 불가 ⚠️" 라벨 변경 + skipped 룰 목록 표시 (CategoryScoreCard)
+- [x] Task 2: evidence(근거) 표시 — 7개 핵심 룰에 실제 발견 값 표시 (canonical URL, H1 텍스트, Schema 타입, OG값, SSL, 내부 링크)
+- [x] Task 3: 카나리 자가진단 — /api/canary + Vercel Cron 매일 09:00 KST + Resend 이메일 알림
+- [x] Task 4: 데이터 수집률 배지 — 대시보드 종합 점수 하단에 completeness % 표시
+
+### 코드 리뷰 수정
+
+- [x] extractFromHtml 96줄 중복 제거 → parseHeadFromHtml import로 통합
+- [x] evidence 누락 보강 (content.ts, security.ts)
+
+### 이번 세션 커밋 (6건)
+
+1. `a37d27e` fix(diagnosis): 크롤러 오진 5건 수정
+2. `3763864` fix(crawling): enrichCrawlData head metadata 직접 fetch
+3. `bbf8606` fix(seo): 랜딩 og:image 누락 수정
+4. `7df0f7e` feat(diagnosis): task 1+2 확인 불가 + evidence
+5. `8402fee` feat(reliability): task 3+4 카나리 + 수집률
+6. `1b76b63` refactor(crawling): 중복 제거 + evidence 보강
+
 ## ⏭️ 다음 할 일
 
-**[최우선] 크롤러 오진 조사 (제품 신뢰 이슈)**
-리포트가 실제 존재하는 canonical/Schema/OG/내부링크/SSL을 "없다"고 오진.
-모든 고객 사이트에서 동일 오진 가능성 → 제품 품질 직결.
+**성능 최적화 (실제 이슈, 오진 아님)**
 
-- Task A: 크롤러 raw HTML 검증 — n8n이 수집한 crawl_data에 해당 태그가 포함되어 있는지 Supabase 직접 조회
-- Task B: 진단 룰 파싱 로직 검증 — engine.ts에서 canonical/schema/OG/내부링크 추출 로직이 Next.js HTML을 올바르게 읽는지
-- Task C: SSL Labs 폴링 타임아웃 검증 — 3회×10초 폴링이 Vercel 사이트에서 충분한지
-- Task D: 오진 재현 + 수정 검증 — findably.kr 재진단으로 수정 전/후 비교
+- 모바일 43점 — LCP 개선, JS 번들 최적화, dynamic import
+- 성능 47~80점 변동 — TTFB 210ms 개선, Edge Runtime 검토
 
-마케팅 확장:
+**마케팅 확장:**
 
 1. Epic M-5: 블로그 인프라 구축 (MDX 기반 콘텐츠 SEO)
 2. Epic M-6: 전환 최적화 (실시간 카운터, 뉴스레터 캡처)
 
-제품 기능: 3. Task 3.10: 크롤링 → 진단 엔진 → DB 저장 → 대시보드 연결 4. Task 3.11: robots.txt 차단 시 대체 데이터 + 안내 UI
+**제품 기능:**
+
+- Task 3.10: 크롤링 → 진단 엔진 → DB 저장 → 대시보드 연결
+- Task 3.11: robots.txt 차단 시 대체 데이터 + 안내 UI
 
 ## 🔑 결정사항 기록
 
