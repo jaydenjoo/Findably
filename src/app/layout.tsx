@@ -62,17 +62,17 @@ export const metadata: Metadata = {
   alternates: {
     canonical: SEO.siteUrl,
   },
-  // 검색엔진 인증 — env에 값이 있을 때만 활성화
-  ...(process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION && {
-    verification: {
+  // 검색엔진 인증 — 각 env가 있을 때만 해당 항목 활성화
+  verification: {
+    ...(process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION && {
       google: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION,
-      ...(process.env.NEXT_PUBLIC_NAVER_VERIFICATION && {
-        other: {
-          'naver-site-verification': process.env.NEXT_PUBLIC_NAVER_VERIFICATION,
-        },
-      }),
-    },
-  }),
+    }),
+    ...(process.env.NEXT_PUBLIC_NAVER_VERIFICATION && {
+      other: {
+        'naver-site-verification': process.env.NEXT_PUBLIC_NAVER_VERIFICATION,
+      },
+    }),
+  },
 }
 
 const globalJsonLd = {
