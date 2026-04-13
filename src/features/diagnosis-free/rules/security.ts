@@ -58,6 +58,7 @@ export const securityRules: RuleDefinition[] = [
         return {
           passed: true,
           message: `SSL 유효 (발급: ${data.layer3!.ssl!.issuer})`,
+          evidence: `${data.layer3!.ssl!.grade ?? '유효'} — ${data.layer3!.ssl!.issuer ?? '인증기관 미확인'}`,
         }
       }
       return {

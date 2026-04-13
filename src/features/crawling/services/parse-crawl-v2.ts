@@ -2,6 +2,7 @@ import type { CrawlData, Layer1Data, Layer2Data, Layer3Data } from '../types'
 import { parseRobotsTxt } from '../parsers/robots-txt'
 import { parseSitemap } from '../parsers/sitemap'
 import { parseLlmsTxt } from '../parsers/llms-txt'
+import { parseHeadFromHtml } from '../fetchers/head-metadata'
 
 // ─── n8n v2 raw crawlResult → CrawlData 정규화 ───
 
@@ -30,109 +31,6 @@ function toNumber(val: unknown, fallback: number): number {
 /** unknown → string | null */
 function toStringOrNull(val: unknown): string | null {
   return typeof val === 'string' && val.length > 0 ? val : null
-}
-
-// ─── HTML 폴백 파서 (Firecrawl metadata 누락 시) ───
-
-/**
- * raw HTML에서 canonical, JSON-LD, OG tags, 내부 링크를 추출
- * Firecrawl metadata가 이 항목을 반환하지 않을 때 폴백으로 사용
- */
-function extractFromHtml(
-  html: string,
-  pageUrl: string
-): {
-  canonical: string | null
-  jsonLd: Record<string, unknown>[]
-  ogTags: Record<string, string>
-  internalLinkCount: number
-  externalLinkCount: number
-} {
-  // canonical: <link rel="canonical" href="...">
-  const canonicalMatch =
-    html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i) ??
-    html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i)
-  const canonical = canonicalMatch?.[1] ?? null
-
-  // JSON-LD: <script type="application/ld+json">...</script>
-  const jsonLd: Record<string, unknown>[] = []
-  const ldRegex =
-    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
-  let ldMatch: RegExpExecArray | null
-  while ((ldMatch = ldRegex.exec(html)) !== null) {
-    try {
-      const parsed = JSON.parse(ldMatch[1]!)
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) {
-          if (item && typeof item === 'object')
-            jsonLd.push(item as Record<string, unknown>)
-        }
-      } else if (parsed && typeof parsed === 'object') {
-        jsonLd.push(parsed as Record<string, unknown>)
-      }
-    } catch {
-      // JSON 파싱 실패 — 무시
-    }
-  }
-
-  // OG tags: <meta property="og:..." content="...">
-  const ogTags: Record<string, string> = {}
-  const ogRegex =
-    /<meta[^>]+property=["']og:([^"']+)["'][^>]+content=["']([^"']*)["']/gi
-  let ogMatch: RegExpExecArray | null
-  while ((ogMatch = ogRegex.exec(html)) !== null) {
-    ogTags[ogMatch[1]!] = ogMatch[2]!
-  }
-  // content가 property 앞에 오는 경우도 처리
-  const ogRegex2 =
-    /<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:([^"']+)["']/gi
-  let ogMatch2: RegExpExecArray | null
-  while ((ogMatch2 = ogRegex2.exec(html)) !== null) {
-    if (!ogTags[ogMatch2[2]!]) ogTags[ogMatch2[2]!] = ogMatch2[1]!
-  }
-
-  // 내부/외부 링크: <a href="...">
-  let internalLinkCount = 0
-  let externalLinkCount = 0
-  let pageHost: string
-  try {
-    pageHost = pageUrl
-      .replace(/^https?:\/\//, '')
-      .split('/')[0]!
-      .split(':')[0]!
-  } catch {
-    pageHost = ''
-  }
-
-  const linkRegex = /<a[^>]+href=["']([^"'#]+)["']/gi
-  let linkMatch: RegExpExecArray | null
-  const seenHrefs = new Set<string>()
-  while ((linkMatch = linkRegex.exec(html)) !== null) {
-    const href = linkMatch[1]!.trim()
-    if (
-      seenHrefs.has(href) ||
-      href.startsWith('javascript:') ||
-      href.startsWith('mailto:')
-    )
-      continue
-    seenHrefs.add(href)
-
-    if (href.startsWith('/') || href.startsWith('#')) {
-      internalLinkCount++
-    } else if (href.startsWith('http')) {
-      const linkHost = href
-        .replace(/^https?:\/\//, '')
-        .split('/')[0]!
-        .split(':')[0]!
-      if (linkHost === pageHost) {
-        internalLinkCount++
-      } else {
-        externalLinkCount++
-      }
-    }
-  }
-
-  return { canonical, jsonLd, ogTags, internalLinkCount, externalLinkCount }
 }
 
 // ─── Firecrawl Scrape → Layer1Data + markdownContent ───
@@ -186,7 +84,7 @@ function parseFirecrawlScrape(raw: unknown): {
   const pageUrl =
     toStringOrNull(metadata.sourceURL) ?? toStringOrNull(metadata.url) ?? ''
   if (rawHtml) {
-    const htmlExtracted = extractFromHtml(rawHtml, pageUrl)
+    const htmlExtracted = parseHeadFromHtml(rawHtml, pageUrl)
 
     // canonical 폴백
     if (!canonical && htmlExtracted.canonical) {

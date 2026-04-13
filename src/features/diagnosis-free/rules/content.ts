@@ -122,9 +122,11 @@ export const contentRules: RuleDefinition[] = [
     evaluate: (data) => {
       const h1Count = data.layer1!.headings.h1.length
       if (h1Count === 1) {
+        const h1Text = data.layer1!.headings.h1[0] ?? ''
         return {
           passed: true,
-          message: `대표 제목: "${data.layer1!.headings.h1[0]}"`,
+          message: `대표 제목: "${h1Text}"`,
+          evidence: h1Text.length > 50 ? h1Text.slice(0, 50) + '...' : h1Text,
         }
       }
       if (h1Count === 0) {
@@ -266,9 +268,14 @@ export const contentRules: RuleDefinition[] = [
     evaluate: (data) => {
       const schemas = data.layer1!.schema_markup
       if (schemas.length > 0) {
+        const types = schemas
+          .map((s) => (s as Record<string, unknown>)['@type'])
+          .filter(Boolean)
+          .join(', ')
         return {
           passed: true,
           message: `Google에 사이트 정보를 알려주는 구조화 코드가 ${schemas.length}개 설정되어 있습니다.`,
+          evidence: types || `${schemas.length}개`,
         }
       }
       return {
@@ -292,6 +299,7 @@ export const contentRules: RuleDefinition[] = [
         return {
           passed: true,
           message: `사이트 내 다른 페이지로 연결하는 링크가 ${count}개 있습니다.`,
+          evidence: `${count}개 발견`,
         }
       }
       return {

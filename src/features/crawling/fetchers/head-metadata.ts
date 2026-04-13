@@ -47,8 +47,8 @@ export async function fetchHeadMetadata(
   }
 }
 
-/** HTML에서 <head> 메타데이터 + 링크 추출 */
-function parseHeadFromHtml(html: string, pageUrl: string): HeadMetadata {
+/** HTML에서 <head> 메타데이터 + 링크 추출 (parse-crawl-v2.ts에서도 재사용) */
+export function parseHeadFromHtml(html: string, pageUrl: string): HeadMetadata {
   // canonical: <link rel="canonical" href="...">
   const canonicalMatch =
     html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i) ??
