@@ -93,6 +93,19 @@ const landingJsonLd = {
         },
       })),
     },
+    {
+      '@type': 'HowTo',
+      '@id': `${SEO.siteUrl}/#howto`,
+      name: LANDING.howItWorks.title,
+      description: 'Findably로 웹사이트의 SEO + GEO 마케팅 진단을 받는 방법',
+      totalTime: 'PT5M',
+      step: LANDING.howItWorks.steps.map((step) => ({
+        '@type': 'HowToStep',
+        position: step.number,
+        name: step.title,
+        text: step.description,
+      })),
+    },
   ],
 }
 

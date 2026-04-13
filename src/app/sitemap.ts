@@ -24,14 +24,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/login`,
+      url: `${baseUrl}/signup`,
+      changeFrequency: 'yearly',
+      priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/terms`,
       changeFrequency: 'yearly',
       priority: 0.3,
     },
     {
-      url: `${baseUrl}/signup`,
+      url: `${baseUrl}/privacy`,
       changeFrequency: 'yearly',
-      priority: 0.5,
+      priority: 0.3,
     },
   ]
 }

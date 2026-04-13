@@ -11,13 +11,28 @@ export default function robots(): MetadataRoute.Robots {
       },
       {
         userAgent: [
+          // OpenAI
           'GPTBot',
           'ChatGPT-User',
+          'OAI-SearchBot',
+          // Anthropic
           'ClaudeBot',
-          'PerplexityBot',
-          'Google-Extended',
           'anthropic-ai',
           'Claude-Web',
+          // Google AI
+          'Google-Extended',
+          'GoogleOther',
+          // Perplexity
+          'PerplexityBot',
+          // Meta
+          'Meta-ExternalAgent',
+          // Apple
+          'Applebot-Extended',
+          // Cohere
+          'cohere-ai',
+          // Common Crawl (AI 학습 데이터)
+          'CCBot',
+          // Naver
           'Yeti',
         ],
         allow: '/',

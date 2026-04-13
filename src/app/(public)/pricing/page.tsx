@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PRICING } from '@/config/pricing'
+import { SEO } from '@/config/seo'
+import { JsonLd } from '@/components/shared/JsonLd'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { cn } from '@/lib/utils'
@@ -10,6 +12,50 @@ export const metadata: Metadata = {
   title: '요금제',
   description:
     'Findably 무료 진단과 건당 9.9만원 상세 분석 요금제를 비교해보세요.',
+  openGraph: {
+    title: '요금제 | Findably',
+    description:
+      '무료 진단으로 시작, 건당 9.9만원 상세 분석. 대행사 월 수백만원 대비 1/10 비용.',
+    images: [
+      {
+        url: `/og?title=${encodeURIComponent('투명한 가격, 숨은 비용 없이')}&desc=${encodeURIComponent('무료 진단 + 건당 9.9만원 상세 분석')}`,
+        width: 1200,
+        height: 630,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: '요금제 | Findably',
+    description: '무료 진단으로 시작, 건당 9.9만원 상세 분석.',
+  },
+}
+
+const pricingJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  '@id': `${SEO.siteUrl}/pricing#product`,
+  name: 'Findably AI 마케팅 진단',
+  description: 'SEO + GEO 통합 마케팅 진단 서비스',
+  brand: { '@id': `${SEO.siteUrl}/#organization` },
+  offers: [
+    {
+      '@type': 'Offer',
+      name: '무료 진단',
+      price: '0',
+      priceCurrency: 'KRW',
+      availability: 'https://schema.org/InStock',
+      description: '종합 점수 + 주요 문제 3개 + Quick Win 1개',
+    },
+    {
+      '@type': 'Offer',
+      name: '상세 분석',
+      price: '99000',
+      priceCurrency: 'KRW',
+      availability: 'https://schema.org/InStock',
+      description: '60개+ 항목 분석 + 경쟁사 비교 + 90일 로드맵 + PDF',
+    },
+  ],
 }
 
 const FREE_FEATURES = [
@@ -38,6 +84,7 @@ export default function PricingPage(): React.JSX.Element {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-16">
+      <JsonLd data={pricingJsonLd} />
       {/* 헤더 */}
       <div className="mb-12 text-center">
         <Badge

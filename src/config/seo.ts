@@ -25,38 +25,9 @@ export const SEO = {
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
     description: 'AI 기반 SEO + GEO 통합 마케팅 진단 서비스',
-  },
-} as const
-
-/** 랜딩 페이지 JSON-LD (SoftwareApplication) */
-export const LANDING_JSON_LD = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: SEO.siteName,
-  applicationCategory: 'BusinessApplication',
-  operatingSystem: 'Web',
-  description: SEO.landing.description,
-  url: SEO.siteUrl,
-  offers: {
-    '@type': 'Offer',
-    price: '0',
-    priceCurrency: 'KRW',
-    description: '무료 간단 진단',
-  },
-  featureList: [
-    'SEO 종합 진단 (메타태그, 구조화 데이터, robots.txt)',
-    'GEO(Generative Engine Optimization) 분석',
-    'AI 인용 가능성 점수 (ChatGPT, Perplexity, Gemini)',
-    'Core Web Vitals 성능 분석',
-    'Quick Win 자동 식별 및 우선순위 추천',
-    'Schema Markup 자동 생성',
-    '메타태그 최적화 추천',
-    '경쟁사 비교 분석',
-  ],
-  publisher: {
-    '@type': 'Organization',
-    name: SEO.organization.name,
-    url: SEO.organization.url,
+    email: 'hello@findably.kr',
+    foundingDate: '2026',
+    sameAs: [] as readonly string[], // SNS 계정 추가 시 여기에 URL 삽입
   },
 } as const
 

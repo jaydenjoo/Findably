@@ -1,8 +1,20 @@
+import { type NextRequest } from 'next/server'
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
 
-export function GET(): ImageResponse {
+/**
+ * 동적 OG 이미지 생성
+ * ?title=...&desc=... 쿼리 파라미터로 페이지별 커스텀 가능
+ * 파라미터 없으면 기본 Findably 이미지 생성
+ */
+export function GET(request: NextRequest): ImageResponse {
+  const { searchParams } = request.nextUrl
+  const title =
+    searchParams.get('title') ??
+    'AI 마케팅 진단 — URL 하나로 SEO + GEO 통합 분석'
+  const desc = searchParams.get('desc') ?? 'findably.kr'
+
   return new ImageResponse(
     <div
       style={{
@@ -68,7 +80,7 @@ export function GET(): ImageResponse {
         </span>
       </div>
 
-      {/* 메인 텍스트 */}
+      {/* 메인 텍스트 (동적) */}
       <div
         style={{
           fontSize: '28px',
@@ -79,10 +91,10 @@ export function GET(): ImageResponse {
           maxWidth: '700px',
         }}
       >
-        AI 마케팅 진단 — URL 하나로 SEO + GEO 통합 분석
+        {title}
       </div>
 
-      {/* 서브 텍스트 */}
+      {/* 서브 텍스트 (동적) */}
       <div
         style={{
           fontSize: '18px',
@@ -90,7 +102,7 @@ export function GET(): ImageResponse {
           marginTop: '16px',
         }}
       >
-        findably.kr
+        {desc}
       </div>
     </div>,
     {
