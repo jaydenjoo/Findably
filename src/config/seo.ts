@@ -14,7 +14,7 @@ export const SEO = {
   ogImageHeight: 630,
   // 랜딩 페이지 전용
   landing: {
-    title: '마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면 | Findably',
+    title: '마케팅에 돈 쓰는데, 어디서 새고 있는지 모르겠다면',
     description:
       '웹사이트에서 새는 마케팅 비용부터 찾아드립니다. SEO, AI 검색(GEO) 통합 진단.',
     ogImage: `${SITE_URL}/og`,
