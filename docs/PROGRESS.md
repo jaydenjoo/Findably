@@ -89,8 +89,19 @@
 - [x] 네이버 서치어드바이저 인증 완료
 - [x] seo.ts 데드코드(LANDING_JSON_LD) 제거
 - [x] 네이버 verification 중첩 조건문 버그 수정
+- [x] 랜딩 title 브랜드명 중복 수정 (`| Findably | Findably` → `| Findably`)
+- [x] Findably 자체 리포트 검증 → 8개 진단 중 5개 오진 발견 (크롤러 품질 이슈)
 
 ## ⏭️ 다음 할 일
+
+**[최우선] 크롤러 오진 조사 (제품 신뢰 이슈)**
+리포트가 실제 존재하는 canonical/Schema/OG/내부링크/SSL을 "없다"고 오진.
+모든 고객 사이트에서 동일 오진 가능성 → 제품 품질 직결.
+
+- Task A: 크롤러 raw HTML 검증 — n8n이 수집한 crawl_data에 해당 태그가 포함되어 있는지 Supabase 직접 조회
+- Task B: 진단 룰 파싱 로직 검증 — engine.ts에서 canonical/schema/OG/내부링크 추출 로직이 Next.js HTML을 올바르게 읽는지
+- Task C: SSL Labs 폴링 타임아웃 검증 — 3회×10초 폴링이 Vercel 사이트에서 충분한지
+- Task D: 오진 재현 + 수정 검증 — findably.kr 재진단으로 수정 전/후 비교
 
 마케팅 확장:
 

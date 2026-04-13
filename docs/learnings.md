@@ -438,3 +438,10 @@
 - **원인**: `layout.tsx` metadata의 verification 블록이 `NEXT_PUBLIC_GOOGLE_VERIFICATION && { verification: { google: ..., ...(NAVER && { other: ... }) } }` 구조. Google 환경변수가 없으면 외부 spread가 falsy → 네이버 포함 전체 verification 객체가 렌더 안 됨. Google은 HTML 파일 인증 방식을 사용하여 env를 설정하지 않았으므로 네이버도 함께 사라짐
 - **해결**: 각 검색엔진 verification을 독립적 spread로 분리: `verification: { ...(GOOGLE && { google }), ...(NAVER && { other }) }`
 - **규칙**: **서로 독립적인 기능의 환경변수를 중첩 조건문으로 묶지 말 것**. 각 env는 다른 env 존재 여부와 무관하게 독립 동작해야 한다. 특히 Next.js metadata의 `verification` 같은 객체는 각 검색엔진이 독립 인증이므로 조건도 독립적이어야 함. 디버깅 단서: "env 설정했는데 HTML에 안 나온다" → 해당 env를 참조하는 코드의 **상위 조건문**이 다른 env에 의존하는지 확인
+
+### 2026-04-13 Findably 자체 리포트 검증 → 8개 주요 진단 중 5개 오진 — 크롤러 품질 이슈 발견
+
+- **증상**: findably.kr 유료 리포트에서 "canonical URL 없음", "Schema Markup 0개", "내부 링크 0개", "OG 태그 없음", "SSL 미설치" 5개가 심각/주의로 보고됨. 실제 코드에는 모두 구현되어 있음 (canonical: layout.tsx L62, JSON-LD: 8개 스키마, Link 컴포넌트: navbar/footer/CTA 다수, OG: page.tsx L44-55, SSL: Vercel 자동 제공)
+- **원인**: 아직 미확정. 2개 가설: (1) n8n 크롤러(Playwright/Firecrawl)가 Next.js App Router의 서버 렌더링 HTML을 완전히 수집하지 못함 (JS 하이드레이션 전 HTML만 캡처, `<head>` 메타 누락 등) (2) `engine.ts`의 진단 룰 파서가 크롤링 데이터에서 해당 필드를 올바르게 추출하지 못함 (파싱 로직 vs HTML 구조 불일치)
+- **해결**: 다음 세션 Task A-D로 순차 조사 예정. A(crawl_data raw HTML 검증) → B(파싱 로직 검증) → C(SSL 타임아웃) → D(재진단 검증)
+- **규칙**: **자체 서비스를 자체 진단한 리포트는 출시 전 반드시 수동 검증**해야 한다. 리포트에서 "없다"고 주장하는 항목이 실제 코드에 존재하면 (1) 크롤러 수집 누락 (2) 파서 추출 실패 (3) AI 환각 3가지를 순서대로 의심. 이 문제는 findably.kr만의 이슈가 아니라 **모든 고객 사이트에서 동일 오진 가능성**이 있어 제품 신뢰에 직결된다. 비유: "건강검진 기계가 건강한 사람에게 심장마비 위험을 진단한 것" — 기계 자체를 먼저 교정해야 함
