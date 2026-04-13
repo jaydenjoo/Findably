@@ -431,3 +431,10 @@
   (2) 현재 Task의 PR scope를 넘어서는 변경이 됨 (리뷰/롤백 난이도 증가)
   (3) 별도 PR로 분리하면 영향 범위가 명확해져 안전
   대안: 프로젝트 셋업 단계에서 `pnpm gen:types` 스크립트 + CI 체크 + pre-commit hook으로 자동 동기화 강제하면 이 교훈 자체가 불필요해짐. 향후 DB 스키마 변경이 잦아지면 인프라 Task로 도입 검토
+
+### 2026-04-13 조건부 metadata 중첩 — 독립 환경변수가 다른 환경변수에 의존하는 구조
+
+- **증상**: Vercel에 `NEXT_PUBLIC_NAVER_VERIFICATION` 설정 후 배포했는데 네이버 서치어드바이저에서 "메타태그를 찾을 수 없습니다" 에러
+- **원인**: `layout.tsx` metadata의 verification 블록이 `NEXT_PUBLIC_GOOGLE_VERIFICATION && { verification: { google: ..., ...(NAVER && { other: ... }) } }` 구조. Google 환경변수가 없으면 외부 spread가 falsy → 네이버 포함 전체 verification 객체가 렌더 안 됨. Google은 HTML 파일 인증 방식을 사용하여 env를 설정하지 않았으므로 네이버도 함께 사라짐
+- **해결**: 각 검색엔진 verification을 독립적 spread로 분리: `verification: { ...(GOOGLE && { google }), ...(NAVER && { other }) }`
+- **규칙**: **서로 독립적인 기능의 환경변수를 중첩 조건문으로 묶지 말 것**. 각 env는 다른 env 존재 여부와 무관하게 독립 동작해야 한다. 특히 Next.js metadata의 `verification` 같은 객체는 각 검색엔진이 독립 인증이므로 조건도 독립적이어야 함. 디버깅 단서: "env 설정했는데 HTML에 안 나온다" → 해당 env를 참조하는 코드의 **상위 조건문**이 다른 env에 의존하는지 확인

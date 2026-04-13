@@ -1,13 +1,13 @@
 # PROGRESS.md — Findably
 
 > 이 파일을 새 세션 시작 시 로드하면 100% 이어서 작업 가능
-> 최종 업데이트: 2026-03-15
+> 최종 업데이트: 2026-04-13
 
 ## 현재 상태
 
-- 현재 Phase: Phase A — 무료 진단 흐름 완성 (F-001 End-to-End)
-- 현재 Task: 3.10 크롤링 결과 → 진단 엔진 연결 → 대시보드 실데이터
-- 빌드 상태: tsc + eslint + build 통과 (2026-03-15)
+- 현재 Phase: 마케팅 인프라 최적화 (Epic M-1~M-4 완료)
+- 현재 Task: 완료 — 다음 세션에서 Epic M-5(블로그 인프라) 또는 제품 기능 진행
+- 빌드 상태: tsc + build 통과 (2026-04-13)
 
 ## Epic 진행 현황
 
@@ -72,20 +72,32 @@
 - [x] 7.1.2: QuickWinCard + AICitationCard 대시보드 컴포넌트
 - [x] 7.1.3: 대시보드 F-패턴 레이아웃 통합
 
-## 🔄 진행 중
+## ✅ Session 16차 완료 (2026-04-13) — 마케팅 인프라 최적화
 
-- [ ] Task 3.10: 파이프라인 갭 해결 (webhook → 진단 엔진 → 대시보드 실데이터)
+- [x] 유령 파일 수정: logo.png, apple-touch-icon.png 생성 (JSON-LD/iOS 404 해결)
+- [x] sitemap에 /terms, /privacy 추가, /login 제거
+- [x] robots.txt AI 봇 8→16개 확장
+- [x] Vercel Analytics + Speed Insights 설치
+- [x] GA4 인프라 구축 (GoogleAnalytics 컴포넌트 + gtag 헬퍼)
+- [x] llms.txt 동적 라우트 전환 (FAQ 자동 반영)
+- [x] Organization Schema 보강 (contactPoint, foundingDate, knowsAbout)
+- [x] 랜딩에 HowTo Schema 추가
+- [x] 동적 OG 이미지 (?title=&desc= 파라미터 지원)
+- [x] pricing에 Product/Offer JSON-LD + OG/Twitter 메타 추가
+- [x] manifest.ts PWA 기초 생성
+- [x] Google Search Console 인증 + sitemap 제출
+- [x] 네이버 서치어드바이저 인증 완료
+- [x] seo.ts 데드코드(LANDING_JSON_LD) 제거
+- [x] 네이버 verification 중첩 조건문 버그 수정
 
 ## ⏭️ 다음 할 일
 
-Phase A (무료 진단 흐름 완성):
+마케팅 확장:
 
-1. Task 3.10: 크롤링 → 진단 엔진 → DB 저장 → 대시보드 연결
-2. Task 3.11: robots.txt 차단 시 대체 데이터 + 안내 UI
+1. Epic M-5: 블로그 인프라 구축 (MDX 기반 콘텐츠 SEO)
+2. Epic M-6: 전환 최적화 (실시간 카운터, 뉴스레터 캡처)
 
-Phase B (무료 리포트 + 전환 장치): 3. Task 7.2: 간단 리포트 (무료, /diagnosis/overview) 4. Task 8.1~8.2: 샘플 리포트 (그린테크)
-
-Phase C (유료 기능): 5. Epic 9: 결제 (🔴 Toss Payments) 6. Epic 5: AI 상세 분석 (5-Agent) 7. Epic 6: 경쟁사 비교
+제품 기능: 3. Task 3.10: 크롤링 → 진단 엔진 → DB 저장 → 대시보드 연결 4. Task 3.11: robots.txt 차단 시 대체 데이터 + 안내 UI
 
 ## 🔑 결정사항 기록
 
