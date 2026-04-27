@@ -1,6 +1,6 @@
 import type { RuleDefinition } from '../types'
 import { SEO_THRESHOLDS } from '../constants'
-import { hasLayer1, hasLayer2Crux } from './guards'
+import { hasLayer2Crux, hasValidPageSize, hasValidLoadTime } from './guards'
 
 const hasLayer2Pagespeed = (data: {
   layer2: { pagespeed: unknown } | null
@@ -40,15 +40,20 @@ export const performanceRules: RuleDefinition[] = [
     isEvaluable: hasLayer2Pagespeed,
     evaluate: (data) => {
       const lcp = data.layer2!.pagespeed!.lcp_ms
+      const lcpSec = (lcp / 1000).toFixed(1)
       if (lcp <= SEO_THRESHOLDS.MAX_LCP_MS) {
         return {
           passed: true,
-          message: `LCP ${(lcp / 1000).toFixed(1)}초`,
+          message: `LCP ${lcpSec}초`,
         }
       }
+      // LCP > 20초는 STALE 캐시 응답 등 비현실 값일 가능성 → 가드 메시지로 환각 차단
+      const unreliable = lcp > 20000
       return {
         passed: false,
-        message: `LCP ${(lcp / 1000).toFixed(1)}초 (${SEO_THRESHOLDS.MAX_LCP_MS / 1000}초 이하 권장). 메인 콘텐츠 로딩이 느립니다.`,
+        message: unreliable
+          ? `LCP ${lcpSec}초 (⚠️ 20초 초과 — 캐시 STALE 응답 또는 일시적 장애 가능성. 정확한 측정을 위해 재진단 권고)`
+          : `LCP ${lcpSec}초 (${SEO_THRESHOLDS.MAX_LCP_MS / 1000}초 이하 권장). 메인 콘텐츠 로딩이 느립니다.`,
       }
     },
   },
@@ -117,7 +122,7 @@ export const performanceRules: RuleDefinition[] = [
     severity: 'info',
     quickWinEligible: true,
     difficulty: 'hard',
-    isEvaluable: hasLayer1,
+    isEvaluable: hasValidPageSize,
     evaluate: (data) => {
       const bytes = data.layer1!.page_size_bytes
       const maxMB = SEO_THRESHOLDS.MAX_PAGE_SIZE_BYTES / (1024 * 1024)
@@ -140,7 +145,7 @@ export const performanceRules: RuleDefinition[] = [
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: false,
-    isEvaluable: hasLayer1,
+    isEvaluable: hasValidLoadTime,
     evaluate: (data) => {
       const ms = data.layer1!.load_time_ms
       if (ms <= SEO_THRESHOLDS.MAX_LOAD_TIME_MS) {
