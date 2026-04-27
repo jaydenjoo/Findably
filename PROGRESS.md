@@ -2002,3 +2002,94 @@ Jayden이 "업종별 매출 데이터는 고객사가 꺼려할 수도" 지적 �
 - **배포 상태**: Vercel 프로덕션 배포 완료 (`enzdqjqai`)
 - **DB 상태**: `findably_maintenance_notices` id=1, is_active=false (운영 기본값 원복)
 - **상태**: 🟢 **완료** — Admin 점검 공지 관리 기능 Task 1개 종결
+
+---
+
+## 📍 Session 18차 (2026-04-27) — dairect.kr 14→5→0 오진 정상화 (Fix 1~6)
+
+### 현재 위치
+
+- Epic: 진단 정확도 강화 (Findably 자체 진단 엔진 신뢰성)
+- Task: 외부 사이트(dairect.kr) 14개 오진 + 5개 새 오진 수정
+- 상태: 🟢 코드 머지 완료 / 🟡 Fix 6 효과 새 진단 검증 대기
+
+### 배경
+
+다른 AI에게 dairect.kr 유료 리포트 검증 의뢰 → 32개 항목 중 **14개 오진** 보고. Supabase 실측 + dairect.kr curl로 100% 확정 후 Fix 1~5 적용. 머지 후 새 PDF에서 **5개 새 오진** 발견 → Fix 6A~6D 추가 적용. 결과: 60점 → **82점**, 환각 표현 100% 차단 (PR #8). Fix 6 효과는 새 진단 후 100% 확정 가능 (PR #9 머지 완료, 재진단 대기).
+
+### 이번 세션 완료 내역
+
+#### Fix 1A~5 (PR #8, commit `5d88879`, 6 files +159/-27)
+
+- **head-metadata.ts**: title/description/h1 추출 + UA 2단 fallback (FindablyBot → 일반 브라우저)
+- **parse-crawl-v2.ts**: HTML 폴백에 title/description/h1 보강
+- **enrich-crawl-data.ts**: needsHeadMetadata 조건 + 머지 로직에 title/description/h1 포함
+- **guards.ts**: hasValidPageSize/hasValidLoadTime 추가 (page_size=0 = 측정 불가로 룰 skip)
+- **performance.ts**: perf-02 LCP>20초 STALE 메시지
+- **run-diagnosis-paid.ts**: 글로벌 가드레일 + page_size/SSL/LCP 측정불가 표시 (환각 차단 핵심)
+
+**효과 검증** (PDF 직접 분석):
+
+- 종합 점수 60 → **82점** (+22)
+- 항목 수 32개 → 27개 (심각 16 → 4)
+- 환각 표현 **100% 차단**: "0KB 로딩 실패", "전기 끊어진 상태", "SSL 완전 누락", "http://로 접속"
+- canonical null → 정상, schema 0 → 3개, h1 [] → ["머릿속..."]
+
+#### Fix 6A~6D (PR #9, commit `5eede46`, 6 files +120/-39)
+
+- **head-metadata.ts**: extractHeadings(level) 헬퍼 + HeadMetadata 인터페이스에 h2/h3/h4 추가
+- **parse-crawl-v2.ts**: HTML 폴백에 h2/h3/h4, 링크 폴백 조건 강화 (Math.max 패턴)
+- **enrich-crawl-data.ts**: 머지 로직에 h2/h3/h4 추가, needsHeadMetadata 트리거 강화 (internal <= 1)
+- **performance.ts**: perf-03 INP 기반 전환 (CrUX inp_ms 사용, FID 폐기)
+- **run-diagnosis-paid.ts**: dedupeInsights<T> helper (5 에이전트 중복 차단) + FID 라인 가드 메시지
+
+**기대 효과** (재진단 대기):
+
+- h2_count: 0 → 12, h3_count: 0 → 10
+- internal_links: 1 → 29+
+- FID 단정 표현 → 폐기 가드 메시지
+- LCP/SSL 중복 (#10/#11/#4/#15) → dedup 적용으로 1개씩
+
+#### learnings.md 추가 (2개 항목)
+
+- 2026-04-27 dairect.kr 14개 오진 — 부분 패치 범위 협소 + AI 가드레일 부재 (PR #8 포함)
+- 2026-04-27 dairect.kr 14→5개 새 오진 (Fix 6) — 부분 패치 패턴 3차 재발 (PR #9 포함)
+
+### 핵심 인사이트 — 부분 패치 3차 재발 패턴
+
+| 시점                   | 폴백 추가 영역                        |
+| ---------------------- | ------------------------------------- |
+| 2026-04-13             | canonical / Schema / OG               |
+| 2026-04-27 1차 (PR #8) | title / description / h1              |
+| 2026-04-27 2차 (PR #9) | h2 / h3 / h4 / links / FID / AI dedup |
+
+→ 폴백 시스템(parseHeadFromHtml)을 처음부터 **head 영역 전체에 일관 적용**해야 같은 메커니즘이 다른 필드에서 재발하지 않음. AI 에이전트에는 데이터 가드레일을 직접 박는 것이 LLM 프롬프트 가드보다 효과적.
+
+### 이번 세션 커밋 (2개 PR + 2개 docs save 커밋)
+
+1. **PR #8 (5d88879)** fix(diagnosis): dairect.kr 14개 오진 — head 폴백 + 환각 가드 (6 files)
+2. **f335517** docs(learnings): dairect.kr 14개 오진 사건 교훈
+3. **PR #9 (5eede46)** fix(diagnosis): dairect.kr 5개 새 오진 — h2/h3/h4 + 링크 + FID→INP + dedup (6 files, learnings 포함)
+
+### 다음 세션 할 일 (우선순위)
+
+| 우선순위 | 작업                        | 비고                                                     |
+| -------- | --------------------------- | -------------------------------------------------------- |
+| **P1**   | dairect.kr 새 진단 검증     | h2/h3 채워짐, internal 29+, FID 사라짐, 중복 사라짐 확인 |
+| **P2**   | 카나리 회귀 테스트 (Fix 6F) | dairect.kr/findably.kr 외부 사이트 정기 회귀             |
+| **P2**   | LCP 가드 글로벌 강화        | 5 에이전트 중 일부만 가드 적용된 케이스 보완             |
+| **P3**   | database.ts 전체 재생성     | 누적 stale (15차에서 이월)                               |
+| **P3**   | 1462 lint errors 정리       | 누적 기술부채                                            |
+
+### 차단 요소
+
+- **Fix 6 효과 검증 대기** — Vercel 배포 완료 후 dairect.kr 새 진단 트리거 필요 (Jayden 액션). 현재 Supabase 최신 진단 `b4219981`(02:44 UTC)은 PR #9 머지 이전 진단이라 Fix 6 미적용.
+
+### 마지막 업데이트 (18차)
+
+- **날짜**: 2026-04-27 (세션 종료)
+- **세션 시간**: 약 4시간 (분석 + Fix 1~6 + 머지 2개 + PDF 검증)
+- **최종 커밋**: `5eede46` fix(diagnosis): Fix 6 머지
+- **배포 상태**: Vercel 자동 배포 진행 (commit `5eede46`)
+- **검증 데이터**: 60 → 82점 (PDF 분석 100% 확정), Fix 6 효과는 새 진단 후 100% 확정
+- **상태**: 🟢 **코드 완료** / 🟡 **재진단 검증 대기**
