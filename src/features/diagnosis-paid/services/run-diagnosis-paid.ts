@@ -777,8 +777,12 @@ function buildLayer1Section(l1: NonNullable<CrawlData['layer1']>): string {
     links,
     '',
     '### 기타 신호',
-    `페이지 크기: ${Math.round(l1.page_size_bytes / 1024)}KB`,
-    `로드 시간: ${l1.load_time_ms}ms`,
+    l1.page_size_bytes > 0
+      ? `페이지 크기: ${Math.round(l1.page_size_bytes / 1024)}KB`
+      : `페이지 크기: 측정 불가 ⚠️ (Firecrawl metadata 미수집 — "0KB", "사이트 로딩 실패", "전기 끊어진 상태" 같은 단정 표현 절대 금지. 사이트가 실제로 다운된 것이 아니라 크롤링 데이터에 해당 필드가 없을 뿐.)`,
+    l1.load_time_ms > 0
+      ? `로드 시간: ${l1.load_time_ms}ms`
+      : `로드 시간: 측정 불가 ⚠️ (Firecrawl metadata 미수집 — 단정 표현 금지, 다른 신호로 판단)`,
     `언어: ${l1.html_lang || '미설정'}`,
   ].join('\n')
 }
@@ -788,6 +792,18 @@ function buildLayer1Section(l1: NonNullable<CrawlData['layer1']>): string {
  */
 export function buildCrawlSummary(crawlData: CrawlData): string {
   const parts: string[] = []
+
+  // ⚠️ 글로벌 데이터 가드레일 — 5 에이전트 + CMO 공통, 환각 차단 핵심
+  parts.push(
+    [
+      '### ⚠️ 데이터 가드레일 (모든 insight 생성 시 강제 적용)',
+      '- 본 데이터에 "측정 불가" 표시된 항목은 **사이트 자체의 부재가 아니라 크롤링 응답에 해당 필드가 없을 뿐**. 사이트는 정상 작동 중이지만 크롤러가 그 신호를 가져오지 못한 것.',
+      '- 다음 단정 표현 절대 금지: "완전 누락", "치명적 오류", "0KB 로딩 실패", "전기 끊어진 상태", "사이트 장애", "http://로 접속", "보안 자물쇠 없음", "사이트가 작동하지 않음".',
+      '- 측정 불가 항목은 insight를 생성하지 말거나, 생성한다면 "재측정 권고" 또는 "현재 데이터로는 확인 불가" 형태로만 표현.',
+      '- title/description/h1/canonical/og/schema/ssl 등이 비어있다고 표시되더라도 1차로 "크롤링 데이터 누락"을 의심하고, "사이트가 그것을 안 가지고 있다"라고 단정하지 말 것.',
+      '- description, suggestedFix, impact, evidence 4개 필드 모두 본 가드를 적용. evidence는 반드시 실제 측정값 인용 (측정 불가 → "데이터 미수집"으로 명시).',
+    ].join('\n')
+  )
 
   if (crawlData.layer1) {
     parts.push(buildLayer1Section(crawlData.layer1))
@@ -821,11 +837,14 @@ export function buildCrawlSummary(crawlData: CrawlData): string {
 
   if (crawlData.layer2?.pagespeed) {
     const ps = crawlData.layer2.pagespeed
+    const lcpUnreliable = ps.lcp_ms > 20000
     parts.push(
       [
         '### PageSpeed',
         `- Performance: ${ps.performance_score}`,
-        `- LCP: ${ps.lcp_ms}ms`,
+        lcpUnreliable
+          ? `- LCP: ${ps.lcp_ms}ms ⚠️ 비정상값 (20초 초과 — Vercel STALE 캐시 응답 또는 일시적 장애 가능성. "사이트 장애", "치명적 오류" 단정 금지. "재측정 권고"로 표현.)`
+          : `- LCP: ${ps.lcp_ms}ms`,
         `- CLS: ${ps.cls}`,
         `- FID: ${ps.fid_ms}ms`,
         `- TTFB: ${ps.ttfb_ms}ms`,
@@ -847,11 +866,13 @@ export function buildCrawlSummary(crawlData: CrawlData): string {
 
   if (crawlData.layer3?.ssl) {
     const ssl = crawlData.layer3.ssl
+    const sslMissing = !ssl.grade && !ssl.issuer
     parts.push(
       [
         '### SSL',
-        `- 등급: ${ssl.grade ?? 'N/A'}`,
-        `- 유효: ${ssl.valid ? 'Y' : 'N'}`,
+        sslMissing
+          ? '- 측정 불가 ⚠️ (SSL Labs API 응답 실패 또는 status≠READY — "SSL 인증서 완전 누락", "http://로 접속" 같은 단정 표현 절대 금지. HTTPS 자체는 응답 헤더의 strict-transport-security 또는 브라우저로 정상 확인 가능. 정확한 등급 측정만 실패한 것.)'
+          : `- 등급: ${ssl.grade ?? 'N/A'}\n- 유효: ${ssl.valid ? 'Y' : 'N'}`,
       ].join('\n')
     )
   }

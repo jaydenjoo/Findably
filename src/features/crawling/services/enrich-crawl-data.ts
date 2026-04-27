@@ -57,11 +57,14 @@ export async function enrichCrawlData(
 
   const needsMobile = !crawlData.mobile
 
-  // Layer1 메타데이터 누락 여부 (Firecrawl onlyMainContent: true가 <head> 제거)
+  // Layer1 메타데이터 누락 여부 (Firecrawl이 head 영역을 누락하는 경우 보강)
   const layer1 = crawlData.layer1
   const needsHeadMetadata =
     layer1 !== null &&
-    (!layer1.meta.canonical ||
+    (!layer1.meta.title ||
+      !layer1.meta.description ||
+      layer1.headings.h1.length === 0 ||
+      !layer1.meta.canonical ||
       layer1.schema_markup.length === 0 ||
       !layer1.meta.og['title'] ||
       (typeof layer1.links.internal === 'number' &&
@@ -184,11 +187,19 @@ export async function enrichCrawlData(
     }
   }
 
-  // Layer1 메타데이터 보강 (Firecrawl onlyMainContent: true 보완)
+  // Layer1 메타데이터 보강 (Firecrawl head 누락 보완)
   let enrichedLayer1: Layer1Data | null = crawlData.layer1
   if (headMetadataResult && enrichedLayer1) {
     const meta = { ...enrichedLayer1.meta }
     const og = { ...meta.og }
+
+    // title/description 폴백
+    if (!meta.title && headMetadataResult.title) {
+      meta.title = headMetadataResult.title
+    }
+    if (!meta.description && headMetadataResult.description) {
+      meta.description = headMetadataResult.description
+    }
 
     // canonical 폴백
     if (!meta.canonical && headMetadataResult.canonical) {
@@ -207,6 +218,13 @@ export async function enrichCrawlData(
     }
 
     meta.og = og
+
+    // h1 폴백
+    const headings =
+      enrichedLayer1.headings.h1.length === 0 &&
+      headMetadataResult.h1.length > 0
+        ? { ...enrichedLayer1.headings, h1: headMetadataResult.h1 }
+        : enrichedLayer1.headings
 
     // JSON-LD 폴백
     const schemaMarkup =
@@ -231,12 +249,16 @@ export async function enrichCrawlData(
     enrichedLayer1 = {
       ...enrichedLayer1,
       meta,
+      headings,
       schema_markup: schemaMarkup,
       links,
     }
 
     console.log('[enrichCrawlData] Layer1 보강:', {
+      title: meta.title ?? null,
+      description: meta.description ? 'set' : null,
       canonical: meta.canonical,
+      h1Count: headings.h1.length,
       ogTitle: og['title'] ?? null,
       ogImage: og['image'] ?? null,
       schemaCount: schemaMarkup.length,

@@ -3,6 +3,16 @@
 export const hasLayer1 = (data: { layer1: unknown }): boolean =>
   data.layer1 !== null
 
+/** 페이지 크기 측정값이 유효한지 — 0이면 Firecrawl metadata 미수집 (측정 불가) */
+export const hasValidPageSize = (data: {
+  layer1: { page_size_bytes: number } | null
+}): boolean => data.layer1 !== null && data.layer1.page_size_bytes > 0
+
+/** 로드 시간 측정값이 유효한지 — 0이면 Firecrawl metadata 미수집 (측정 불가) */
+export const hasValidLoadTime = (data: {
+  layer1: { load_time_ms: number } | null
+}): boolean => data.layer1 !== null && data.layer1.load_time_ms > 0
+
 export const hasRobotsTxt = (data: { robots_txt: unknown }): boolean =>
   data.robots_txt !== null
 

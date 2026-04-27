@@ -75,16 +75,29 @@ function parseFirecrawlScrape(raw: unknown): {
   let imageNoAlt = toNumber(metadata.imagesWithoutAlt, 0)
 
   // Firecrawl metadata에서 가져온 값
+  let title = toStringOrNull(metadata.title)
+  let description = toStringOrNull(metadata.description)
   let canonical = toStringOrNull(metadata.canonical)
   let schemaMarkup: Record<string, unknown>[] = Array.isArray(metadata.jsonLd)
     ? metadata.jsonLd
     : []
 
-  // HTML 폴백: metadata가 canonical/schema/links를 누락했으면 raw HTML에서 추출
+  // HTML 폴백: metadata가 누락한 head 메타를 raw HTML에서 추출
   const pageUrl =
     toStringOrNull(metadata.sourceURL) ?? toStringOrNull(metadata.url) ?? ''
   if (rawHtml) {
     const htmlExtracted = parseHeadFromHtml(rawHtml, pageUrl)
+
+    // title/description/h1 폴백 (Firecrawl metadata 미수집 시 raw HTML에서)
+    if (!title && htmlExtracted.title) {
+      title = htmlExtracted.title
+    }
+    if (!description && htmlExtracted.description) {
+      description = htmlExtracted.description
+    }
+    if (headings.h1.length === 0 && htmlExtracted.h1.length > 0) {
+      headings = { ...headings, h1: htmlExtracted.h1 }
+    }
 
     // canonical 폴백
     if (!canonical && htmlExtracted.canonical) {
@@ -134,8 +147,8 @@ function parseFirecrawlScrape(raw: unknown): {
 
   const layer1: Layer1Data = {
     meta: {
-      title: toStringOrNull(metadata.title),
-      description: toStringOrNull(metadata.description),
+      title,
+      description,
       canonical,
       charset: toStringOrNull(metadata.charset) ?? 'utf-8',
       viewport: toStringOrNull(metadata.viewport),
