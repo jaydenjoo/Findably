@@ -846,8 +846,8 @@ export function buildCrawlSummary(crawlData: CrawlData): string {
           ? `- LCP: ${ps.lcp_ms}ms ⚠️ 비정상값 (20초 초과 — Vercel STALE 캐시 응답 또는 일시적 장애 가능성. "사이트 장애", "치명적 오류" 단정 금지. "재측정 권고"로 표현.)`
           : `- LCP: ${ps.lcp_ms}ms`,
         `- CLS: ${ps.cls}`,
-        `- FID: ${ps.fid_ms}ms`,
         `- TTFB: ${ps.ttfb_ms}ms`,
+        '- (FID는 2024-03부터 Google Core Web Vitals에서 폐기됨 — INP가 표준. CrUX 섹션의 inp_ms 참조. insight에서 FID 지표 사용 금지.)',
       ].join('\n')
     )
   }
@@ -1080,6 +1080,31 @@ interface AggregateResultsParams {
 /**
  * 에이전트 결과 합산 → PaidAnalysisData (Phase 2 + 3)
  */
+/**
+ * 5 에이전트 중복 insight 제거 (Fix 6D)
+ *
+ * 5개 에이전트(technical/seo/geo/content/competitors)가 같은 항목(LCP/SSL 등)을
+ * 다른 표현으로 중복 보고하는 패턴 차단. (category, normalized title) 키로
+ * 첫 번째만 유지. title 정규화: 소문자 + 공백/특수문자 제거.
+ */
+function dedupeInsights<T extends { title: string; category?: string }>(
+  insights: T[]
+): T[] {
+  const seen = new Set<string>()
+  const result: T[] = []
+  for (const insight of insights) {
+    const titleNorm = insight.title
+      .toLowerCase()
+      .replace(/[\s\-_,./:;()'"!?]/g, '')
+    const key = `${insight.category ?? 'misc'}::${titleNorm}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      result.push(insight)
+    }
+  }
+  return result
+}
+
 async function aggregateResults(
   params: AggregateResultsParams
 ): Promise<PaidAnalysisData> {
@@ -1091,7 +1116,7 @@ async function aggregateResults(
     totalCostKrw,
     totalDurationMs,
   } = params
-  const allInsights = agentResults.flatMap((r) => r.insights)
+  const allInsights = dedupeInsights(agentResults.flatMap((r) => r.insights))
 
   if (allInsights.length === 0) {
     console.warn(
@@ -1261,7 +1286,7 @@ export async function executeCmoAgent(
   citationResult: AICitationTrackingResult
 ): Promise<{ cmoSummary: string; cmoCostKrw: number }> {
   const { CMO_AGENT } = DIAGNOSIS_PAID_CONFIG
-  const allInsights = agentResults.flatMap((r) => r.insights)
+  const allInsights = dedupeInsights(agentResults.flatMap((r) => r.insights))
 
   try {
     const userMessage = buildCmoUserMessage(
