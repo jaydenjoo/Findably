@@ -64,11 +64,12 @@ export async function enrichCrawlData(
     (!layer1.meta.title ||
       !layer1.meta.description ||
       layer1.headings.h1.length === 0 ||
+      layer1.headings.h2.length === 0 ||
+      layer1.headings.h3.length === 0 ||
       !layer1.meta.canonical ||
       layer1.schema_markup.length === 0 ||
       !layer1.meta.og['title'] ||
-      (typeof layer1.links.internal === 'number' &&
-        layer1.links.internal === 0))
+      (typeof layer1.links.internal === 'number' && layer1.links.internal <= 1))
 
   if (
     !needsPageSpeed &&
@@ -219,12 +220,30 @@ export async function enrichCrawlData(
 
     meta.og = og
 
-    // h1 폴백
-    const headings =
-      enrichedLayer1.headings.h1.length === 0 &&
-      headMetadataResult.h1.length > 0
-        ? { ...enrichedLayer1.headings, h1: headMetadataResult.h1 }
-        : enrichedLayer1.headings
+    // h1~h4 폴백 (Fix 6A — 부분 패치 재발 방지: 모든 헤딩 레벨 일관 처리)
+    const headings = {
+      ...enrichedLayer1.headings,
+      h1:
+        enrichedLayer1.headings.h1.length === 0 &&
+        headMetadataResult.h1.length > 0
+          ? headMetadataResult.h1
+          : enrichedLayer1.headings.h1,
+      h2:
+        enrichedLayer1.headings.h2.length === 0 &&
+        headMetadataResult.h2.length > 0
+          ? headMetadataResult.h2
+          : enrichedLayer1.headings.h2,
+      h3:
+        enrichedLayer1.headings.h3.length === 0 &&
+        headMetadataResult.h3.length > 0
+          ? headMetadataResult.h3
+          : enrichedLayer1.headings.h3,
+      h4:
+        enrichedLayer1.headings.h4.length === 0 &&
+        headMetadataResult.h4.length > 0
+          ? headMetadataResult.h4
+          : enrichedLayer1.headings.h4,
+    }
 
     // JSON-LD 폴백
     const schemaMarkup =
@@ -233,18 +252,19 @@ export async function enrichCrawlData(
         ? headMetadataResult.jsonLd
         : enrichedLayer1.schema_markup
 
-    // 내부 링크 폴백
-    const links =
-      enrichedLayer1.links.internal === 0 &&
-      headMetadataResult.internalLinkCount > 0
-        ? {
-            ...enrichedLayer1.links,
-            internal: headMetadataResult.internalLinkCount,
-            external:
-              headMetadataResult.externalLinkCount ||
-              enrichedLayer1.links.external,
-          }
-        : enrichedLayer1.links
+    // 링크 폴백 (Fix 6B) — HTML 추출이 metadata보다 크면 우선
+    // Firecrawl이 일부만 카운트하는 케이스 방어 (dairect.kr 1 vs 실제 22+)
+    const links = {
+      ...enrichedLayer1.links,
+      internal:
+        headMetadataResult.internalLinkCount > enrichedLayer1.links.internal
+          ? headMetadataResult.internalLinkCount
+          : enrichedLayer1.links.internal,
+      external:
+        headMetadataResult.externalLinkCount > enrichedLayer1.links.external
+          ? headMetadataResult.externalLinkCount
+          : enrichedLayer1.links.external,
+    }
 
     enrichedLayer1 = {
       ...enrichedLayer1,

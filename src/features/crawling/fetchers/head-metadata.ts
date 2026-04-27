@@ -24,6 +24,9 @@ export interface HeadMetadata {
   title: string | null
   description: string | null
   h1: string[]
+  h2: string[]
+  h3: string[]
+  h4: string[]
   canonical: string | null
   ogTags: Record<string, string>
   jsonLd: Record<string, unknown>[]
@@ -92,14 +95,21 @@ export function parseHeadFromHtml(html: string, pageUrl: string): HeadMetadata {
     )
   const description = descMatch?.[1]?.trim() || null
 
-  // h1: <h1>...</h1> (내부 태그 제거)
-  const h1: string[] = []
-  const h1Regex = /<h1[^>]*>([\s\S]*?)<\/h1>/gi
-  let h1Match: RegExpExecArray | null
-  while ((h1Match = h1Regex.exec(html)) !== null) {
-    const text = h1Match[1]!.replace(/<[^>]+>/g, '').trim()
-    if (text) h1.push(text)
+  // 헤딩 추출 (h1~h4 공통 처리, 내부 태그 제거)
+  const extractHeadings = (level: number): string[] => {
+    const result: string[] = []
+    const regex = new RegExp(`<h${level}[^>]*>([\\s\\S]*?)<\\/h${level}>`, 'gi')
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(html)) !== null) {
+      const text = match[1]!.replace(/<[^>]+>/g, '').trim()
+      if (text) result.push(text)
+    }
+    return result
   }
+  const h1 = extractHeadings(1)
+  const h2 = extractHeadings(2)
+  const h3 = extractHeadings(3)
+  const h4 = extractHeadings(4)
 
   // canonical: <link rel="canonical" href="...">
   const canonicalMatch =
@@ -189,6 +199,9 @@ export function parseHeadFromHtml(html: string, pageUrl: string): HeadMetadata {
     title,
     description,
     h1,
+    h2,
+    h3,
+    h4,
     canonical,
     ogTags,
     jsonLd,

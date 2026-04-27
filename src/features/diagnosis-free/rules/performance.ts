@@ -60,19 +60,25 @@ export const performanceRules: RuleDefinition[] = [
   {
     id: 'perf-03',
     category: 'performance',
-    name: 'FID 100ms 이하',
+    name: 'INP 200ms 이하 (CrUX 실측)',
     maxPoints: 10,
     severity: 'warning',
     quickWinEligible: false,
-    isEvaluable: hasLayer2Pagespeed,
+    // Fix 6C: FID는 2024-03부터 Google Core Web Vitals에서 폐기 → INP로 대체.
+    // CrUX(실제 사용자 데이터) inp_ms 있을 때만 평가. 없으면 skip (FID 평가 안 함).
+    isEvaluable: hasLayer2Crux,
     evaluate: (data) => {
-      const fid = data.layer2!.pagespeed!.fid_ms
-      if (fid <= SEO_THRESHOLDS.MAX_FID_MS) {
-        return { passed: true, message: `FID ${fid}ms` }
+      const inp = data.layer2!.crux!.inp_ms
+      const INP_GOOD_MS = 200
+      if (inp <= INP_GOOD_MS) {
+        return {
+          passed: true,
+          message: `INP ${inp}ms (실제 사용자 데이터, ${INP_GOOD_MS}ms 이하 권장 충족)`,
+        }
       }
       return {
         passed: false,
-        message: `FID ${fid}ms (${SEO_THRESHOLDS.MAX_FID_MS}ms 이하 권장). 사용자 입력 반응이 느립니다.`,
+        message: `INP ${inp}ms (${INP_GOOD_MS}ms 이하 권장). 사용자 인터랙션 반응이 느립니다.`,
       }
     },
   },

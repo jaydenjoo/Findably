@@ -98,6 +98,15 @@ function parseFirecrawlScrape(raw: unknown): {
     if (headings.h1.length === 0 && htmlExtracted.h1.length > 0) {
       headings = { ...headings, h1: htmlExtracted.h1 }
     }
+    if (headings.h2.length === 0 && htmlExtracted.h2.length > 0) {
+      headings = { ...headings, h2: htmlExtracted.h2 }
+    }
+    if (headings.h3.length === 0 && htmlExtracted.h3.length > 0) {
+      headings = { ...headings, h3: htmlExtracted.h3 }
+    }
+    if (headings.h4.length === 0 && htmlExtracted.h4.length > 0) {
+      headings = { ...headings, h4: htmlExtracted.h4 }
+    }
 
     // canonical 폴백
     if (!canonical && htmlExtracted.canonical) {
@@ -120,11 +129,12 @@ function parseFirecrawlScrape(raw: unknown): {
       og.image = htmlExtracted.ogTags['image']
     }
 
-    // 내부 링크 폴백
-    if (internalLinks === 0 && htmlExtracted.internalLinkCount > 0) {
+    // 내부/외부 링크 폴백 — HTML 추출이 metadata보다 크면 우선 (Fix 6B)
+    // Firecrawl이 일부만 카운트하는 케이스 방어 (dairect.kr 1 vs 실제 22+)
+    if (htmlExtracted.internalLinkCount > internalLinks) {
       internalLinks = htmlExtracted.internalLinkCount
     }
-    if (externalLinks === 0 && htmlExtracted.externalLinkCount > 0) {
+    if (htmlExtracted.externalLinkCount > externalLinks) {
       externalLinks = htmlExtracted.externalLinkCount
     }
   }
