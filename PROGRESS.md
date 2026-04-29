@@ -1,7 +1,7 @@
 # Findably — 진행상황 문서
 
 > **이 파일을 세션 시작 시 첫 번째로 읽으면 100% 이어서 작업 가능**
-> 최종 업데이트: 2026-04-04
+> 최종 업데이트: 2026-04-29 (20차)
 
 ---
 
@@ -2160,3 +2160,52 @@ Mac 내장 디스크 → 외장 SSD(`/Volumes/jayden-ssd/projects/findably`)로 
 - **새 작업 폴더**: `/Volumes/jayden-ssd/projects/findably`
 - **새 메모리 폴더**: `~/.claude/projects/-Volumes-jayden-ssd-projects-findably/`
 - **상태**: 🟢 SSD 환경 검증 완료 / 🟡 새 세션 메모리 인식 검증 대기 (Jayden 액션)
+
+---
+
+## 세션 20차 — SSD 메모리 인식 검증 (2026-04-29)
+
+### 배경
+
+19차에서 SSD 이전 후 메모리 폴더(24개 파일)도 함께 복사. 새 SSD 세션에서 Claude가 메모리를 정확히 로드하는지 P0 검증이 필요했다.
+
+### 이번 세션 완료 내역
+
+**메모리 무결성 검증** (코드 변경 0)
+
+- SSD 메모리 폴더 (`~/.claude/projects/-Volumes-jayden-ssd-projects-findably/memory/`) 24개 파일 확인
+- 원본(백업) 메모리 폴더 (`~/.claude/projects/-Users-jayden-project-Findably/memory/`)와 **MD5 해시 전수 비교 → 24/24 일치**
+- MEMORY.md 인덱스 ↔ 실제 파일 일치 (23/23, MEMORY.md 자체 제외)
+- 폴더 크기 100K/100K 동일
+- 이번 세션 system 컨텍스트에 24개 파일 모두 정상 인식 확인 (feedback_task-workflow, project_paid-report-audit, project_test-url 등)
+
+**참고 발견**
+
+- 원본 폴더 이름: `-Users-jayden-project-Findably` (대문자 F)
+- SSD 폴더 이름: `-Volumes-jayden-ssd-projects-findably` (소문자)
+- Claude Code가 cwd 기반 자동 매핑하므로 동작 영향 없음
+
+### 다음 세션 할 일 (우선순위)
+
+19차 그대로 이월:
+
+| 우선순위 | 작업                                                  | 비고                                                             |
+| -------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| **P1**   | dairect.kr 재진단 (Fix 6 효과 검증)                   | 18차 P1 이월. h2/h3 채워짐, internal 29+, FID 사라짐, dedup 확인 |
+| **P2**   | `NEXT_PUBLIC_SITE_URL` → `findably.kr` 통일           | Vercel 환경변수 + `.env.local` 양쪽 수정                         |
+| **P2**   | GNB Button `nativeButton` 수정                        | 접근성 콘솔 에러 0건화                                           |
+| **P3**   | 1주 안정성 확인 후 원본 폴더 + 원본 메모리 삭제       | 5월 6일 이후 검토 가능                                           |
+| **P3**   | 카나리 회귀 (18차 이월)                               | dairect.kr/findably.kr 정기 회귀                                 |
+| **P3**   | LCP 가드 글로벌 강화 (18차 이월)                      | 5 에이전트 일부만 가드 적용된 케이스                             |
+| **P3**   | database.ts 전체 재생성, 1462 lint errors (18차 이월) | 기술부채                                                         |
+
+### 차단 요소
+
+**없음** — SSD 환경 100% 검증 완료. 다음 세션부터 정상 작업 가능.
+
+### 마지막 업데이트 (20차)
+
+- **날짜**: 2026-04-29 (세션 종료)
+- **세션 종류**: P0 검증 (코드 변경 0)
+- **세션 시간**: 약 10분
+- **상태**: 🟢 **완료** — SSD 메모리 인식 100% 검증
