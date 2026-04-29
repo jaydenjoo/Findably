@@ -2093,3 +2093,70 @@ Jayden이 "업종별 매출 데이터는 고객사가 꺼려할 수도" 지적 �
 - **배포 상태**: Vercel 자동 배포 진행 (commit `5eede46`)
 - **검증 데이터**: 60 → 82점 (PDF 분석 100% 확정), Fix 6 효과는 새 진단 후 100% 확정
 - **상태**: 🟢 **코드 완료** / 🟡 **재진단 검증 대기**
+
+---
+
+## 세션 19차 — 개발 환경 SSD 이전 (2026-04-29)
+
+### 배경
+
+Mac 내장 디스크 → 외장 SSD(`/Volumes/jayden-ssd/projects/findably`)로 작업 환경 이전. 안전성 우선으로 "복사 → 검증 → 안정성 확인 후 원본 삭제" 방식 채택. 이 세션부터 SSD가 master copy. 원본은 1주 백업본.
+
+### 이번 세션 완료 내역
+
+**환경 이전**
+
+- 프로젝트 복사 (rsync, `node_modules/.next/.DS_Store` 제외 → 300MB)
+- Claude Code 메모리 복사 (24개 파일, 301MB) → `~/.claude/projects/-Volumes-jayden-ssd-projects-findably/`
+- `pnpm install` 11.2초 (810MB)
+- 외장 SSD 파일시스템: HFS+ Journaled (APFS 아님, 작동에는 영향 없음)
+
+**검증 게이트 통과**
+
+- `pnpm tsc --noEmit` — 에러 0
+- `pnpm build` — 모든 라우트 빌드 성공 (.next 68MB)
+- `pnpm dev` — Turbopack 1.6초 시동, HTTP 200
+
+**Playwright 전체 테스트** (11개 엔드포인트)
+
+| 페이지                                     | 결과 |
+| ------------------------------------------ | ---- |
+| 랜딩 `/` (데스크톱 + 모바일 375px)         | ✅   |
+| `/pricing`, `/reports/sample`              | ✅   |
+| `/login` → `/dashboard` 자동 리다이렉트    | ✅   |
+| `/settings/profile`                        | ✅   |
+| `/privacy`, `/terms`                       | ✅   |
+| `/robots.txt`, `/sitemap.xml`, `/llms.txt` | ✅   |
+
+→ 인증/Supabase/middleware/SEO 모두 SSD에서 정상 작동.
+
+### 발견된 기존 이슈 (SSD 이전과 무관 — 별건)
+
+1. **GNB Button 접근성 경고** — `nativeButton: true`인데 비-button 위에 렌더링. 모든 페이지 콘솔 에러 2개 출력. 동작은 정상이나 스크린리더/접근성 영향.
+2. **`NEXT_PUBLIC_SITE_URL` stale** — `.env.local`이 `https://findably.vercel.app`. 현재 프로덕션은 `findably.kr`. sitemap.xml 등에 옛 도메인 박힘 → SEO 손해.
+
+### 다음 세션 할 일 (우선순위)
+
+| 우선순위 | 작업                                                           | 비고                                                                                   |
+| -------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **P0**   | Jayden 직접: SSD 위치에서 새 Claude 세션 띄워 메모리 인식 검증 | `/start` + "내가 누구야?" 등으로 24개 메모리 인식 확인                                 |
+| **P1**   | dairect.kr 재진단 (Fix 6 효과 검증)                            | 18차 P1 이월. h2/h3 채워짐, internal 29+, FID 사라짐, dedup 확인                       |
+| **P2**   | `NEXT_PUBLIC_SITE_URL` → `findably.kr` 통일                    | Vercel 환경변수 + `.env.local` 양쪽 수정                                               |
+| **P2**   | GNB Button `nativeButton` 수정                                 | 접근성 콘솔 에러 0건화                                                                 |
+| **P3**   | 1주 안정성 확인 후 원본 폴더 + 원본 메모리 삭제                | `/Users/jayden/project/findably` + `~/.claude/projects/-Users-jayden-project-findably` |
+| **P3**   | 카나리 회귀 (18차 이월)                                        | dairect.kr/findably.kr 정기 회귀                                                       |
+| **P3**   | LCP 가드 글로벌 강화 (18차 이월)                               | 5 에이전트 일부만 가드 적용된 케이스                                                   |
+| **P3**   | database.ts 전체 재생성, 1462 lint errors (18차 이월)          | 기술부채                                                                               |
+
+### 차단 요소
+
+- **양쪽 동시 작업 금지** — 원본(`/Users/jayden/project/findably`)은 이번 세션부터 백업본 취급. Git push는 SSD에서만 진행. 1주 안정성 확인 후 원본 삭제.
+- **dairect.kr Fix 6 검증 미완료** — 18차 P1 그대로 이월.
+
+### 마지막 업데이트 (19차)
+
+- **날짜**: 2026-04-29 (세션 종료)
+- **세션 종류**: 개발 환경 인프라 이전 (코드 변경 0, 문서만)
+- **새 작업 폴더**: `/Volumes/jayden-ssd/projects/findably`
+- **새 메모리 폴더**: `~/.claude/projects/-Volumes-jayden-ssd-projects-findably/`
+- **상태**: 🟢 SSD 환경 검증 완료 / 🟡 새 세션 메모리 인식 검증 대기 (Jayden 액션)
