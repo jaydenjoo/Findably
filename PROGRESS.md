@@ -2203,9 +2203,53 @@ Mac 내장 디스크 → 외장 SSD(`/Volumes/jayden-ssd/projects/findably`)로 
 
 **없음** — SSD 환경 100% 검증 완료. 다음 세션부터 정상 작업 가능.
 
+### 추가 작업 (세션 후반)
+
+**1) 메모리 압축 백업 생성**
+
+- 위치: `/Users/jayden/backup/findably-memory-backup-2026-04-29.tar.gz` (18K, gzip)
+- 내용: 내장하드 원본 메모리 폴더 24개 파일 전체
+- 해제 명령: `tar -xzf /Users/jayden/backup/findably-memory-backup-2026-04-29.tar.gz -C /원하는/경로/`
+
+**2) 내장하드 findably 관련 6개 항목 삭제 (옵션 3 — 전체 정리)**
+
+| #   | 경로                                                            | 결과 | 회수 |
+| --- | --------------------------------------------------------------- | ---- | ---- |
+| 1   | `/Users/jayden/project/findably`                                | ✅   | 2.5G |
+| 2   | `/Users/jayden/.claude/projects/-Users-jayden-project-Findably` | ✅   | 303M |
+| 3   | `/Users/jayden/.gstack/projects/jaydenjoo-Findably`             | ✅   | 미상 |
+| 4   | `/Users/jayden/.cursor/projects/Users-jayden-project-findably`  | ✅   | 미상 |
+| 5   | `~/Downloads/findably-report-dairect.kr-2026-04-27.pdf`         | ✅   | 미상 |
+| 6   | `~/Downloads/findably-report-dairect.kr-2026-04-27 (1).pdf`     | ✅   | 미상 |
+
+→ 합계 약 2.8G 회수.
+
+**3) 잔존 흔적 (보존 — 의도적)**
+
+- `~/project/coding/design-references/Findably-*.md/.jsx` (3개) — CLAUDE.md에 "디자인: ~/project/coding/design-references/ 참조" 명시. 보존
+- `~/project/coding/prd-source/Findably-서비스기획서-v3.0.md` — PRD 원본 소스. 보존
+- `~/Library/Caches/claude-cli-nodejs/-Users-jayden-project-Findably` — 옛 CLI 캐시. 자동 정리 대기 (B 후보)
+
+### 다음 세션 할 일 (우선순위 갱신)
+
+| 우선순위 | 작업                                             | 비고                                                                |
+| -------- | ------------------------------------------------ | ------------------------------------------------------------------- |
+| **P1**   | dairect.kr 재진단 (Fix 6 효과 검증)              | 18차 P1 이월. h2/h3, internal 29+, FID 사라짐, dedup 확인           |
+| **P2**   | `NEXT_PUBLIC_SITE_URL` → `findably.kr` 통일      | Vercel 환경변수 + `.env.local`                                      |
+| **P2**   | GNB Button `nativeButton` 수정                   | 접근성 콘솔 에러 0건화                                              |
+| **P3**   | 옛 CLI 캐시 정리                                 | `~/Library/Caches/claude-cli-nodejs/-Users-jayden-project-Findably` |
+| **P3**   | 카나리 회귀 (18차 이월)                          | dairect.kr/findably.kr 정기 회귀                                    |
+| **P3**   | LCP 가드 글로벌 강화 (18차 이월)                 | 5 에이전트 일부만 가드 적용                                         |
+| **P3**   | database.ts 재생성, 1462 lint errors (18차 이월) | 기술부채                                                            |
+
+### 자기 점검 (이번 세션 회고)
+
+- ⚠️ **메모리 규칙 위반**: `feedback_one-line-commands.md`에 "터미널 명령어는 줄바꿈 없이 한 줄로 제공" 명시되어 있는데, 백틱 코드블록 안에서 시각적 줄바꿈된 명령어를 두 번 제공 → zsh가 여러 명령으로 쪼개 실행 → 권한 거부 다발. 두 번째 시도에서도 같은 실수 반복.
+- 🟢 다음 명령어 제공 시 "**복붙 시 한 줄 유지**" 강조 필요 (feedback memory에 반영하지 않고, 같은 패턴 1회 더 발생 시 정식 교훈으로 격상).
+
 ### 마지막 업데이트 (20차)
 
 - **날짜**: 2026-04-29 (세션 종료)
-- **세션 종류**: P0 검증 (코드 변경 0)
-- **세션 시간**: 약 10분
-- **상태**: 🟢 **완료** — SSD 메모리 인식 100% 검증
+- **세션 종류**: P0 검증 + 내장하드 정리 (코드 변경 0)
+- **세션 시간**: 약 30분
+- **상태**: 🟢 **완료** — SSD 메모리 인식 검증 + 내장하드 6개 항목 삭제 + 압축 백업 1개 생성
