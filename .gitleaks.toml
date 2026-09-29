@@ -1,10 +1,15 @@
+# 이 줄이 없으면 이 파일이 gitleaks 기본 탐지 규칙을 전부 대체해서 아무것도 못 잡는다
+[extend]
+  useDefault = true
+
 [allowlist]
+  # paths는 파일 패턴(glob)이 아니라 정규식이다 — "*.test.*"처럼 쓰면 gitleaks가 시작하자마자 멈춘다
   paths = [
-    ".env.example",
-    ".env.sample",
-    "*.test.*",
-    "*.spec.*",
-    "node_modules",
-    ".next",
-    "pnpm-lock.yaml"
+    '''(^|/)\.env\.example$''',
+    '''(^|/)\.env\.sample$''',
+    '''\.test\.[^/]+$''',
+    '''\.spec\.[^/]+$''',
+    '''(^|/)node_modules/''',
+    '''(^|/)\.next/''',
+    '''(^|/)pnpm-lock\.yaml$'''
   ]
