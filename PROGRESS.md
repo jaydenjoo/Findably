@@ -427,6 +427,11 @@
 
 ## 🔜 다음 할 일
 
+### 비밀키 검사 자동화 (2026-09-29 추가)
+
+- husky 커밋 전 검사(`.husky/pre-commit`)에 gitleaks 없음 — 이 저장소는 `core.hooksPath=.husky/_`라 전역 gitleaks 훅(`~/.git-hooks`)도 안 돈다
+- CI(`.github/workflows/ci.yml`)에 gitleaks 없음 — 공개 저장소라 push 전 검사 필요
+
 ### Activation-First 구현 (최우선)
 
 1. **Lane A**: `features/diagnosis-free/types.ts`에 `difficulty` 필드 추가 + engine.ts 수정
